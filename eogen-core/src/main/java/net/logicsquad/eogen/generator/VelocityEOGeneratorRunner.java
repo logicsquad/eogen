@@ -86,6 +86,8 @@ public class VelocityEOGeneratorRunner {
 
 	private List<IEOModelGroupFactory> _modelGroupFactories = Collections.emptyList();
 
+	private DestinationMapper _destinationMapper = (name, destination) -> destination;
+
 	public VelocityEOGeneratorRunner() {
 	}
 
@@ -103,6 +105,37 @@ public class VelocityEOGeneratorRunner {
 
 	public List<IEOModelGroupFactory> getModelGroupFactories() {
 		return _modelGroupFactories;
+	}
+
+	/**
+	 * Sets where each destination's files are written. Templates still see
+	 * the EOGeneratorModel's own destinations, and a subclass is still only
+	 * generated when it is missing from the subclass destination itself. The
+	 * default writes to the destinations themselves.
+	 * 
+	 * @param destinationMapper
+	 *            chooses the folder to write each destination's files to
+	 */
+	public void setDestinationMapper(DestinationMapper destinationMapper) {
+		_destinationMapper = destinationMapper;
+	}
+
+	/**
+	 * Chooses the folder that a destination's files are written to.
+	 */
+	public interface DestinationMapper {
+		/**
+		 * Returns the folder to write a destination's files to.
+		 * 
+		 * @param name
+		 *            the destination's name: EOGeneratorModel.DESTINATION,
+		 *            SUBCLASS_DESTINATION, DESTINATION2, DESTINATION3 or
+		 *            DESTINATION4
+		 * @param destination
+		 *            the destination folder, resolved against the project
+		 * @return the folder to write to
+		 */
+		File map(String name, File destination);
 	}
 
 	public boolean generate(EOGeneratorModel eogeneratorModel, StringBuffer results, IProgressMonitor monitor) throws Exception {
@@ -213,6 +246,7 @@ public class VelocityEOGeneratorRunner {
 					superclassDestination = new File(projectPath.toFile(), eogeneratorModel.getDestination());
 				}
 			}
+			superclassDestination = _destinationMapper.map(EOGeneratorModel.DESTINATION, superclassDestination);
 			if (!superclassDestination.exists()) {
 				if (!superclassDestination.mkdirs()) {
 					throw new IOException("Failed to create destination '" + superclassDestination + "'.");
@@ -226,9 +260,10 @@ public class VelocityEOGeneratorRunner {
 					subclassDestination = new File(projectPath.toFile(), eogeneratorModel.getSubclassDestination());
 				}
 			}
-			if (!subclassDestination.exists()) {
-				if (!subclassDestination.mkdirs()) {
-					throw new IOException("Failed to create subclass destination '" + subclassDestination + "'.");
+			File subclassOutputDestination = _destinationMapper.map(EOGeneratorModel.SUBCLASS_DESTINATION, subclassDestination);
+			if (!subclassOutputDestination.exists()) {
+				if (!subclassOutputDestination.mkdirs()) {
+					throw new IOException("Failed to create subclass destination '" + subclassOutputDestination + "'.");
 				}
 			}
 			
@@ -241,6 +276,7 @@ public class VelocityEOGeneratorRunner {
 						superclass2Destination = new File(projectPath.toFile(), eogeneratorModel.getDestination2());
 					}
 				}
+				superclass2Destination = _destinationMapper.map(EOGeneratorModel.DESTINATION2, superclass2Destination);
 				if (!superclass2Destination.exists()) {
 					if (!superclass2Destination.mkdirs()) {
 						throw new IOException("Failed to create destination2 '" + superclass2Destination + "'.");
@@ -257,6 +293,7 @@ public class VelocityEOGeneratorRunner {
 						superclass3Destination = new File(projectPath.toFile(), eogeneratorModel.getDestination3());
 					}
 				}
+				superclass3Destination = _destinationMapper.map(EOGeneratorModel.DESTINATION3, superclass3Destination);
 				if (!superclass3Destination.exists()) {
 					if (!superclass3Destination.mkdirs()) {
 						throw new IOException("Failed to create destination3 '" + superclass3Destination + "'.");
@@ -273,6 +310,7 @@ public class VelocityEOGeneratorRunner {
 						superclass4Destination = new File(projectPath.toFile(), eogeneratorModel.getDestination4());
 					}
 				}
+				superclass4Destination = _destinationMapper.map(EOGeneratorModel.DESTINATION4, superclass4Destination);
 				if (!superclass4Destination.exists()) {
 					if (!superclass4Destination.mkdirs()) {
 						throw new IOException("Failed to create destination4 '" + superclass4Destination + "'.");
@@ -380,14 +418,15 @@ public class VelocityEOGeneratorRunner {
 
 							String subclassFilePath = subclassFileTemplate + "." + extension;
 							File subclassFile = new File(subclassDestination, subclassFilePath);
-							File subclassFolder = subclassFile.getParentFile();
+							File subclassOutputFile = new File(subclassOutputDestination, subclassFilePath);
+							File subclassFolder = subclassOutputFile.getParentFile();
 							if (!subclassFolder.exists()) {
 								if (!subclassFolder.mkdirs()) {
 									throw new IOException("Unable to make subclass folder '" + superclassFolder + "'.");
 								}
 							}
-							if (!subclassFile.exists()) {
-								WOLipsVelocityUtils.writeTemplate(velocityEngine, context, subclassTemplateName, subclassFile);
+							if (!subclassFile.exists() && !subclassOutputFile.exists()) {
+								WOLipsVelocityUtils.writeTemplate(velocityEngine, context, subclassTemplateName, subclassOutputFile);
 							}
 							
 							if (superclass2Destination != null) {
