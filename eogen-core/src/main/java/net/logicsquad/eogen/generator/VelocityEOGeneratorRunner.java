@@ -68,6 +68,7 @@ import org.apache.velocity.app.VelocityEngine;
 import org.apache.velocity.runtime.resource.loader.ResourceLoader;
 import net.logicsquad.eogen.velocity.ListTool;
 import net.logicsquad.eogen.velocity.SetTool;
+import net.logicsquad.eogen.velocity.VelocityOneContext;
 import net.logicsquad.eogen.generator.EOGeneratorModel.Define;
 import net.logicsquad.eogen.model.EOEntity;
 import net.logicsquad.eogen.model.EOModel;
@@ -336,7 +337,7 @@ public class VelocityEOGeneratorRunner {
 				}
 				// System.out.println("Generating " + model.getName() + " ...");
 				for (EOEntity entity : model.getEntities()) {
-					VelocityContext context = new VelocityContext();
+					VelocityContext context = new VelocityOneContext();
 					context.put("eogeneratorModel", eogeneratorModel);
 					context.put("date", date);
 					context.put("calendar", Calendar.getInstance());

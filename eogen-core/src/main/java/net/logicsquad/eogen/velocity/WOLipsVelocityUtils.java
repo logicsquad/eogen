@@ -89,8 +89,11 @@ public class WOLipsVelocityUtils {
 	 * 
 	 * The engine is Velocity 2 in the settings that make it render
 	 * WOLips's Velocity 1.5 templates the same way: space gobbling "bc",
-	 * no empty check in #if, hyphens allowed in identifiers, and Velocity 1
-	 * macro behaviour.
+	 * no empty check in #if, hyphens allowed in identifiers, Velocity 1
+	 * macro behaviour, no conversion of method arguments, and Velocity 1's
+	 * lookup of properties (VelocityOneUberspector). Render with a
+	 * VelocityOneContext, which with VelocityOneEventHandler restores
+	 * $velocityCount and Velocity 1's #set of null values.
 	 * 
 	 * @param templateFamilyName
 	 *            the name of the template family (the common folder name that
@@ -143,6 +146,9 @@ public class WOLipsVelocityUtils {
 			velocityEngine.setProperty(RuntimeConstants.CHECK_EMPTY_OBJECTS, "false");
 			velocityEngine.setProperty(RuntimeConstants.PARSER_HYPHEN_ALLOWED, "true");
 			velocityEngine.setProperty(RuntimeConstants.VM_ENABLE_BC_MODE, "true");
+			velocityEngine.setProperty(RuntimeConstants.CONVERSION_HANDLER_CLASS, "none");
+			velocityEngine.setProperty(RuntimeConstants.UBERSPECT_CLASSNAME, VelocityOneUberspector.class.getName());
+			velocityEngine.setProperty(RuntimeConstants.EVENTHANDLER_INVALIDREFERENCES, VelocityOneEventHandler.class.getName());
 			velocityEngine.init();
 			return velocityEngine;
 		} finally {
