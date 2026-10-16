@@ -50,21 +50,15 @@
 package net.logicsquad.eogen.model;
 
 import java.net.URL;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
 
-import org.eclipse.core.runtime.CoreException;
-import org.eclipse.core.runtime.IConfigurationElement;
-import org.eclipse.core.runtime.IExtension;
-import org.eclipse.core.runtime.IExtensionPoint;
-import org.eclipse.core.runtime.IProgressMonitor;
-import org.eclipse.core.runtime.Platform;
-import org.objectstyle.wolips.eomodeler.core.Activator;
+import net.logicsquad.eogen.runtime.IProgressMonitor;
 
 /**
- * Implemented by an extension point that can load EOModels within an
- * EOModelGroup.
+ * Implemented by objects that can load EOModels within an EOModelGroup.
+ * Outside Eclipse there is no extension registry to find them, so callers
+ * pass the factories to {@link Utility}, in the order to try them.
  * 
  * @author mschrag
  */
@@ -88,21 +82,20 @@ public interface IEOModelGroupFactory {
 	public boolean loadModelGroup(Object modelGroupResource, EOModelGroup modelGroup, Set<EOModelVerificationFailure> failures, boolean skipOnDuplicates, IProgressMonitor progressMonitor) throws EOModelException;
 
 	public class Utility {
-		public static EOModelGroup loadModelGroup(Object modelGroupResource, Set<EOModelVerificationFailure> failures, boolean skipOnDuplicates, IProgressMonitor progressMonitor) throws EOModelException {
+		public static EOModelGroup loadModelGroup(List<IEOModelGroupFactory> modelGroupFactories, Object modelGroupResource, Set<EOModelVerificationFailure> failures, boolean skipOnDuplicates, IProgressMonitor progressMonitor) throws EOModelException {
 			EOModelGroup modelGroup = new EOModelGroup();
-			IEOModelGroupFactory.Utility.loadModelGroup(modelGroupResource, modelGroup, failures, skipOnDuplicates, null, progressMonitor);
+			IEOModelGroupFactory.Utility.loadModelGroup(modelGroupFactories, modelGroupResource, modelGroup, failures, skipOnDuplicates, null, progressMonitor);
 			return modelGroup;
 		}
 		
-		public static EOModelGroup loadModelGroup(Object modelGroupResource, Set<EOModelVerificationFailure> failures, boolean skipOnDuplicates, URL editingModelURL, IProgressMonitor progressMonitor) throws EOModelException {
+		public static EOModelGroup loadModelGroup(List<IEOModelGroupFactory> modelGroupFactories, Object modelGroupResource, Set<EOModelVerificationFailure> failures, boolean skipOnDuplicates, URL editingModelURL, IProgressMonitor progressMonitor) throws EOModelException {
 			EOModelGroup modelGroup = new EOModelGroup();
-			IEOModelGroupFactory.Utility.loadModelGroup(modelGroupResource, modelGroup, failures, skipOnDuplicates, editingModelURL, progressMonitor);
+			IEOModelGroupFactory.Utility.loadModelGroup(modelGroupFactories, modelGroupResource, modelGroup, failures, skipOnDuplicates, editingModelURL, progressMonitor);
 			return modelGroup;
 		}
 		
-		public static void loadModelGroup(Object modelGroupResource, EOModelGroup modelGroup, Set<EOModelVerificationFailure> failures, boolean skipOnDuplicates, URL editingModelURL, IProgressMonitor progressMonitor) throws EOModelException {
+		public static void loadModelGroup(List<IEOModelGroupFactory> modelGroupFactories, Object modelGroupResource, EOModelGroup modelGroup, Set<EOModelVerificationFailure> failures, boolean skipOnDuplicates, URL editingModelURL, IProgressMonitor progressMonitor) throws EOModelException {
 			modelGroup.setEditingModelURL(editingModelURL);
-			List<IEOModelGroupFactory> modelGroupFactories = IEOModelGroupFactory.Utility.modelGroupFactories();
 			for (IEOModelGroupFactory modelGroupFactory : modelGroupFactories) {
 				boolean modelsLoaded = modelGroupFactory.loadModelGroup(modelGroupResource, modelGroup, failures, skipOnDuplicates, progressMonitor);
 				// MS: This COOOouuullldd cause a problem, but only if you're loading models in MULTIPLE ways, which seems unlikely to me ... This
@@ -115,25 +108,6 @@ public interface IEOModelGroupFactory {
 			modelGroup.resolve(failures);
 			progressMonitor.setTaskName("Verifying model ...");
 			modelGroup.verify(failures);
-		}
-
-		public static List<IEOModelGroupFactory> modelGroupFactories() {
-			IExtensionPoint extensionPoint = Platform.getExtensionRegistry().getExtensionPoint("org.objectstyle.wolips.eomodeler.eomodelGroupFactory");
-			IExtension[] extensions = extensionPoint.getExtensions();
-			List<IEOModelGroupFactory> modelGroupFactories = new LinkedList<IEOModelGroupFactory>();
-			for (IExtension extension : extensions) {
-				IConfigurationElement[] configurationElements = extension.getConfigurationElements();
-				for (IConfigurationElement configurationElement : configurationElements) {
-					try {
-						IEOModelGroupFactory modelGroupFactory = (IEOModelGroupFactory) configurationElement.createExecutableExtension("class");
-						modelGroupFactories.add(modelGroupFactory);
-					} catch (CoreException e) {
-						e.printStackTrace();
-						Activator.getDefault().log("Could not create EOModelGroup factory from configuration element: " + configurationElement, e);
-					}
-				}
-			}
-			return modelGroupFactories;
 		}
 	}
 }

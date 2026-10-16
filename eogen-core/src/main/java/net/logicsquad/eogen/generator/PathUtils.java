@@ -50,10 +50,8 @@
 package net.logicsquad.eogen.generator;
 
 import java.io.File;
-
-import org.eclipse.core.resources.IResource;
-import org.eclipse.core.runtime.IPath;
-import org.eclipse.core.runtime.Path;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 
 public class PathUtils {
 	public static String getAbsolutePath(String path, File baseDir) {
@@ -63,39 +61,52 @@ public class PathUtils {
 		}
 		return absoluteFile.getAbsolutePath();
 	}
-	
-	public static String getRelativePath(IResource projectContext, IPath path) {
-		IPath projectPath;
-		if (projectContext == null) {
-			projectPath = null;
-		} else {
-			projectPath = projectContext.getLocation();
-		}
-		return PathUtils.getRelativePath(projectPath, path);
+
+	/**
+	 * Returns the path a string names, normalised as Eclipse's Path normalised
+	 * it: "." segments are removed, and ".." segments are resolved where they
+	 * can be.
+	 * 
+	 * @param path
+	 *            the path string
+	 * @return the normalised path
+	 */
+	public static Path toPath(String path) {
+		return Paths.get(path).normalize();
 	}
 
-	public static String getRelativePath(IPath projectPath, IPath path) {
+	public static String getRelativePath(Path projectPath, Path path) {
 		String modelPathStr;
 		if (projectPath != null && path.isAbsolute()) {
-			if (projectPath.isPrefixOf(path)) {
-				modelPathStr = path.removeFirstSegments(projectPath.segmentCount()).setDevice(null).toPortableString();
+			if (path.startsWith(projectPath)) {
+				modelPathStr = PathUtils.toPortableString(projectPath.relativize(path));
 			} else {
-				int matchingSegmentCount = projectPath.matchingFirstSegments(path);
+				int matchingSegmentCount = PathUtils.matchingFirstSegments(projectPath, path);
 				if (matchingSegmentCount == 0) {
-					modelPathStr = path.toPortableString();
+					modelPathStr = PathUtils.toPortableString(path);
 				} else {
-					int relativePathSegmentCount = projectPath.segmentCount() - matchingSegmentCount;
-					IPath relativeModelPath = new Path("");
-					for (int i = 0; i < relativePathSegmentCount; i++) {
-						relativeModelPath = relativeModelPath.append(".." + IPath.SEPARATOR);
-					}
-					relativeModelPath = relativeModelPath.append(path.removeFirstSegments(matchingSegmentCount));
-					modelPathStr = relativeModelPath.toPortableString();
+					modelPathStr = PathUtils.toPortableString(projectPath.relativize(path));
 				}
 			}
 		} else {
-			modelPathStr = path.toPortableString();
+			modelPathStr = PathUtils.toPortableString(path);
 		}
 		return modelPathStr;
+	}
+
+	protected static int matchingFirstSegments(Path path1, Path path2) {
+		int matchingSegmentCount = 0;
+		Path root1 = path1.getRoot();
+		if (root1 == null ? path2.getRoot() == null : root1.equals(path2.getRoot())) {
+			int segmentCount = Math.min(path1.getNameCount(), path2.getNameCount());
+			while (matchingSegmentCount < segmentCount && path1.getName(matchingSegmentCount).equals(path2.getName(matchingSegmentCount))) {
+				matchingSegmentCount++;
+			}
+		}
+		return matchingSegmentCount;
+	}
+
+	protected static String toPortableString(Path path) {
+		return path.toString().replace(File.separatorChar, '/');
 	}
 }

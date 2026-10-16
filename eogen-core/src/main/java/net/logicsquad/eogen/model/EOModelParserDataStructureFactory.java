@@ -50,11 +50,10 @@
 package net.logicsquad.eogen.model;
 
 import java.util.Collection;
-import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.Map;
 
-import org.apache.commons.collections.set.ListOrderedSet;
 import org.objectstyle.woenvironment.plist.ParserDataStructureFactory;
 
 public class EOModelParserDataStructureFactory implements ParserDataStructureFactory {
@@ -98,7 +97,7 @@ public class EOModelParserDataStructureFactory implements ParserDataStructureFac
 		Collection<Object> collection;
 		if (createSortedSet) {
 			//collection = new PropertyListSet<Object>();
-			collection = ListOrderedSet.decorate(new HashSet<Object>());
+			collection = new LinkedHashSet<Object>();
 		} else {
 			collection = new LinkedList<Object>();
 		}

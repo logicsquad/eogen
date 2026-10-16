@@ -52,26 +52,19 @@ package net.logicsquad.eogen.generator;
 import java.beans.PropertyChangeListener;
 import java.beans.PropertyChangeSupport;
 import java.io.BufferedReader;
-import java.io.ByteArrayInputStream;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
 import java.text.ParseException;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
-
-import org.eclipse.core.resources.IFile;
-import org.eclipse.core.resources.IProject;
-import org.eclipse.core.resources.IResource;
-import org.eclipse.core.runtime.CoreException;
-import org.eclipse.core.runtime.IPath;
-import org.eclipse.core.runtime.IProgressMonitor;
-import org.eclipse.core.runtime.Path;
-import net.logicsquad.eogen.model.EOModel;
-import net.logicsquad.eogen.model.EOModelGroup;
-import org.objectstyle.wolips.preferences.Preferences;
 
 public class EOGeneratorModel {
 	public static final String EOGENERATOR_PATH = "eogeneratorPath";
@@ -130,7 +123,7 @@ public class EOGeneratorModel {
 
 	private PropertyChangeSupport _propertyChangeSupport;
 
-	private IPath _projectPath;
+	private Path _projectPath;
 
 	private String _eogeneratorPath;
 
@@ -196,16 +189,12 @@ public class EOGeneratorModel {
 	
 	private String _extension;
 
-	public EOGeneratorModel(IProject project, String lineInfo) throws ParseException {
-		this(project);
+	public EOGeneratorModel(Path projectPath, String lineInfo) throws ParseException {
+		this(projectPath);
 		readFromString(lineInfo);
 	}
 
-	public EOGeneratorModel(IProject project) {
-		this(project.getLocation());
-	}
-
-	public EOGeneratorModel(IPath projectPath) {
+	public EOGeneratorModel(Path projectPath) {
 		this();
 		_projectPath = projectPath;
 	}
@@ -216,21 +205,9 @@ public class EOGeneratorModel {
 		_refModels = new LinkedList<EOModelReference>();
 		_defines = new LinkedList<Define>();
 		_customSettings = new LinkedList<String>();
-		
-		try {
-			_defaultEOGeneratorPath = Preferences.getEOGeneratorPath();
-			_defaultTemplateDir = Preferences.getEOGeneratorTemplateDir();
-			_defaultJavaTemplate = Preferences.getEOGeneratorJavaTemplate();
-			_defaultSubclassJavaTemplate = Preferences.getEOGeneratorSubclassJavaTemplate();
-			_java14 = Preferences.isEOGeneratorJava14();
-			_extension = "java";
-		}
-		catch (NoClassDefFoundError e) {
-			// IGNORE THIS -- We're not running in Eclipse
-		}
-		catch (NullPointerException e) {
-			// IGNORE THIS -- We're not running in Eclipse
-		}
+		// WOLips read the other defaults from its Eclipse preferences. Outside
+		// Eclipse there are none, and the runner's own defaults apply.
+		_extension = "java";
 	}
 	
 	public void setJava14(boolean java14) {
@@ -289,15 +266,14 @@ public class EOGeneratorModel {
 		_propertyChangeSupport.removePropertyChangeListener(propertyName, listener);
 	}
 
-	public void writeToFile(IFile file, IProgressMonitor monitor) throws CoreException, IOException {
+	public void writeToFile(File file) throws IOException {
 		String eogenFileContents = writeToString(null);
-		InputStream stream = new ByteArrayInputStream(eogenFileContents.getBytes("UTF-8"));
-		if (file.exists()) {
-			file.setContents(stream, true, true, monitor);
-		} else {
-			file.create(stream, true, monitor);
+		OutputStream stream = new FileOutputStream(file);
+		try {
+			stream.write(eogenFileContents.getBytes(StandardCharsets.UTF_8));
+		} finally {
+			stream.close();
 		}
-		stream.close();
 		setDirty(false);
 	}
 
@@ -415,14 +391,14 @@ public class EOGeneratorModel {
 					_javaTemplate4 = nextTokenValue(token, tokenizer);
 				} else if ("-model".equalsIgnoreCase(token)) {
 					String modelPath = workingDir == null ? nextTokenValue(token, tokenizer) : PathUtils.getAbsolutePath(nextTokenValue(token, tokenizer), workingDir);
-					_models.add(new EOModelReference(new Path(modelPath)));
+					_models.add(new EOModelReference(PathUtils.toPath(modelPath)));
 				} else if ("-packagedirs".equalsIgnoreCase(token)) {
 					_packageDirs = Boolean.TRUE;
 				} else if ("-prefix".equalsIgnoreCase(token)) {
 					_prefix = nextTokenValue(token, tokenizer);
 				} else if ("-refmodel".equalsIgnoreCase(token)) {
 					String refModelPath = workingDir == null ? nextTokenValue(token, tokenizer) : PathUtils.getAbsolutePath(nextTokenValue(token, tokenizer), workingDir);
-					_refModels.add(new EOModelReference(new Path(refModelPath)));
+					_refModels.add(new EOModelReference(PathUtils.toPath(refModelPath)));
 				} else if ("-subclassDestination".equalsIgnoreCase(token)) {
 					_subclassDestination = workingDir == null ? nextTokenValue(token, tokenizer) : PathUtils.getAbsolutePath(nextTokenValue(token, tokenizer), workingDir);
 				} else if ("-subclassJavaTemplate".equalsIgnoreCase(token)) {
@@ -498,7 +474,7 @@ public class EOGeneratorModel {
 		return token;
 	}
 
-	public IPath getProjectPath() {
+	public Path getProjectPath() {
 		return _projectPath;
 	}
 
@@ -829,7 +805,7 @@ public class EOGeneratorModel {
 			templateDir = _defaultTemplateDir;
 		}
 		if (templateDir != null) {
-			templateDir = PathUtils.getRelativePath(_projectPath, new Path(templateDir));
+			templateDir = PathUtils.getRelativePath(_projectPath, PathUtils.toPath(templateDir));
 		}
 		return templateDir;
 	}
@@ -971,21 +947,37 @@ public class EOGeneratorModel {
 		}
 	}
 
-	public static EOGeneratorModel createModelFromFile(IFile file) throws ParseException, CoreException, IOException {
-		file.refreshLocal(IResource.DEPTH_INFINITE, null);
-		InputStream eogenFileStream = file.getContents();
+	/**
+	 * Reads an .eogen file. A backslash at the end of a line continues it
+	 * onto the next, as in a shell. A line break without one separates
+	 * tokens: WOLips joined lines with nothing between them, which ran the
+	 * last token of one line into the first of the next.
+	 * 
+	 * @param file
+	 *            the .eogen file
+	 * @param projectPath
+	 *            the absolute path of the project that relative paths in the
+	 *            file are relative to
+	 * @return the model the file describes
+	 * @throws ParseException
+	 *             if the file is not a valid command line
+	 * @throws IOException
+	 *             if the file can't be read
+	 */
+	public static EOGeneratorModel createModelFromFile(File file, Path projectPath) throws ParseException, IOException {
+		InputStream eogenFileStream = new FileInputStream(file);
 		try {
 			StringBuffer sb = new StringBuffer();
-			BufferedReader br = new BufferedReader(new InputStreamReader(eogenFileStream));
+			BufferedReader br = new BufferedReader(new InputStreamReader(eogenFileStream, StandardCharsets.UTF_8));
 			String line;
 			while ((line = br.readLine()) != null) {
-				sb.append(line.replaceFirst("\\\\$", ""));
+				if (line.endsWith("\\")) {
+					sb.append(line, 0, line.length() - 1);
+				} else {
+					sb.append(line).append('\n');
+				}
 			}
-			String string = sb.toString();
-			string.replace('\\', '/');
-			EOGeneratorModel model = new EOGeneratorModel(file.getProject(), string);
-			model.setEOGeneratorPath(Preferences.getEOGeneratorPath(), false);
-			return model;
+			return new EOGeneratorModel(projectPath, sb.toString().trim());
 		} finally {
 			eogenFileStream.close();
 		}
@@ -1014,28 +1006,4 @@ public class EOGeneratorModel {
 	 * model.setSubclassDestination(projectRelativePathStr); } } } } } catch
 	 * (JavaModelException e) { e.printStackTrace(); } return model; }
 	 */
-	
-	/**
-	 * Creates a set of model references for all of the models in a model group
-	 * other than the given models.
-	 * 
-	 * @param modelGroup the model group to load
-	 * @param exceptModels defines the models to skip
-	 * @return a list of model references for all other models in the model group
-	 */
-	public static List<EOModelReference> createModelReferencesForModelGroup(EOModelGroup modelGroup, List<EOModel> exceptModels) {
-		LinkedList<EOModelReference> modelReferences = new LinkedList<EOModelReference>();
-		Iterator<EOModel> modelsIter = modelGroup.getModels().iterator();
-		while (modelsIter.hasNext()) {
-			EOModel modelGroupModel = modelsIter.next();
-			if (modelGroupModel.getModelURL() != null) {
-				Path modelPath = new Path(modelGroupModel.getModelURL().toString());
-				EOModelReference modelReference = new EOModelReference(modelPath);
-				if (!exceptModels.contains(modelGroupModel)) {
-					modelReferences.add(modelReference);
-				}
-			}
-		}
-		return modelReferences;
-	}
 }

@@ -53,8 +53,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-import org.eclipse.core.commands.operations.IUndoContext;
-import org.eclipse.core.commands.operations.ObjectUndoContext;
 import net.logicsquad.eogen.utils.StringUtils;
 import net.logicsquad.eogen.model.EOArgument;
 import net.logicsquad.eogen.model.EODatabaseConfig;
@@ -143,12 +141,6 @@ public class EOModelUtils {
 		}
 
 		return referenceFailures;
-	}
-
-	public static IUndoContext getUndoContext(Object obj) {
-		EOModel model = EOModelUtils.getRelatedModel(obj);
-		String label = model == null ? "No Model" : model.getName();
-		return new ObjectUndoContext(model, label);
 	}
 
 	public static EOModelObject getRelated(Class<? extends EOModelObject> type, EOModelObject obj) {

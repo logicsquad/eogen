@@ -61,6 +61,7 @@ import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.UnsupportedEncodingException;
 import java.io.Writer;
+import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 
@@ -72,37 +73,42 @@ import org.apache.velocity.exception.ParseErrorException;
 import org.apache.velocity.exception.ResourceNotFoundException;
 import org.apache.velocity.runtime.RuntimeConstants;
 import org.apache.velocity.runtime.resource.loader.FileResourceLoader;
-import org.eclipse.core.runtime.IPath;
-import org.objectstyle.wolips.thirdparty.velocity.resourceloader.ResourceLoader;
-import org.osgi.framework.Bundle;
+import org.apache.velocity.runtime.resource.loader.ResourceLoader;
+import org.slf4j.helpers.NOPLogger;
 
 public class WOLipsVelocityUtils {
 
 	/**
 	 * Creates a configured VelocityEngine.
 	 * 
+	 * Templates are looked up in the project folder, the custom template
+	 * folder, the WOLips template folders in /Library and the user's home,
+	 * and last with the given resource loader. WOLips looked in ".", the
+	 * working directory, first. Outside Eclipse that is wherever the build or
+	 * command started, so the project folder takes its place.
+	 * 
+	 * The engine is Velocity 2 in the settings that make it render
+	 * WOLips's Velocity 1.5 templates the same way: space gobbling "bc",
+	 * no empty check in #if, hyphens allowed in identifiers, and Velocity 1
+	 * macro behaviour.
+	 * 
 	 * @param templateFamilyName
 	 *            the name of the template family (the common folder name that
 	 *            contains the templates)
-	 * @param templateBundle
-	 *            the bundle of the calling plugin
 	 * @param customTemplatePath
 	 *            the custom template path to load with
 	 * @param projectPath
 	 *            the project path to prepend if the customTemplatePath is
 	 *            relative
-	 * @param insideEclipse
-	 *            if true, this engine should load resources from eclipse
-	 *            bundles
 	 * @param resourceLoaderClass
-	 *            the custom resource loader if not running inside eclipse
+	 *            the resource loader for the bundled templates, or null
 	 * @return an initialized VelocityEngine
 	 * @throws Exception
 	 *             if velocity engine creation fails
 	 */
-	public static VelocityEngine createVelocityEngine(String templateFamilyName, Bundle templateBundle, String customTemplatePath, IPath projectPath, boolean insideEclipse, Class resourceLoaderClass) throws Exception {
+	public static VelocityEngine createVelocityEngine(String templateFamilyName, String customTemplatePath, Path projectPath, Class<? extends ResourceLoader> resourceLoaderClass) throws Exception {
 		StringBuffer templatePaths = new StringBuffer();
-		templatePaths.append(".");
+		templatePaths.append(projectPath != null ? projectPath.toFile().getAbsolutePath() : new File(".").getAbsolutePath());
 		if (customTemplatePath != null && customTemplatePath.length() > 0) {
 			templatePaths.append(",");
 			File templateFolder = new File(customTemplatePath);
@@ -123,21 +129,20 @@ public class WOLipsVelocityUtils {
 
 		Thread thread = Thread.currentThread();
 		ClassLoader loader = thread.getContextClassLoader();
-		thread.setContextClassLoader(resourceLoaderClass.getClassLoader());
+		thread.setContextClassLoader(resourceLoaderClass != null ? resourceLoaderClass.getClassLoader() : WOLipsVelocityUtils.class.getClassLoader());
 		try {
 			VelocityEngine velocityEngine = new VelocityEngine();
-			velocityEngine.setProperty(RuntimeConstants.RUNTIME_LOG_LOGSYSTEM_CLASS, org.apache.velocity.runtime.log.NullLogSystem.class.getName());
-			velocityEngine.setProperty("resource.loader", "file,wolips");
-			velocityEngine.setProperty("file.resource.loader.class", FileResourceLoader.class.getName());
-			velocityEngine.setProperty("file.resource.loader.path", templatePaths.toString());
-			if (insideEclipse) {
-				velocityEngine.setProperty("wolips.resource.loader.class", ResourceLoader.class.getName());
-				if (templateBundle != null) {
-					velocityEngine.setProperty("wolips.resource.loader.bundle", templateBundle);
-				}
-			} else if (resourceLoaderClass != null) {
-				velocityEngine.setProperty("wolips.resource.loader.class", resourceLoaderClass.getName());
+			velocityEngine.setProperty(RuntimeConstants.RUNTIME_LOG_INSTANCE, NOPLogger.NOP_LOGGER);
+			velocityEngine.setProperty(RuntimeConstants.RESOURCE_LOADERS, resourceLoaderClass != null ? "file,wolips" : "file");
+			velocityEngine.setProperty("resource.loader.file.class", FileResourceLoader.class.getName());
+			velocityEngine.setProperty(RuntimeConstants.FILE_RESOURCE_LOADER_PATH, templatePaths.toString());
+			if (resourceLoaderClass != null) {
+				velocityEngine.setProperty("resource.loader.wolips.class", resourceLoaderClass.getName());
 			}
+			velocityEngine.setProperty(RuntimeConstants.SPACE_GOBBLING, "bc");
+			velocityEngine.setProperty(RuntimeConstants.CHECK_EMPTY_OBJECTS, "false");
+			velocityEngine.setProperty(RuntimeConstants.PARSER_HYPHEN_ALLOWED, "true");
+			velocityEngine.setProperty(RuntimeConstants.VM_ENABLE_BC_MODE, "true");
 			velocityEngine.init();
 			return velocityEngine;
 		} finally {

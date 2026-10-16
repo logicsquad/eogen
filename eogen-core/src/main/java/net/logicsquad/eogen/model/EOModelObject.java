@@ -55,12 +55,11 @@ import java.beans.PropertyChangeSupport;
 import java.util.Map;
 import java.util.Set;
 
-import org.eclipse.core.runtime.IAdaptable;
 import net.logicsquad.eogen.utils.StringUtils;
 import net.logicsquad.eogen.utils.IPropertyChangeSource;
 import net.logicsquad.eogen.utils.NotificationMap;
 
-public abstract class EOModelObject<T> implements IAdaptable, IPropertyChangeSource {
+public abstract class EOModelObject<T> implements IPropertyChangeSource {
 	private PropertyChangeSupport myPropertyChangeSupport = new PropertyChangeSupport(this);
 
 	public EOModelObject() {
@@ -93,10 +92,6 @@ public abstract class EOModelObject<T> implements IAdaptable, IPropertyChangeSou
 	public abstract Set<EOModelReferenceFailure> getReferenceFailures();
 
 	protected abstract void _propertyChanged(String _propertyName, Object _oldValue, Object _newValue);
-
-	public Object getAdapter(Class _adapter) {
-		return null;
-	}
 
 	public abstract String getFullyQualifiedName();
 

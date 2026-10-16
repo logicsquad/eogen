@@ -55,26 +55,32 @@
  */
 package net.logicsquad.eogen.generator;
 
+import java.io.IOException;
 import java.io.InputStream;
+import java.io.Reader;
 
-import org.apache.commons.collections.ExtendedProperties;
 import org.apache.velocity.exception.ResourceNotFoundException;
 import org.apache.velocity.runtime.resource.Resource;
+import org.apache.velocity.util.ExtProperties;
 
 public class EOGeneratorResourceLoader extends org.apache.velocity.runtime.resource.loader.ResourceLoader {
 	public long getLastModified(Resource resource) {
 		return 0;
 	}
 
-	public InputStream getResourceStream(String name) throws ResourceNotFoundException {
+	public Reader getResourceReader(String name, String encoding) throws ResourceNotFoundException {
 		InputStream resourceStream = getClass().getResourceAsStream("/net/logicsquad/eogen/templates/" + name);
 		if (resourceStream == null) {
 			throw new ResourceNotFoundException(name);
 		}
-		return resourceStream;
+		try {
+			return buildReader(resourceStream, encoding);
+		} catch (IOException e) {
+			throw new ResourceNotFoundException("Unable to read the template '" + name + "'.", e);
+		}
 	}
 
-	public void init(ExtendedProperties extendedProperties) {
+	public void init(ExtProperties extendedProperties) {
 		// IGNORE
 	}
 

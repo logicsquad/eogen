@@ -49,26 +49,21 @@
  */
 package net.logicsquad.eogen.generator;
 
-import org.eclipse.core.resources.IResource;
-import org.eclipse.core.runtime.IPath;
+import java.nio.file.Path;
 
 public class EOModelReference {
-	private IPath _modelPath;
+	private Path _modelPath;
 
-	public EOModelReference(IPath modelPath) {
+	public EOModelReference(Path modelPath) {
 		_modelPath = modelPath;
 	}
 
-	public String getPath(IResource projectContext) {
-		return PathUtils.getRelativePath(projectContext, _modelPath);
-	}
-
-	public String getPath(IPath projectPath) {
+	public String getPath(Path projectPath) {
 		return PathUtils.getRelativePath(projectPath, _modelPath);
 	}
 
 	public String getName() {
-		String name = _modelPath.lastSegment();
+		String name = _modelPath.getFileName().toString();
 		int dotIndex = name.indexOf('.');
 		if (dotIndex != -1) {
 			name = name.substring(0, dotIndex);

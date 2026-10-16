@@ -53,7 +53,10 @@ import java.io.File;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -62,18 +65,10 @@ import java.util.Set;
 
 import org.apache.velocity.VelocityContext;
 import org.apache.velocity.app.VelocityEngine;
-import org.apache.velocity.runtime.RuntimeServices;
-import org.apache.velocity.runtime.log.LogSystem;
+import org.apache.velocity.runtime.resource.loader.ResourceLoader;
 import net.logicsquad.eogen.velocity.ListTool;
 import net.logicsquad.eogen.velocity.SetTool;
-import org.eclipse.core.runtime.IPath;
-import org.eclipse.core.runtime.IProgressMonitor;
-import org.eclipse.core.runtime.OperationCanceledException;
-import org.objectstyle.wolips.eogenerator.core.Activator;
-import net.logicsquad.eogen.generator.EOGeneratorModel;
 import net.logicsquad.eogen.generator.EOGeneratorModel.Define;
-import net.logicsquad.eogen.generator.EOModelReference;
-import net.logicsquad.eogen.generator.IEOGeneratorRunner;
 import net.logicsquad.eogen.model.EOEntity;
 import net.logicsquad.eogen.model.EOModel;
 import net.logicsquad.eogen.model.EOModelException;
@@ -81,44 +76,44 @@ import net.logicsquad.eogen.model.EOModelGroup;
 import net.logicsquad.eogen.model.EOModelRenderContext;
 import net.logicsquad.eogen.model.EOModelVerificationFailure;
 import net.logicsquad.eogen.model.IEOModelGroupFactory;
+import net.logicsquad.eogen.runtime.IProgressMonitor;
+import net.logicsquad.eogen.runtime.OperationCanceledException;
 import net.logicsquad.eogen.utils.BooleanUtils;
 import net.logicsquad.eogen.velocity.WOLipsVelocityUtils;
-import org.objectstyle.wolips.thirdparty.velocity.resourceloader.ResourceLoader;
-import org.osgi.framework.Bundle;
 
-public class VelocityEOGeneratorRunner implements IEOGeneratorRunner {
-	@SuppressWarnings("deprecation")
-	public static class ConsoleLogger implements LogSystem {
-		public void init(RuntimeServices runtimeservices) throws Exception {
-			// DO NOTHING
-		}
-
-		public void logVelocityMessage(int i, String s) {
-			System.out.println("ConsoleLogger.logVelocityMessage: " + i + ", " + s);
-		}
-	}
-
-	private boolean _insideEclipse;
+public class VelocityEOGeneratorRunner {
 	private boolean _useStdout = false;
 
+	private List<IEOModelGroupFactory> _modelGroupFactories = Collections.emptyList();
 
 	public VelocityEOGeneratorRunner() {
-		this(true);
 	}
 
-	public VelocityEOGeneratorRunner(boolean insideEclipse) {
-		_insideEclipse = insideEclipse;
+	/**
+	 * Sets the factories that load the model group for -loadModelGroup, in
+	 * the order to try them. WOLips found them in the Eclipse extension
+	 * registry.
+	 * 
+	 * @param modelGroupFactories
+	 *            the model group factories
+	 */
+	public void setModelGroupFactories(List<IEOModelGroupFactory> modelGroupFactories) {
+		_modelGroupFactories = new ArrayList<IEOModelGroupFactory>(modelGroupFactories);
+	}
+
+	public List<IEOModelGroupFactory> getModelGroupFactories() {
+		return _modelGroupFactories;
 	}
 
 	public boolean generate(EOGeneratorModel eogeneratorModel, StringBuffer results, IProgressMonitor monitor) throws Exception {
-		return generate(eogeneratorModel, results, null, null, ResourceLoader.class, monitor);
+		return generate(eogeneratorModel, results, null, null, EOGeneratorResourceLoader.class, monitor);
 	}
 
 	public boolean generate(EOGeneratorModel eogeneratorModel, StringBuffer results, EOModelGroup preloadedModelGroup, IProgressMonitor monitor) throws Exception {
-		return generate(eogeneratorModel, results, preloadedModelGroup, null, ResourceLoader.class, monitor);
+		return generate(eogeneratorModel, results, preloadedModelGroup, null, EOGeneratorResourceLoader.class, monitor);
 	}
 
-	public boolean generate(EOGeneratorModel eogeneratorModel, StringBuffer results, EOModelGroup preloadedModelGroup, List<String> entityList, Class resourceLoaderClass, IProgressMonitor monitor) throws Exception {
+	public boolean generate(EOGeneratorModel eogeneratorModel, StringBuffer results, EOModelGroup preloadedModelGroup, List<String> entityList, Class<? extends ResourceLoader> resourceLoaderClass, IProgressMonitor monitor) throws Exception {
 		boolean showResults = false;
 
 		String superclassTemplateName = eogeneratorModel.getJavaTemplate();
@@ -144,8 +139,7 @@ public class VelocityEOGeneratorRunner implements IEOGeneratorRunner {
 			}
 		}
 
-		Bundle templateBundle = _insideEclipse ? Activator.getDefault().getBundle() : null;
-		VelocityEngine velocityEngine = WOLipsVelocityUtils.createVelocityEngine("EOGenerator", templateBundle, eogeneratorModel.getTemplateDir(), eogeneratorModel.getProjectPath(), _insideEclipse, resourceLoaderClass);
+		VelocityEngine velocityEngine = WOLipsVelocityUtils.createVelocityEngine("EOGenerator", eogeneratorModel.getTemplateDir(), eogeneratorModel.getProjectPath(), resourceLoaderClass);
 
 		List<EOModel> models = new LinkedList<EOModel>();
 		EOModelRenderContext renderContext = new EOModelRenderContext();
@@ -173,7 +167,7 @@ public class VelocityEOGeneratorRunner implements IEOGeneratorRunner {
 					for (EOModelReference eomodelReference : eogeneratorModel.getModels()) {
 						EOModelGroup generatingModelGroup = new EOModelGroup();
 						URL modelURL = getModelURL(eogeneratorModel, eomodelReference);
-						IEOModelGroupFactory.Utility.loadModelGroup(modelURL, generatingModelGroup, failures, true, modelURL, monitor);
+						IEOModelGroupFactory.Utility.loadModelGroup(_modelGroupFactories, modelURL, generatingModelGroup, failures, true, modelURL, monitor);
 						if (monitor.isCanceled()) {
 							throw new OperationCanceledException("EOGenerator canceled.");
 						}
@@ -214,7 +208,7 @@ public class VelocityEOGeneratorRunner implements IEOGeneratorRunner {
 
 			File superclassDestination = new File(eogeneratorModel.getDestination());
 			if (!superclassDestination.isAbsolute()) {
-				IPath projectPath = eogeneratorModel.getProjectPath();
+				Path projectPath = eogeneratorModel.getProjectPath();
 				if (projectPath != null) {
 					superclassDestination = new File(projectPath.toFile(), eogeneratorModel.getDestination());
 				}
@@ -227,7 +221,7 @@ public class VelocityEOGeneratorRunner implements IEOGeneratorRunner {
 
 			File subclassDestination = new File(eogeneratorModel.getSubclassDestination());
 			if (!subclassDestination.isAbsolute()) {
-				IPath projectPath = eogeneratorModel.getProjectPath();
+				Path projectPath = eogeneratorModel.getProjectPath();
 				if (projectPath != null) {
 					subclassDestination = new File(projectPath.toFile(), eogeneratorModel.getSubclassDestination());
 				}
@@ -242,7 +236,7 @@ public class VelocityEOGeneratorRunner implements IEOGeneratorRunner {
 			if (eogeneratorModel.getDestination2() != null) {
 				superclass2Destination = new File(eogeneratorModel.getDestination2());
 				if (!superclass2Destination.isAbsolute()) {
-					IPath projectPath = eogeneratorModel.getProjectPath();
+					Path projectPath = eogeneratorModel.getProjectPath();
 					if (projectPath != null) {
 						superclass2Destination = new File(projectPath.toFile(), eogeneratorModel.getDestination2());
 					}
@@ -258,7 +252,7 @@ public class VelocityEOGeneratorRunner implements IEOGeneratorRunner {
 			if (eogeneratorModel.getDestination3() != null) {
 				superclass3Destination = new File(eogeneratorModel.getDestination3());
 				if (!superclass3Destination.isAbsolute()) {
-					IPath projectPath = eogeneratorModel.getProjectPath();
+					Path projectPath = eogeneratorModel.getProjectPath();
 					if (projectPath != null) {
 						superclass3Destination = new File(projectPath.toFile(), eogeneratorModel.getDestination3());
 					}
@@ -274,7 +268,7 @@ public class VelocityEOGeneratorRunner implements IEOGeneratorRunner {
 			if (eogeneratorModel.getDestination4() != null) {
 				superclass4Destination = new File(eogeneratorModel.getDestination4());
 				if (!superclass4Destination.isAbsolute()) {
-					IPath projectPath = eogeneratorModel.getProjectPath();
+					Path projectPath = eogeneratorModel.getProjectPath();
 					if (projectPath != null) {
 						superclass4Destination = new File(projectPath.toFile(), eogeneratorModel.getDestination4());
 					}
@@ -442,10 +436,10 @@ public class VelocityEOGeneratorRunner implements IEOGeneratorRunner {
 	}
 
 	public URL getModelURL(EOGeneratorModel eogeneratorModel, EOModelReference modelRef) throws MalformedURLException {
-		String modelPath = modelRef.getPath((IPath) null);
+		String modelPath = modelRef.getPath((Path) null);
 		File modelFile = new File(modelPath);
 		if (!modelFile.isAbsolute()) {
-			IPath projectPath = eogeneratorModel.getProjectPath();
+			Path projectPath = eogeneratorModel.getProjectPath();
 			if (projectPath != null) {
 				modelFile = new File(projectPath.toFile(), modelPath);
 			}

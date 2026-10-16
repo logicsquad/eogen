@@ -62,14 +62,17 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.jar.JarEntry;
 
-import org.eclipse.core.runtime.IProgressMonitor;
-import org.eclipse.core.runtime.NullProgressMonitor;
 import org.objectstyle.woenvironment.plist.PropertyListParserException;
 import org.objectstyle.woenvironment.plist.WOLPropertyListSerialization;
+import net.logicsquad.eogen.runtime.IProgressMonitor;
+import net.logicsquad.eogen.runtime.NullProgressMonitor;
 import net.logicsquad.eogen.utils.URLUtils;
-import org.objectstyle.wolips.eomodeler.core.Activator;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class EOModelGroup extends EOModelObject<Object> {
+	private static final Logger LOG = LoggerFactory.getLogger(EOModelGroup.class);
+
 	public static final String MODELS = "models";
 
 	private Set<EOModel> _models;
@@ -103,7 +106,7 @@ public class EOModelGroup extends EOModelObject<Object> {
 					break;
 				}
 			} catch (MalformedURLException e) {
-				Activator.getDefault().log("Unable to determine if the model " + model.getName() + " was dirty, so we skipped it.", e);
+				LOG.warn("Unable to determine if the model " + model.getName() + " was dirty, so we skipped it.", e);
 			}
 		}
 		return dirty;

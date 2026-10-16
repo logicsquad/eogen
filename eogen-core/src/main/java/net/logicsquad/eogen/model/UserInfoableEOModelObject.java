@@ -53,8 +53,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import net.logicsquad.eogen.utils.NotificationMap;
-
-import com.uwyn.rife.tools.ObjectUtils;
+import net.logicsquad.eogen.utils.PropertyListCopier;
 
 public abstract class UserInfoableEOModelObject<T> extends EOModelObject<T> implements IUserInfoable, Cloneable {
 	public static final String ENTITY_MODELER_KEY = "_EntityModeler";
@@ -150,8 +149,8 @@ public abstract class UserInfoableEOModelObject<T> extends EOModelObject<T> impl
 
 	protected void _cloneUserInfoInto(UserInfoableEOModelObject<T> obj) {
 		try {
-			obj.setUserInfo(ObjectUtils.deepClone(_userInfo));
-		} catch (CloneNotSupportedException e) {
+			obj.setUserInfo(PropertyListCopier.deepCopy(_userInfo));
+		} catch (IllegalArgumentException e) {
 			throw new RuntimeException("Failed to clone user info: " + obj + ".", e);
 		}
 	}
