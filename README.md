@@ -34,7 +34,7 @@ a model without regenerating its classes:
     <plugin>
       <groupId>net.logicsquad</groupId>
       <artifactId>eogen-maven-plugin</artifactId>
-      <version>0.1-SNAPSHOT</version>
+      <version>0.1</version>
       <executions>
         <execution>
           <goals>
@@ -80,14 +80,14 @@ They take these parameters:
 
 `mvn eogen:generate` works in any project whose POM declares the
 plugin. Elsewhere, use the full name,
-`mvn net.logicsquad:eogen-maven-plugin:0.1-SNAPSHOT:generate`, or add
+`mvn net.logicsquad:eogen-maven-plugin:0.1:generate`, or add
 `net.logicsquad` to the `pluginGroups` in `~/.m2/settings.xml`.
 
 Using the command line
 ----------------------
 `eogen-cli`'s jar contains everything it needs:
 
-    java -jar eogen-cli-0.1-SNAPSHOT.jar [options] <file.eogen>
+    java -jar eogen-cli-0.1.jar [options] <file.eogen>
 
     --project <folder>    The folder that the .eogen file's paths are
                           relative to. Default: the current folder.
@@ -105,7 +105,7 @@ To give it a Maven project's dependencies, run it from the project's
 folder with the classpath that Maven resolves:
 
     mvn dependency:build-classpath -Dmdep.outputFile=cp.txt
-    java -jar eogen-cli-0.1-SNAPSHOT.jar --classpath "$(cat cp.txt)" \
+    java -jar eogen-cli-0.1.jar --classpath "$(cat cp.txt)" \
         src/main/resources/Library.eogen
 
 Using the library
