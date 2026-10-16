@@ -1,0 +1,14 @@
+{
+    attributes = (
+        {allowsNull = N; columnName = code; name = code; prototypeName = varchar100; }, 
+        {allowsNull = N; columnName = name; name = name; prototypeName = varchar100; }, 
+        {columnName = symbol; name = symbol; prototypeName = varchar100; }
+    ); 
+    attributesUsedForLocking = (code, name); 
+    className = "com.example.reference.Currency"; 
+    classProperties = (code, name, symbol); 
+    externalName = currency; 
+    fetchSpecificationDictionary = {}; 
+    name = Currency; 
+    primaryKeyAttributes = (code); 
+}

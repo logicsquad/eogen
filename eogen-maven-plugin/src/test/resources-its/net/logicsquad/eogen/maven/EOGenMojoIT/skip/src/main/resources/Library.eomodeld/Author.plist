@@ -1,0 +1,22 @@
+{
+    attributes = (
+        {allowsNull = N; columnName = id; name = id; prototypeName = id; }, 
+        {allowsNull = N; columnName = name; name = name; prototypeName = varchar100; }
+    ); 
+    attributesUsedForLocking = (id, name); 
+    className = "com.example.library.Author"; 
+    classProperties = (books, name); 
+    externalName = author; 
+    fetchSpecificationDictionary = {}; 
+    name = Author; 
+    primaryKeyAttributes = (id); 
+    relationships = (
+        {
+            destination = Book; 
+            isToMany = Y; 
+            joinSemantic = EOInnerJoin; 
+            joins = ({destinationAttribute = authorID; sourceAttribute = id; }); 
+            name = books; 
+        }
+    ); 
+}

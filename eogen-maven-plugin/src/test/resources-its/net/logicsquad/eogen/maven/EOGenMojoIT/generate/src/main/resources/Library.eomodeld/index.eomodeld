@@ -1,0 +1,9 @@
+{
+    EOModelVersion = "2.1"; 
+    adaptorName = JDBC; 
+    connectionDictionary = {}; 
+    entities = (
+        {className = "com.example.library.Author"; name = Author; }, 
+        {className = "com.example.library.Book"; name = Book; }
+    ); 
+}
