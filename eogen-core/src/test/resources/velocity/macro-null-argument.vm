@@ -1,0 +1,1 @@
+#macro(show $v)<$v>#end#set($v = "outer")#show($nothing)|#show("x")|$v

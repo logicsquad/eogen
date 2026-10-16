@@ -1,0 +1,1 @@
+$str.length()|$str.class|$items.size()|$map.size()|$map.get("nope")|$!map.get("nope")|$map.isEmpty()

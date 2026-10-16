@@ -1,0 +1,9 @@
+A#set($x = "set")
+#if($x)
+  yes
+#end
+B
+  #foreach($i in $items)
+    item $i
+  #end
+C

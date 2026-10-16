@@ -1,0 +1,1 @@
+[$b.flag] #if ($b.flag)yes#else no#end [$b.name] [$b.count] [$b.count()] [$b.Name] [$b.Flag]

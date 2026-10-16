@@ -1,0 +1,16 @@
+{
+    EOModelVersion = "2.1"; 
+    adaptorName = JDBC; 
+    connectionDictionary = {}; 
+    entities = (
+        {className = "com.example.shop.Company"; name = Company; }, 
+        {className = "com.example.shop.Order"; name = Order; }, 
+        {className = "com.example.shop.OrderLine"; name = OrderLine; }, 
+        {className = "com.example.shop.Party"; name = Party; }, 
+        {className = "com.example.shop.Person"; name = Person; }, 
+        {className = "com.example.shop.Product"; name = Product; }, 
+        {className = EOGenericRecord; name = ProductTag; }, 
+        {className = "com.example.shop.Tag"; name = Tag; }
+    ); 
+    userInfo = {"_EntityModeler" = {documentation = "A small shop, for testing eogen."; }; }; 
+}

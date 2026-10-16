@@ -1,0 +1,12 @@
+  #if(true)
+    indented
+  #end
+  #set($a = 1)
+  after
+#foreach($i in [1..2])
+  #if($i == 1)
+  one
+  #else
+  other
+  #end
+#end

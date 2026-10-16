@@ -1,0 +1,34 @@
+{
+    byCustomerName = {
+        class = EOFetchSpecification; 
+        entityName = Order; 
+        isDeep = YES; 
+        prefetchingRelationshipKeyPaths = (lines); 
+        qualifier = {
+            class = EOAndQualifier; 
+            qualifiers = (
+                {
+                    class = EOKeyValueQualifier; 
+                    key = "customer.name"; 
+                    selectorName = "isCaseInsensitiveLike:"; 
+                    value = {"_key" = name; class = EOQualifierVariable; }; 
+                }, 
+                {
+                    class = EOKeyValueQualifier; 
+                    key = total; 
+                    selectorName = "isGreaterThan:"; 
+                    value = {"_key" = minimum; class = EOQualifierVariable; }; 
+                }
+            ); 
+        }; 
+        sortOrderings = ({class = EOSortOrdering; key = placed; selectorName = "compareDescending:"; }); 
+    }; 
+    recent = {
+        class = EOFetchSpecification; 
+        entityName = Order; 
+        fetchLimit = 10; 
+        isDeep = YES; 
+        prefetchingRelationshipKeyPaths = (); 
+        sortOrderings = ({class = EOSortOrdering; key = placed; selectorName = "compareDescending:"; }); 
+    }; 
+}

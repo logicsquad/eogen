@@ -1,0 +1,1 @@
+#macro(greet $who)Hello $who#end#greet("World")|#macro(twice $v)$v$v#end#twice($items.size())|#macro(defaults $a)[$a]#end#defaults()

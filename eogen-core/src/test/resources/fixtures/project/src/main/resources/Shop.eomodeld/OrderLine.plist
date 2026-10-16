@@ -1,0 +1,39 @@
+{
+    attributes = (
+        {allowsNull = N; columnName = id; name = id; prototypeName = id; }, 
+        {allowsNull = N; columnName = "order_id"; name = orderID; prototypeName = id; }, 
+        {allowsNull = N; columnName = price; name = price; prototypeName = amount; }, 
+        {
+            allowsNull = N; 
+            columnName = "product_id"; 
+            name = productID; 
+            prototypeName = id; 
+        }, 
+        {allowsNull = N; columnName = quantity; name = quantity; prototypeName = intNumber; }
+    ); 
+    attributesUsedForLocking = (id, orderID, price, productID, quantity); 
+    className = "com.example.shop.OrderLine"; 
+    classProperties = (order, price, product, quantity); 
+    externalName = "order_line"; 
+    fetchSpecificationDictionary = {}; 
+    name = OrderLine; 
+    primaryKeyAttributes = (id); 
+    relationships = (
+        {
+            destination = Order; 
+            isMandatory = Y; 
+            isToMany = N; 
+            joinSemantic = EOInnerJoin; 
+            joins = ({destinationAttribute = id; sourceAttribute = orderID; }); 
+            name = order; 
+        }, 
+        {
+            destination = Product; 
+            isMandatory = Y; 
+            isToMany = N; 
+            joinSemantic = EOInnerJoin; 
+            joins = ({destinationAttribute = id; sourceAttribute = productID; }); 
+            name = product; 
+        }
+    ); 
+}

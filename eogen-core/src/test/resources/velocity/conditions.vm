@@ -1,0 +1,1 @@
+#if($items.size() > 1 && $str == "hello")and#end|#if(!$nothing)not#end|#if($str != "x")neq#end

@@ -1,0 +1,55 @@
+{
+    attributes = (
+        {
+            allowsNull = N; 
+            columnName = "currency_code"; 
+            name = currencyCode; 
+            prototypeName = varchar100; 
+        }, 
+        {
+            allowsNull = N; 
+            columnName = "customer_id"; 
+            name = customerID; 
+            prototypeName = id; 
+        }, 
+        {definition = "customer.name"; name = customerName; }, 
+        {allowsNull = N; columnName = id; name = id; prototypeName = id; }, 
+        {columnName = note; name = note; prototypeName = longText; }, 
+        {allowsNull = N; columnName = placed; name = placed; prototypeName = dateTime; }, 
+        {allowsNull = N; columnName = total; name = total; prototypeName = amount; }
+    ); 
+    attributesUsedForLocking = (currencyCode, customerID, id, placed, total); 
+    className = "com.example.shop.Order"; 
+    classProperties = (currency, customer, customerName, lines, note, placed, total); 
+    externalName = "shop_order"; 
+    fetchSpecificationDictionary = {}; 
+    name = Order; 
+    primaryKeyAttributes = (id); 
+    relationships = (
+        {
+            destination = Currency; 
+            isMandatory = Y; 
+            isToMany = N; 
+            joinSemantic = EOInnerJoin; 
+            joins = ({destinationAttribute = code; sourceAttribute = currencyCode; }); 
+            name = currency; 
+        }, 
+        {
+            destination = Party; 
+            isMandatory = Y; 
+            isToMany = N; 
+            joinSemantic = EOInnerJoin; 
+            joins = ({destinationAttribute = id; sourceAttribute = customerID; }); 
+            name = customer; 
+        }, 
+        {
+            deleteRule = EODeleteRuleCascade; 
+            destination = OrderLine; 
+            isToMany = Y; 
+            joinSemantic = EOInnerJoin; 
+            joins = ({destinationAttribute = orderID; sourceAttribute = id; }); 
+            name = lines; 
+            ownsDestination = Y; 
+        }
+    ); 
+}

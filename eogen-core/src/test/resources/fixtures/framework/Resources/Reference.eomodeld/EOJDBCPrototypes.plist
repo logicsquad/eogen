@@ -1,0 +1,70 @@
+{
+    attributes = (
+        {
+            columnName = ""; 
+            externalType = numeric; 
+            name = amount; 
+            precision = 12; 
+            scale = 2; 
+            valueClassName = NSDecimalNumber; 
+            valueType = B; 
+        }, 
+        {
+            adaptorValueConversionMethodName = toString; 
+            columnName = ""; 
+            externalType = varchar; 
+            factoryMethodArgumentType = EOFactoryMethodArgumentIsNSString; 
+            name = boolean; 
+            valueClassName = "java.lang.Boolean"; 
+            valueFactoryMethodName = valueOf; 
+            valueType = S; 
+            width = 5; 
+        }, 
+        {
+            columnName = ""; 
+            externalType = timestamp; 
+            name = dateTime; 
+            valueClassName = NSCalendarDate; 
+            valueType = T; 
+        }, 
+        {
+            columnName = ""; 
+            externalType = integer; 
+            name = id; 
+            valueClassName = NSNumber; 
+            valueType = i; 
+        }, 
+        {
+            columnName = ""; 
+            externalType = integer; 
+            name = intNumber; 
+            valueClassName = NSNumber; 
+            valueType = i; 
+        }, 
+        {
+            adaptorValueConversionMethodName = name; 
+            columnName = ""; 
+            externalType = varchar; 
+            factoryMethodArgumentType = EOFactoryMethodArgumentIsNSString; 
+            name = javaEnum; 
+            valueClassName = "java.lang.Enum"; 
+            valueFactoryMethodName = valueOf; 
+            width = 50; 
+        }, 
+        {columnName = ""; externalType = text; name = longText; valueClassName = NSString; }, 
+        {
+            columnName = ""; 
+            externalType = varchar; 
+            name = varchar100; 
+            valueClassName = NSString; 
+            width = 100; 
+        }
+    ); 
+    attributesUsedForLocking = (); 
+    className = EOGenericRecord; 
+    classProperties = (); 
+    externalName = EOJDBCPrototypes; 
+    fetchSpecificationDictionary = {}; 
+    name = EOJDBCPrototypes; 
+    primaryKeyAttributes = (id); 
+}

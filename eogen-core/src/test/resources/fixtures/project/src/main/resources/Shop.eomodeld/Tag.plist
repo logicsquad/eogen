@@ -1,0 +1,22 @@
+{
+    attributes = (
+        {allowsNull = N; columnName = id; name = id; prototypeName = id; }, 
+        {allowsNull = N; columnName = name; name = name; prototypeName = varchar100; }
+    ); 
+    attributesUsedForLocking = (id, name); 
+    className = "com.example.shop.Tag"; 
+    classProperties = (name); 
+    externalName = tag; 
+    fetchSpecificationDictionary = {}; 
+    name = Tag; 
+    primaryKeyAttributes = (id); 
+    relationships = (
+        {
+            destination = ProductTag; 
+            isToMany = Y; 
+            joinSemantic = EOInnerJoin; 
+            joins = ({destinationAttribute = tagID; sourceAttribute = id; }); 
+            name = productTags; 
+        }
+    ); 
+}

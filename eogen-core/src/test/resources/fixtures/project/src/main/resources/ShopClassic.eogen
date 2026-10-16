@@ -1,0 +1,8 @@
+ -destination generated/classic \
+ -extension java \
+ -java \
+ -model src/main/resources/Shop.eomodeld \
+ -packagedirs \
+ -subclassDestination generated/classic \
+ -verbose \
+ -loadModelGroup

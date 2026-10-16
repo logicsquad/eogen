@@ -1,0 +1,1 @@
+\$escaped|\$items|$!quiet|${items.size()}|$items.get(0)

@@ -1,0 +1,1 @@
+$entity.name.toUpperCase()|#set($l = $list.get($items, 0))$l|$set.size($aset)|$list.size($items)

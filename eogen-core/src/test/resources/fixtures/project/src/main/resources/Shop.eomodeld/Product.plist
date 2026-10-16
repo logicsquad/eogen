@@ -1,0 +1,34 @@
+{
+    attributes = (
+        {allowsNull = N; columnName = active; name = active; prototypeName = boolean; }, 
+        {
+            columnName = category; 
+            name = category; 
+            prototypeName = intNumber; 
+            userInfo = {ERXConstantClassName = "com.example.shop.Category"; }; 
+        }, 
+        {allowsNull = N; columnName = id; name = id; prototypeName = id; }, 
+        {allowsNull = N; columnName = name; name = name; prototypeName = varchar100; }, 
+        {allowsNull = N; columnName = price; name = price; prototypeName = amount; }
+    ); 
+    attributesUsedForLocking = (active, category, id, name, price); 
+    className = "com.example.shop.Product"; 
+    classProperties = (active, category, name, price, tags); 
+    externalName = product; 
+    fetchSpecificationDictionary = {}; 
+    name = Product; 
+    primaryKeyAttributes = (id); 
+    relationships = (
+        {
+            deleteRule = EODeleteRuleCascade; 
+            destination = ProductTag; 
+            isToMany = Y; 
+            joinSemantic = EOInnerJoin; 
+            joins = ({destinationAttribute = productID; sourceAttribute = id; }); 
+            name = productTags; 
+            ownsDestination = Y; 
+            propagatesPrimaryKey = Y; 
+        }, 
+        {definition = "productTags.tag"; isToMany = Y; joinSemantic = EOInnerJoin; name = tags; }
+    ); 
+}

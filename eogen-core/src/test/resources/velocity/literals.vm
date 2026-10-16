@@ -1,0 +1,1 @@
+#set($list = ["a", "b"])$list|#set($range = [1..3])$range|#set($m = {"k": "v"})$m.k

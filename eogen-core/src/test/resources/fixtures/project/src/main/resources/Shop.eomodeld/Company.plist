@@ -1,0 +1,34 @@
+{
+    attributes = (
+        {columnName = email; name = email; prototypeName = varchar100; }, 
+        {allowsNull = N; columnName = id; name = id; prototypeName = id; }, 
+        {allowsNull = N; columnName = name; name = name; prototypeName = varchar100; }, 
+        {
+            allowsNull = N; 
+            columnName = status; 
+            name = status; 
+            prototypeName = javaEnum; 
+            valueClassName = "com.example.shop.Status"; 
+        }, 
+        {columnName = "tax_number"; name = taxNumber; prototypeName = varchar100; }, 
+        {allowsNull = N; columnName = type; name = type; prototypeName = varchar100; }
+    ); 
+    attributesUsedForLocking = (id, name, status, type); 
+    className = "com.example.shop.Company"; 
+    classProperties = (email, name, orders, status, taxNumber); 
+    externalName = party; 
+    fetchSpecificationDictionary = {}; 
+    name = Company; 
+    parent = Party; 
+    primaryKeyAttributes = (id); 
+    relationships = (
+        {
+            destination = Order; 
+            isToMany = Y; 
+            joinSemantic = EOInnerJoin; 
+            joins = ({destinationAttribute = customerID; sourceAttribute = id; }); 
+            name = orders; 
+        }
+    ); 
+    restrictingQualifier = "(type = 'C')"; 
+}

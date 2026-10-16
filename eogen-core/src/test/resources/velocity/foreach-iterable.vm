@@ -1,0 +1,1 @@
+#foreach ($x in $iterable)$x#end|#foreach ($x in $iterator)$x#end|#foreach ($x in $map)$x#end|#foreach ($x in $array)$x#end

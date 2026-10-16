@@ -1,0 +1,1 @@
+#if ($str != $nothing)a#end|#if ($nothing != $str)b#end|#if ($str == $nothing)c#end|#if ($nothing == $str)d#end|#if ($nothing != $alsoNothing)e#end|#if ($nothing < 3)f#end|#if (!($str == $nothing))g#end

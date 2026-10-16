@@ -1,0 +1,11 @@
+ -destination src/main/java \
+ -extension java \
+ -java \
+ -javaTemplate _WonderEntity.java \
+ -model src/main/resources/Shop.eomodeld \
+ -packagedirs \
+ -subclassDestination src/main/java \
+ -subclassJavaTemplate WonderEntity.java \
+ -verbose \
+ -loadModelGroup \
+ -define-EOGenericRecord com.example.shop.ShopRecord

@@ -1,0 +1,12 @@
+ -destination generated/custom \
+ -extension java \
+ -java \
+ -javaTemplate _Custom.java \
+ -model src/main/resources/Shop.eomodeld \
+ -packagedirs \
+ -subclassDestination generated/custom \
+ -subclassJavaTemplate Custom.java \
+ -templatedir src/main/templates \
+ -verbose \
+ -loadModelGroup \
+ -define-Greeting "Hello from a define"

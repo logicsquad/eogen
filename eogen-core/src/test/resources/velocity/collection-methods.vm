@@ -1,0 +1,1 @@
+#set ($l = [])$l.add("x")$l|#set ($m = {})$m.put("k", "v")$m|$items.subList(0, 2)

@@ -1,0 +1,5 @@
+line1
+## comment line
+line2 ## trailing
+#* block
+comment *#line3
