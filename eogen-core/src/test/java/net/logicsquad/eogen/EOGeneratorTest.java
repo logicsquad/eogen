@@ -162,6 +162,57 @@ class EOGeneratorTest {
 	}
 
 	@Test
+	void modelCanBeNamedByItsIndexFile() throws Exception {
+		FixtureProject project = FixtureProject.copyTo(temp);
+		File eogen = project.eogen("ShopClassic");
+		write(eogen.toPath(), read(eogen.toPath()).replace("Shop.eomodeld \\", "Shop.eomodeld/index.eomodeld \\"));
+		assertThat(read(eogen.toPath())).contains("Shop.eomodeld/index.eomodeld");
+		GenerationResult result = project.generator().generate(eogen);
+		assertThat(result.getErrors()).isEmpty();
+		assertSameFiles(FixtureProject.expected("ShopClassic"), project.resolve("generated/classic"));
+	}
+
+	@Test
+	void generatesInAFolderWhosePathHasSpaces() throws Exception {
+		FixtureProject project = FixtureProject.copyTo(temp.resolve("My Projects"));
+		GenerationResult fromJar = project.generator().generate(project.eogen("ShopWonder"));
+		assertThat(fromJar.getErrors()).isEmpty();
+		assertSameFiles(FixtureProject.expected("ShopWonder"), project.resolve("src/main/java"));
+		GenerationResult fromFolder = project.generatorWithFolderOnClasspath().generate(project.eogen("ShopCustom"));
+		assertThat(fromFolder.getErrors()).isEmpty();
+		assertSameFiles(FixtureProject.expected("ShopCustom"), project.resolve("generated/custom"));
+	}
+
+	/**
+	 * A dependency's model that declares one of Shop's entities would evict
+	 * Shop, but Shop is loaded last and evicts it instead, as in Eclipse.
+	 */
+	@Test
+	void generatesDespiteADependencyThatSharesAnEntity() throws Exception {
+		FixtureProject project = FixtureProject.copyTo(temp);
+		Path old = temp.resolve("old");
+		Path model = Files.createDirectories(old.resolve("Resources/ShopOld.eomodeld"));
+		write(model.resolve("index.eomodeld"), "{\n    EOModelVersion = \"2.1\"; \n    adaptorName = JDBC; \n    entities = ({className = \"com.example.old.Tag\"; name = Tag; }); \n}\n");
+		write(model.resolve("Tag.plist"), "{\n    attributes = ({allowsNull = N; columnName = id; name = id; prototypeName = id; }); \n    className = \"com.example.old.Tag\"; \n"
+				+ "    classProperties = (); \n    externalName = tag; \n    name = Tag; \n    primaryKeyAttributes = (id); \n}\n");
+		Path oldJar = temp.resolve("old.jar");
+		FixtureProject.jar(old, oldJar);
+		EOGenerator generator = new EOGenerator(project.root.toFile(), Collections.singletonList(project.resolve("src/main/resources").toFile()),
+				java.util.Arrays.asList(oldJar.toFile(), project.referenceJar.toFile()));
+		GenerationResult result = generator.generate(project.eogen("ShopClassic"));
+		assertThat(result.getErrors()).isEmpty();
+		assertSameFiles(FixtureProject.expected("ShopClassic"), project.resolve("generated/classic"));
+	}
+
+	@Test
+	void modelThatFailsToLoadIsAnError() throws Exception {
+		FixtureProject project = FixtureProject.copyTo(temp);
+		write(project.resolve("src/main/resources/Shop.eomodeld/index.eomodeld"), "{ entities = ( ");
+		assertThatThrownBy(() -> project.generator().generate(project.eogen("ShopClassic"))).isInstanceOf(EOGeneratorException.class)
+				.hasMessageContaining("Failed to load the model");
+	}
+
+	@Test
 	void findsEOGenFilesInNameOrder() throws Exception {
 		FixtureProject project = FixtureProject.copyTo(temp);
 		List<File> found = EOGenerator.findEOGenFiles(Collections.singletonList(project.resolve("src/main/resources").toFile()));

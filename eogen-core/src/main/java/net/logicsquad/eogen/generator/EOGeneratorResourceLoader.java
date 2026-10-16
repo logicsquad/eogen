@@ -57,6 +57,7 @@ package net.logicsquad.eogen.generator;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.Reader;
 
 import org.apache.velocity.exception.ResourceNotFoundException;
@@ -74,7 +75,7 @@ public class EOGeneratorResourceLoader extends org.apache.velocity.runtime.resou
 			throw new ResourceNotFoundException(name);
 		}
 		try {
-			return buildReader(resourceStream, encoding);
+			return new InputStreamReader(resourceStream, encoding != null ? encoding : "UTF-8");
 		} catch (IOException e) {
 			throw new ResourceNotFoundException("Unable to read the template '" + name + "'.", e);
 		}

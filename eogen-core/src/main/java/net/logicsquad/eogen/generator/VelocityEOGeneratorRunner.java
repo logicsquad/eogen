@@ -206,6 +206,9 @@ public class VelocityEOGeneratorRunner {
 							throw new OperationCanceledException("EOGenerator canceled.");
 						}
 						EOModel generatingModel = generatingModelGroup.getEditingModel();
+						if (generatingModel == null) {
+							throw new EOModelException("Failed to load the model " + modelURL + ".");
+						}
 						models.add(generatingModel);
 
 						for (EOModel model : generatingModelGroup.getModels()) {

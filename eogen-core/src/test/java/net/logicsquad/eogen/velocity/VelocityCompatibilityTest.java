@@ -33,7 +33,7 @@ class VelocityCompatibilityTest {
 	 * stood, or skipped the directive, and the README lists them.
 	 */
 	private static final Set<String> KNOWN_DIFFERENCES = new HashSet<>(Arrays.asList("array-methods.vm", "equality.vm", "foreach-iterable.vm",
-			"macro-arguments.vm", "null-comparison.vm", "set-null-property.vm"));
+			"macro-arguments.vm", "null-comparison.vm", "set-formal.vm", "set-null-property.vm"));
 
 	static Stream<String> templates() throws IOException, URISyntaxException {
 		try (Stream<Path> files = Files.list(folder())) {

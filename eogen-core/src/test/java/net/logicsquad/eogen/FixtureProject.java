@@ -30,9 +30,12 @@ final class FixtureProject {
 
 	final Path referenceJar;
 
-	private FixtureProject(Path root, Path referenceJar) {
+	final Path referenceFolder;
+
+	private FixtureProject(Path root, Path referenceJar, Path referenceFolder) {
 		this.root = root;
 		this.referenceJar = referenceJar;
+		this.referenceFolder = referenceFolder;
 	}
 
 	/**
@@ -47,7 +50,9 @@ final class FixtureProject {
 		copyTree(fixtures().resolve("project"), root);
 		Path referenceJar = folder.resolve("reference.jar");
 		jar(fixtures().resolve("framework"), referenceJar);
-		return new FixtureProject(root, referenceJar);
+		Path referenceFolder = folder.resolve("reference");
+		copyTree(fixtures().resolve("framework"), referenceFolder);
+		return new FixtureProject(root, referenceJar, referenceFolder);
 	}
 
 	/**
@@ -58,6 +63,17 @@ final class FixtureProject {
 	EOGenerator generator() {
 		return new EOGenerator(root.toFile(), Collections.singletonList(root.resolve("src/main/resources").toFile()),
 				Collections.singletonList(referenceJar.toFile()));
+	}
+
+	/**
+	 * Returns a generator for the copy, with the Reference model's folder on
+	 * its classpath, as a reactor build passes a sibling module's classes.
+	 *
+	 * @return generator
+	 */
+	EOGenerator generatorWithFolderOnClasspath() {
+		return new EOGenerator(root.toFile(), Collections.singletonList(root.resolve("src/main/resources").toFile()),
+				Collections.singletonList(referenceFolder.toFile()));
 	}
 
 	/**

@@ -72,7 +72,6 @@ import org.apache.velocity.exception.MethodInvocationException;
 import org.apache.velocity.exception.ParseErrorException;
 import org.apache.velocity.exception.ResourceNotFoundException;
 import org.apache.velocity.runtime.RuntimeConstants;
-import org.apache.velocity.runtime.resource.loader.FileResourceLoader;
 import org.apache.velocity.runtime.resource.loader.ResourceLoader;
 import org.slf4j.helpers.NOPLogger;
 
@@ -91,7 +90,8 @@ public class WOLipsVelocityUtils {
 	 * WOLips's Velocity 1.5 templates the same way: space gobbling "bc",
 	 * no empty check in #if, hyphens allowed in identifiers, Velocity 1
 	 * macro behaviour, no conversion of method arguments, and Velocity 1's
-	 * lookup of properties (VelocityOneUberspector). Render with a
+	 * lookup of properties (VelocityOneUberspector). Template files keep any
+	 * byte order mark, as Velocity 1.5 kept it. Render with a
 	 * VelocityOneContext, which with VelocityOneEventHandler restores
 	 * $velocityCount and Velocity 1's #set of null values.
 	 * 
@@ -137,7 +137,7 @@ public class WOLipsVelocityUtils {
 			VelocityEngine velocityEngine = new VelocityEngine();
 			velocityEngine.setProperty(RuntimeConstants.RUNTIME_LOG_INSTANCE, NOPLogger.NOP_LOGGER);
 			velocityEngine.setProperty(RuntimeConstants.RESOURCE_LOADERS, resourceLoaderClass != null ? "file,wolips" : "file");
-			velocityEngine.setProperty("resource.loader.file.class", FileResourceLoader.class.getName());
+			velocityEngine.setProperty("resource.loader.file.class", VelocityOneFileResourceLoader.class.getName());
 			velocityEngine.setProperty(RuntimeConstants.FILE_RESOURCE_LOADER_PATH, templatePaths.toString());
 			if (resourceLoaderClass != null) {
 				velocityEngine.setProperty("resource.loader.wolips.class", resourceLoaderClass.getName());

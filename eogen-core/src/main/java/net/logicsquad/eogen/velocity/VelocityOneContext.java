@@ -26,18 +26,19 @@ public class VelocityOneContext extends VelocityContext {
 	private static final String FOREACH = "foreach";
 
 	/**
-	 * The reference a {@code #set} is about to set to null, or {@code null}.
+	 * Whether a {@code #set} is about to set a reference to null.
 	 */
-	private String nullSetReference;
+	private boolean nullSet;
 
 	/**
 	 * Notes that a {@code #set} is about to set a reference to null, so that the
 	 * {@link #internalPut(String, Object)} that follows leaves it as it is.
-	 *
-	 * @param reference the name of the reference, without {@code $}
+	 * Velocity puts the value straight after it raises the event, without
+	 * getting anything first. The event names {@code ${x}} only as
+	 * <code>{</code>, so the put is not matched by name.
 	 */
-	void nullSet(String reference) {
-		nullSetReference = reference;
+	void nullSet() {
+		nullSet = true;
 	}
 
 	@Override
@@ -45,7 +46,7 @@ public class VelocityOneContext extends VelocityContext {
 		// A #set of a plain reference puts without getting first. Any get means
 		// this #set sets a property instead, which Velocity 1.5 also skipped,
 		// but which the context can't stop.
-		nullSetReference = null;
+		nullSet = false;
 		Object value = super.internalGet(key);
 		if (value == null && VELOCITY_COUNT.equals(key)) {
 			Object scope = super.internalGet(FOREACH);
@@ -58,9 +59,9 @@ public class VelocityOneContext extends VelocityContext {
 
 	@Override
 	public Object internalPut(String key, Object value) {
-		String reference = nullSetReference;
-		nullSetReference = null;
-		if (value == null && key.equals(reference)) {
+		boolean ignore = nullSet && value == null;
+		nullSet = false;
+		if (ignore) {
 			return super.internalGet(key);
 		}
 		return super.internalPut(key, value);

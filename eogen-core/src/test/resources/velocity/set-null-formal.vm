@@ -1,0 +1,1 @@
+#set($x = "before")#set(${x} = $nothing)[$x]|#set($y = "kept")#set($!{y} = $nothing)[$y]

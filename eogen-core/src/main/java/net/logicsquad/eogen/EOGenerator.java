@@ -287,7 +287,8 @@ public class EOGenerator {
 			if (!modelFolder.isAbsolute()) {
 				modelFolder = new File(projectDirectory, modelFolder.getPath());
 			}
-			if (!new File(modelFolder, "index.eomodeld").isFile()) {
+			boolean indexFile = modelFolder.getName().equals("index.eomodeld") && modelFolder.isFile();
+			if (!indexFile && !new File(modelFolder, "index.eomodeld").isFile()) {
 				throw new EOGeneratorException(eogenFile + " names the model " + modelFolder + ", which does not exist.");
 			}
 		}

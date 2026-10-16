@@ -26,15 +26,16 @@ import net.logicsquad.eogen.utils.URLUtils;
  * <ol>
  * <li>every {@code .eomodeld} under each model folder, in name order, such as a
  * Maven project's {@code src/main/resources};</li>
- * <li>the model the group is loaded for, in case it is somewhere else;</li>
  * <li>for each classpath entry in turn, the models in {@code Resources/} and
  * {@code META-INF/webobjects/Resources/}, whether the entry is a jar or a
- * folder.</li>
+ * folder;</li>
+ * <li>last, the model the group is loaded for, in case it is somewhere
+ * else.</li>
  * </ol>
- * When two models have the same name, the first one found wins. Eclipse loads
- * the model the group is for last, so a dependency's model of the same name
- * could replace one outside the project. Loading it before the classpath
- * makes sure the model named in the .eogen file is the one generated.
+ * When two models have the same name, the first one found wins. When a model
+ * declares an entity that an earlier model declares, EOModelGroup removes the
+ * earlier model, so loading the model the group is for last makes sure it
+ * survives a dependency's model that shares one of its entities.
  */
 public class ClasspathEOModelGroupFactory implements IEOModelGroupFactory {
 	/**
@@ -82,14 +83,23 @@ public class ClasspathEOModelGroupFactory implements IEOModelGroupFactory {
 			for (File modelFolder : _modelFolders) {
 				loadModelsUnder(modelFolder, modelGroup, failures, skipOnDuplicates, progressMonitor);
 			}
+			for (File entry : _classpath) {
+				if (entry.isDirectory()) {
+					for (String folder : RESOURCE_FOLDERS) {
+						loadModelsIn(new File(entry, folder), modelGroup, failures, skipOnDuplicates, progressMonitor);
+					}
+				} else if (entry.isFile() && entry.getName().endsWith(".jar")) {
+					for (String folder : RESOURCE_FOLDERS) {
+						URL url = new URL("jar:" + entry.toURI().toURL() + "!/" + folder);
+						if (URLUtils.exists(url)) {
+							modelGroup.loadModelsFromURL(url, 1, failures, skipOnDuplicates, progressMonitor);
+						}
+					}
+				}
+			}
 			File modelFile = toFile(modelGroupResource);
 			if (modelFile != null && EOModelGroup.getModelNameForFile(modelFile) != null) {
 				modelGroup.loadModelFromURL(modelFile.toURI().toURL(), failures, skipOnDuplicates, progressMonitor);
-			}
-			for (File entry : _classpath) {
-				for (URL resourcesURL : resourcesURLs(entry)) {
-					modelGroup.loadModelsFromURL(resourcesURL, 1, failures, skipOnDuplicates, progressMonitor);
-				}
 			}
 		} catch (IOException e) {
 			throw new EOModelException("Failed to load the model group.", e);
@@ -124,26 +134,22 @@ public class ClasspathEOModelGroupFactory implements IEOModelGroupFactory {
 	}
 
 	/**
-	 * Returns the URLs of the resource folders that exist in a classpath entry.
+	 * Loads the models directly in a folder, as
+	 * {@link EOModelGroup#loadModelsFromURL(URL, int, Set, boolean, IProgressMonitor)}
+	 * does with a depth of 1. That method can't read a file URL whose path has
+	 * an escaped character, such as a space.
 	 */
-	private static List<URL> resourcesURLs(File entry) throws IOException {
-		List<URL> urls = new ArrayList<URL>();
-		if (entry.isDirectory()) {
-			for (String folder : RESOURCE_FOLDERS) {
-				File resources = new File(entry, folder);
-				if (resources.isDirectory()) {
-					urls.add(resources.toURI().toURL());
-				}
-			}
-		} else if (entry.isFile() && entry.getName().endsWith(".jar")) {
-			for (String folder : RESOURCE_FOLDERS) {
-				URL url = new URL("jar:" + entry.toURI().toURL() + "!/" + folder);
-				if (URLUtils.exists(url)) {
-					urls.add(url);
-				}
+	private static void loadModelsIn(File folder, EOModelGroup modelGroup, Set<EOModelVerificationFailure> failures, boolean skipOnDuplicates, IProgressMonitor progressMonitor) throws IOException, EOModelException {
+		File[] children = folder.listFiles();
+		if (children == null) {
+			return;
+		}
+		Arrays.sort(children);
+		for (File child : children) {
+			if (child.isDirectory() && !child.isHidden() && child.getName().endsWith(".eomodeld")) {
+				modelGroup.loadModelFromURL(child.toURI().toURL(), failures, skipOnDuplicates, progressMonitor);
 			}
 		}
-		return urls;
 	}
 
 	private static File toFile(Object modelGroupResource) {

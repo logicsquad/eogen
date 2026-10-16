@@ -19,8 +19,8 @@ public class VelocityOneEventHandler implements InvalidReferenceEventHandler {
 	@Override
 	public boolean invalidSetMethod(Context context, String leftreference, String rightreference, Info info) {
 		Context userContext = context instanceof InternalWrapperContext ? ((InternalWrapperContext) context).getInternalUserContext() : context;
-		if (userContext instanceof VelocityOneContext && leftreference != null) {
-			((VelocityOneContext) userContext).nullSet(leftreference.replaceFirst("^[!{]+", ""));
+		if (userContext instanceof VelocityOneContext) {
+			((VelocityOneContext) userContext).nullSet();
 		}
 		return false;
 	}

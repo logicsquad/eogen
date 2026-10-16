@@ -133,11 +133,15 @@ without them:
 
 1. every `.eomodeld` under the model directories, at any depth, in name
    order, skipping hidden folders, `.wo` folders and `Java` folders;
-2. the model that the `.eogen` file names, if it is somewhere else;
-3. for each jar or folder on the classpath, in order, the models in its
-   `Resources/` and `META-INF/webobjects/Resources/` folders.
+2. for each jar or folder on the classpath, in order, the models in its
+   `Resources/` and `META-INF/webobjects/Resources/` folders;
+3. last, the model that the `.eogen` file names, in case it is somewhere
+   else.
 
-When two models have the same name, the first one found wins. The
+When two models have the same name, the first one found wins. When a
+model declares an entity that an earlier model declares, the earlier
+model is removed, so loading the `.eogen` file's model last means it
+survives a dependency's model that shares one of its entities. The
 Maven plugin's classpath is the project's resolved compile, provided
 and system dependencies, in Maven's order. Without `-loadModelGroup`,
 eogen loads the `-model` and `-refmodel` models, as WOLips does.
@@ -190,8 +194,10 @@ top of those settings:
   every fetch specification's methods.
 * `$velocityCount` counts `#foreach` iterations.
 * `#set` with a null value leaves the reference as it was.
+* A template file's byte order mark is kept, and so appears in the
+  generated file, as it does with WOLips.
 
-`src/test/resources/velocity` in `eogen-core` checks 28 templates
+`src/test/resources/velocity` in `eogen-core` checks 31 templates
 against Velocity 1.5's own output. These still differ:
 
 * methods on arrays, such as `$array.size()`, which Velocity 1.5 prints
@@ -202,7 +208,9 @@ against Velocity 1.5's own output. These still differ:
 * `==` between two null references, and `!=` between a null and a
   value, which Velocity 1.5 treats as errors and evaluates as false;
 * `#set` of a property to null, such as `#set($map.key = $null)`, which
-  Velocity 1.5 skips.
+  Velocity 1.5 skips;
+* `#set` with a formal reference such as `${x}` on its left, which
+  Velocity 1.5 ignores.
 
 None of them occurs in the templates that WOLips bundles.
 

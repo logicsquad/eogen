@@ -88,15 +88,52 @@ class ClasspathEOModelGroupFactoryTest {
 		assertThat(entityNames(group.getModelNamed("Shared"))).containsExactly("FromProject");
 	}
 
+	/**
+	 * As in Eclipse, the model the group is for is loaded last, so a model of
+	 * the same name found earlier wins.
+	 */
 	@Test
-	void modelTheGroupIsForComesBeforeClasspathModels() throws Exception {
+	void modelTheGroupIsForComesAfterClasspathModels() throws Exception {
 		Path elsewhere = temp.resolve("elsewhere");
 		writeModel(elsewhere, "Edited", "FromElsewhere");
 		Path framework = temp.resolve("framework");
 		writeModel(framework.resolve("Resources"), "Edited", "FromJar");
 		Path jar = jar(framework, temp.resolve("framework.jar"));
 		EOModelGroup group = load(Collections.<File>emptyList(), Collections.singletonList(jar.toFile()), elsewhere.resolve("Edited.eomodeld").toFile());
-		assertThat(entityNames(group.getModelNamed("Edited"))).containsExactly("FromElsewhere");
+		assertThat(entityNames(group.getModelNamed("Edited"))).containsExactly("FromJar");
+	}
+
+	/**
+	 * A dependency's model that declares one of the project model's entities
+	 * evicts it, but loading the model the group is for last evicts the
+	 * dependency's model in turn, as in Eclipse.
+	 */
+	@Test
+	void modelTheGroupIsForSurvivesADependencyThatSharesAnEntity() throws Exception {
+		Path resources = temp.resolve("resources");
+		writeModel(resources, "Shop", "Person");
+		Path framework = temp.resolve("framework");
+		writeModel(framework.resolve("Resources"), "ShopOld", "Person");
+		Path jar = jar(framework, temp.resolve("framework.jar"));
+		EOModelGroup group = new EOModelGroup();
+		Set<EOModelVerificationFailure> failures = new HashSet<>();
+		new ClasspathEOModelGroupFactory(Collections.singletonList(resources.toFile()), Collections.singletonList(jar.toFile()))
+				.loadModelGroup(resources.resolve("Shop.eomodeld").toFile().toURI().toURL(), group, failures, true, new NullProgressMonitor());
+		assertThat(modelNames(group)).containsExactly("Shop");
+		assertThat(failures).allMatch(EOModelVerificationFailure::isWarning).isNotEmpty();
+	}
+
+	@Test
+	void loadsModelsWhosePathsHaveSpaces() throws Exception {
+		Path spaced = temp.resolve("My Projects");
+		writeModel(spaced.resolve("resources"), "Local", "LocalEntity");
+		Path classes = spaced.resolve("framework classes");
+		writeModel(classes.resolve("Resources"), "Classes", "ClassesEntity");
+		Path framework = spaced.resolve("framework");
+		writeModel(framework.resolve("Resources"), "Framework", "FrameworkEntity");
+		Path jar = jar(framework, spaced.resolve("framework 1.0.jar"));
+		EOModelGroup group = load(Collections.singletonList(spaced.resolve("resources").toFile()), Arrays.asList(classes.toFile(), jar.toFile()), null);
+		assertThat(modelNames(group)).containsExactlyInAnyOrder("Local", "Classes", "Framework");
 	}
 
 	private static EOModelGroup load(List<File> modelFolders, List<File> classpath, File modelFile) throws Exception {
