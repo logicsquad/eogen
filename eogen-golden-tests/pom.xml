@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>net.logicsquad</groupId>
+    <artifactId>eogen-parent</artifactId>
+    <version>0.1-SNAPSHOT</version>
+  </parent>
+  <artifactId>eogen-golden-tests</artifactId>
+  <name>eogen golden tests</name>
+  <description>Runs the Maven plugin on copies of real WebObjects projects, and compares what it generates with their committed classes.</description>
+
+  <properties>
+    <maven.install.skip>true</maven.install.skip>
+    <maven.deploy.skip>true</maven.deploy.skip>
+    <!-- The projects to copy from eogen.golden.projects, separated by commas. Required. -->
+    <eogen.golden.names/>
+  </properties>
+
+  <dependencies>
+    <!-- Builds and installs the plugin first, since the tests run it from the local repository. -->
+    <dependency>
+      <groupId>net.logicsquad</groupId>
+      <artifactId>eogen-maven-plugin</artifactId>
+      <version>${project.version}</version>
+      <type>maven-plugin</type>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.assertj</groupId>
+      <artifactId>assertj-core</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <configuration>
+          <systemPropertyVariables>
+            <maven.home>${maven.home}</maven.home>
+            <eogen.version>${project.version}</eogen.version>
+            <eogen.golden.projects>${eogen.golden.projects}</eogen.golden.projects>
+            <eogen.golden.names>${eogen.golden.names}</eogen.golden.names>
+            <eogen.golden.repository>${settings.localRepository}</eogen.golden.repository>
+            <eogen.golden.plugin>${project.basedir}/../eogen-maven-plugin/target/eogen-maven-plugin-${project.version}.jar</eogen.golden.plugin>
+            <eogen.golden.work>${project.build.directory}/golden</eogen.golden.work>
+          </systemPropertyVariables>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+</project>

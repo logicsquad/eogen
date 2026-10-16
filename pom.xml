@@ -240,6 +240,18 @@
   </build>
 
   <profiles>
+    <!-- mvn install -Deogen.golden.projects=<folder of WebObjects projects> -Deogen.golden.names=<project>,<project> -->
+    <profile>
+      <id>golden</id>
+      <activation>
+        <property>
+          <name>eogen.golden.projects</name>
+        </property>
+      </activation>
+      <modules>
+        <module>eogen-golden-tests</module>
+      </modules>
+    </profile>
     <profile>
       <id>release</id>
       <activation>
