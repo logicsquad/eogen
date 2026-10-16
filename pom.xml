@@ -54,6 +54,7 @@
   <modules>
     <module>eogen-core</module>
     <module>eogen-maven-plugin</module>
+    <module>eogen-cli</module>
   </modules>
 
   <properties>
@@ -119,6 +120,22 @@
   </dependencyManagement>
 
   <build>
+    <!-- Every jar carries the licences and NOTICE, as the ObjectStyle and BSD licences require. -->
+    <resources>
+      <resource>
+        <directory>src/main/resources</directory>
+      </resource>
+      <resource>
+        <directory>${project.basedir}/..</directory>
+        <targetPath>META-INF</targetPath>
+        <includes>
+          <include>LICENSE</include>
+          <include>NOTICE</include>
+          <include>licenses/*</include>
+        </includes>
+      </resource>
+    </resources>
+
     <pluginManagement>
       <plugins>
         <plugin>
