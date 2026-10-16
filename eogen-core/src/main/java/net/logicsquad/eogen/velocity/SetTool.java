@@ -19,6 +19,13 @@ package net.logicsquad.eogen.velocity;
  * under the License.
  */
 
+/*
+ * Modified by Logic Squad for eogen (2026): moved from package
+ * org.apache.velocity.tools.generic to net.logicsquad.eogen.velocity.
+ * This copy comes from WOLips's org.objectstyle.wolips.thirdparty.velocity
+ * plug-in, which had already changed the VelocityTools original.
+ */
+
 import java.util.Set;
 
 /**
