@@ -25,6 +25,8 @@ import net.logicsquad.eogen.generator.EOGeneratorModel;
 import net.logicsquad.eogen.generator.EOGeneratorResourceLoader;
 import net.logicsquad.eogen.generator.EOModelReference;
 import net.logicsquad.eogen.generator.VelocityEOGeneratorRunner;
+import net.logicsquad.eogen.lint.LintFinding;
+import net.logicsquad.eogen.lint.ModelLinter;
 import net.logicsquad.eogen.model.EOModel;
 import net.logicsquad.eogen.model.EOModelException;
 import net.logicsquad.eogen.model.EOModelGroup;
@@ -49,6 +51,11 @@ import net.logicsquad.eogen.utils.URLUtils;
  * because the classes it would write are broken. {@link #setForce(boolean)}
  * writes them anyway, as WOLips does.
  * </p>
+ * <p>
+ * It also lints the models it uses, with {@link ModelLinter}, for the mistakes
+ * that loading a model hides, such as a misspelt key. Its findings are
+ * warnings, or errors when {@link #setStrict(boolean) strict}.
+ * </p>
  */
 public class EOGenerator {
 	/**
@@ -63,6 +70,8 @@ public class EOGenerator {
 	private final List<File> classpath;
 
 	private boolean force;
+
+	private boolean strict;
 
 	/**
 	 * Constructor for a Maven project with no dependencies: models come from
@@ -135,6 +144,26 @@ public class EOGenerator {
 	 */
 	public void setForce(boolean force) {
 		this.force = force;
+	}
+
+	/**
+	 * Returns whether lint findings are errors rather than warnings.
+	 *
+	 * @return {@code true} if strict
+	 */
+	public boolean isStrict() {
+		return strict;
+	}
+
+	/**
+	 * Sets whether the findings of {@link ModelLinter} are errors, which stop
+	 * {@link #generate(File)} writing and fail {@link #verify(boolean)}, rather
+	 * than warnings. The default is {@code false}.
+	 *
+	 * @param strict whether lint findings are errors
+	 */
+	public void setStrict(boolean strict) {
+		this.strict = strict;
 	}
 
 	/**
@@ -224,6 +253,15 @@ public class EOGenerator {
 		}
 		modelGroup.resolve(failures);
 		modelGroup.verify(failures);
+		for (File modelFolder : modelFolders) {
+			for (File model : ClasspathEOModelGroupFactory.findModelFolders(modelFolder)) {
+				String name = EOModelGroup.getModelNameForFile(model);
+				EOModel eomodel = name == null ? null : modelGroup.getModelNamed(name);
+				for (LintFinding finding : ModelLinter.lint(model)) {
+					failures.add(new EOModelVerificationFailure(eomodel, finding.toString(), !strict));
+				}
+			}
+		}
 
 		Set<EOModel> reportedModels = new HashSet<>();
 		for (EOModel model : modelGroup.getModels()) {
@@ -263,7 +301,13 @@ public class EOGenerator {
 
 	private GenerationResult run(File eogenFile, boolean write) throws EOGeneratorException {
 		EOGeneratorModel eogeneratorModel = readEOGenFile(eogenFile);
-		validate(eogenFile, eogeneratorModel);
+		List<File> models = validate(eogenFile, eogeneratorModel);
+		List<String> findings = new ArrayList<>();
+		for (File model : models) {
+			for (LintFinding finding : ModelLinter.lint(model)) {
+				findings.add(finding.toString());
+			}
+		}
 		Path scratch;
 		try {
 			scratch = Files.createTempDirectory("eogen");
@@ -288,13 +332,19 @@ public class EOGenerator {
 				throw new EOGeneratorException("Failed to generate from " + eogenFile + ": " + e.getMessage(), e);
 			}
 			List<String> errors = errors(results);
+			List<String> warnings = new ArrayList<>();
+			if (strict) {
+				errors.addAll(findings);
+			} else {
+				warnings.addAll(findings);
+			}
 			boolean written = write && (errors.isEmpty() || force);
 			List<GeneratedFile> files = new ArrayList<>();
 			for (Map.Entry<String, File> output : outputs.entrySet()) {
 				Kind kind = EOGeneratorModel.SUBCLASS_DESTINATION.equals(output.getKey()) ? Kind.SUBCLASS : Kind.SUPERCLASS;
 				files.addAll(compare(output.getValue().toPath(), destinations.get(output.getKey()).toPath(), kind, written));
 			}
-			return new GenerationResult(eogenFile, written, files, errors);
+			return new GenerationResult(eogenFile, written, files, errors, warnings);
 		} catch (IOException e) {
 			throw new EOGeneratorException("Failed to write the files for " + eogenFile + ": " + e.getMessage(), e);
 		} finally {
@@ -305,8 +355,10 @@ public class EOGenerator {
 	/**
 	 * Checks what WOLips would otherwise fail on with a NullPointerException, and
 	 * gives a missing -subclassDestination the -destination, as veogen did.
+	 *
+	 * @return the folders of the models that the .eogen file names
 	 */
-	private void validate(File eogenFile, EOGeneratorModel eogeneratorModel) throws EOGeneratorException {
+	private List<File> validate(File eogenFile, EOGeneratorModel eogeneratorModel) throws EOGeneratorException {
 		if (eogeneratorModel.getDestination() == null) {
 			throw new EOGeneratorException(eogenFile + " has no -destination.");
 		}
@@ -316,6 +368,7 @@ public class EOGenerator {
 		if (eogeneratorModel.getModels().isEmpty()) {
 			throw new EOGeneratorException(eogenFile + " names no -model.");
 		}
+		List<File> models = new ArrayList<>();
 		for (EOModelReference modelReference : eogeneratorModel.getModels()) {
 			File modelFolder = new File(modelReference.getPath((Path) null));
 			if (!modelFolder.isAbsolute()) {
@@ -325,7 +378,9 @@ public class EOGenerator {
 			if (!indexFile && !new File(modelFolder, "index.eomodeld").isFile()) {
 				throw new EOGeneratorException(eogenFile + " names the model " + modelFolder + ", which does not exist.");
 			}
+			models.add(indexFile ? modelFolder.getParentFile() : modelFolder);
 		}
+		return models;
 	}
 
 	/**

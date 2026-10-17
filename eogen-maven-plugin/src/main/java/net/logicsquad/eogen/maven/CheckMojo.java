@@ -36,7 +36,7 @@ public class CheckMojo extends AbstractEOGenMojo {
 			} catch (EOGeneratorException e) {
 				throw new MojoExecutionException(e.getMessage(), e);
 			}
-			errors += logErrors(eogenFile, result);
+			errors += logProblems(eogenFile, result);
 			if (result.hasErrors() && !isForce()) {
 				continue;
 			}

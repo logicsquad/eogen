@@ -68,6 +68,13 @@ public abstract class AbstractEOGenMojo extends AbstractMojo {
 	@Parameter(property = "eogen.force", defaultValue = "false")
 	private boolean force;
 
+	/**
+	 * Makes the mistakes that the lint finds in the models, such as a misspelt
+	 * key, errors rather than warnings.
+	 */
+	@Parameter(property = "eogen.strict", defaultValue = "false")
+	private boolean strict;
+
 	@Override
 	public final void execute() throws MojoExecutionException, MojoFailureException {
 		if (skip) {
@@ -76,6 +83,7 @@ public abstract class AbstractEOGenMojo extends AbstractMojo {
 		}
 		EOGenerator generator = new EOGenerator(project.getBasedir(), modelDirectories(), classpath());
 		generator.setForce(force);
+		generator.setStrict(strict);
 		execute(generator);
 	}
 
@@ -89,13 +97,17 @@ public abstract class AbstractEOGenMojo extends AbstractMojo {
 	}
 
 	/**
-	 * Logs an .eogen file's errors: as errors, or as warnings when forced.
+	 * Logs an .eogen file's warnings, and its errors: as errors, or as warnings
+	 * when forced.
 	 *
 	 * @param eogenFile the .eogen file
 	 * @param result what generating or checking it found
 	 * @return the number of errors
 	 */
-	protected int logErrors(File eogenFile, GenerationResult result) {
+	protected int logProblems(File eogenFile, GenerationResult result) {
+		for (String warning : result.getWarnings()) {
+			getLog().warn(relative(eogenFile) + ": " + warning);
+		}
 		for (String error : result.getErrors()) {
 			if (force) {
 				getLog().warn(relative(eogenFile) + ": " + error);

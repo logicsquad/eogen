@@ -34,7 +34,7 @@ public class GenerateMojo extends AbstractEOGenMojo {
 			} catch (EOGeneratorException e) {
 				throw new MojoExecutionException(e.getMessage(), e);
 			}
-			errors += logErrors(eogenFile, result);
+			errors += logProblems(eogenFile, result);
 			if (!result.isWritten()) {
 				getLog().error(relative(eogenFile) + ": nothing written.");
 				continue;

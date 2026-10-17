@@ -104,6 +104,24 @@ class MainTest {
 	}
 
 	@Test
+	void lintFindingsAreWarningsOrErrorsWhenStrict() throws Exception {
+		Path book = project.resolve("src/main/resources/Library.eomodeld/Book.plist");
+		String text = new String(Files.readAllBytes(book), StandardCharsets.UTF_8);
+		assertThat(text).contains("classProperties = (author, currency, price, title);");
+		Files.write(book, text.replace("classProperties = (author, currency, price, title);", "classProperties = (author, currency, price, titel);").getBytes(StandardCharsets.UTF_8));
+		String finding = "Library.eomodeld/Book.plist: entity Book: classProperties names titel, which is not an attribute or relationship (did you mean title?).";
+
+		assertThat(run("--strict", "--project", project.toString(), "--classpath", reference.toString(), eogen())).isEqualTo(Main.FAILED);
+		assertThat(err()).contains("eogen: " + finding);
+		assertThat(project.resolve("src/main/java")).doesNotExist();
+
+		err.reset();
+		assertThat(run("--project", project.toString(), "--classpath", reference.toString(), eogen())).isEqualTo(Main.OK);
+		assertThat(err()).contains("eogen: warning: " + finding);
+		assertThat(project.resolve(LIBRARY + "_Book.java")).exists();
+	}
+
+	@Test
 	void helpAndVersion() throws Exception {
 		assertThat(run("--help")).isEqualTo(Main.OK);
 		assertThat(out()).startsWith("Usage: eogen [options] <file.eogen>");

@@ -148,6 +148,18 @@ public class EOGenMojoIT {
 		assertThat(result.getMavenProjectResult().getTargetProjectDirectory().resolve(LIBRARY + "_Book.java")).exists();
 	}
 
+	/**
+	 * Book's class properties name titel, which is not an attribute, so the
+	 * lint reports it, and strict makes that an error.
+	 */
+	@MavenTest
+	void generateStrict(MavenExecutionResult result) {
+		assertThat(result).isFailure();
+		assertThat(result).out().error().contains("src/main/resources/Library.eogen: Library.eomodeld/Book.plist: entity Book: classProperties names titel,"
+				+ " which is not an attribute or relationship (did you mean title?).");
+		assertThat(result.getMavenProjectResult().getTargetProjectDirectory().resolve("src/main/java")).doesNotExist();
+	}
+
 	@MavenTest
 	void skip(MavenExecutionResult result) {
 		assertThat(result).isSuccessful();

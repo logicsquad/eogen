@@ -76,6 +76,8 @@ They take these parameters:
   directories.
 * `skip` (`eogen.skip`): skips the goal.
 * `force` (`eogen.force`): generates despite errors, as WOLips does.
+* `strict` (`eogen.strict`): makes the lint's findings errors (see
+  [Lint](#lint)).
 * For `verify`, `includeDependencies` (`eogen.verify.includeDependencies`)
   also reports failures in models from dependencies, and
   `failOnWarning` (`eogen.verify.failOnWarning`) fails the build on
@@ -106,6 +108,8 @@ Using the command line
     --force               Write the classes even when there are errors,
                           as WOLips does. Without it, errors mean
                           nothing is written, and the exit status is 2.
+    --strict              Make the lint's findings in the models errors
+                          rather than warnings.
 
 To give it a Maven project's dependencies, run it from the project's
 folder with the classpath that Maven resolves:
@@ -128,7 +132,8 @@ Using the library
 and `verify(includeDependencies)` returns the model group's failures.
 `getErrors()` lists a result's errors; when there are any, `generate`
 writes nothing, and `isWritten()` is false, unless
-`setForce(true)` was called.
+`setForce(true)` was called. `getWarnings()` lists the lint's
+findings, which `setStrict(true)` makes errors instead.
 Below `EOGenerator`, the extracted WOLips classes are available as
 they were: `EOModelGroup`, `EOModel`, `EOEntity` and the rest in
 `net.logicsquad.eogen.model`, and `EOGeneratorModel` and
@@ -180,6 +185,31 @@ exist is often not meant as one, such as the Subversion keyword
 `$LastChangedRevision$` in WOLips's own `_Entity.java`, or the Java
 class name `Outer$Inner`. Quiet references, such as `$!entity.parent`,
 and references that only a `#if` or `#set` reads, don't count either.
+
+Lint
+----
+Loading a model ignores whatever the model classes don't expect, so
+some mistakes have no effect except a wrong class. eogen lints the
+models that an `.eogen` file names when it generates or checks, and the
+project's models when it verifies. It reports:
+
+* a key it doesn't know, with the key that was most likely meant, such
+  as `attribute price: unknown key prototypeNam (did you mean
+  prototypeName?)`. That mistake leaves the attribute without its
+  prototype;
+* a name in `classProperties`, `primaryKeyAttributes` or
+  `attributesUsedForLocking` that is not one of the entity's attributes
+  or relationships, which silently drops it from the class;
+* an entity file that `index.eomodeld` doesn't list, or one it lists
+  that doesn't exist, and an entity whose `name` isn't its file's.
+
+The keys it knows are the ones the model classes read and write, and
+the ones found in 116 real models, Project Wonder's among them. It
+doesn't look inside `userInfo`, `internalInfo` or qualifiers.
+
+Its findings are warnings. `strict` (`eogen.strict`, `--strict`) makes
+them errors, which stop `generate` as other errors do. Use `strict`
+when a script or a coding agent edits the models.
 
 How eogen finds templates
 -------------------------

@@ -18,7 +18,7 @@ import net.logicsquad.eogen.GenerationResult;
  * Generates the entity classes for one .eogen file.
  *
  * <pre>
- * eogen [--project folder] [--models folders] [--classpath path] [--check] [--force] file.eogen
+ * eogen [--project folder] [--models folders] [--classpath path] [--check] [--force] [--strict] file.eogen
  * </pre>
  */
 public final class Main {
@@ -58,6 +58,8 @@ public final class Main {
 			"  --force               Write the classes even when the model group or a",
 			"                        template has errors, as WOLips does. Without it, errors",
 			"                        mean nothing is written, and the exit status is 2.",
+			"  --strict              Make the lint's findings in the models, such as a",
+			"                        misspelt key, errors rather than warnings.",
 			"  --help                Show this help.",
 			"  --version             Show eogen's version.");
 
@@ -88,6 +90,7 @@ public final class Main {
 		List<File> classpath = Collections.emptyList();
 		boolean check = false;
 		boolean force = false;
+		boolean strict = false;
 		File eogenFile = null;
 		for (int i = 0; i < args.length; i++) {
 			String arg = args[i];
@@ -102,6 +105,8 @@ public final class Main {
 				check = true;
 			} else if ("--force".equals(arg)) {
 				force = true;
+			} else if ("--strict".equals(arg)) {
+				strict = true;
 			} else if ("--project".equals(arg) || "--models".equals(arg) || "--classpath".equals(arg)) {
 				if (i + 1 == args.length) {
 					return usage(err, arg + " needs a value.");
@@ -139,12 +144,16 @@ public final class Main {
 
 		EOGenerator generator = new EOGenerator(project, models, classpath);
 		generator.setForce(force);
+		generator.setStrict(strict);
 		GenerationResult result;
 		try {
 			result = check ? generator.check(eogenFile) : generator.generate(eogenFile);
 		} catch (EOGeneratorException e) {
 			err.println("eogen: " + e.getMessage());
 			return FAILED;
+		}
+		for (String warning : result.getWarnings()) {
+			err.println("eogen: warning: " + warning);
 		}
 		for (String error : result.getErrors()) {
 			err.println("eogen: " + error);

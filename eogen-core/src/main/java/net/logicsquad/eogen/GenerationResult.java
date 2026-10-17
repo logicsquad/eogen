@@ -17,8 +17,10 @@ public final class GenerationResult {
 
 	private final List<String> errors;
 
+	private final List<String> warnings;
+
 	/**
-	 * Constructor.
+	 * Constructor, for a result without warnings.
 	 *
 	 * @param eogenFile the .eogen file
 	 * @param written whether the stale files were written to the project
@@ -26,10 +28,24 @@ public final class GenerationResult {
 	 * @param errors the model and template errors the generator reported
 	 */
 	public GenerationResult(File eogenFile, boolean written, List<GeneratedFile> files, List<String> errors) {
+		this(eogenFile, written, files, errors, Collections.<String>emptyList());
+	}
+
+	/**
+	 * Constructor.
+	 *
+	 * @param eogenFile the .eogen file
+	 * @param written whether the stale files were written to the project
+	 * @param files the files generated
+	 * @param errors the model and template errors the generator reported
+	 * @param warnings the problems that don't stop it writing
+	 */
+	public GenerationResult(File eogenFile, boolean written, List<GeneratedFile> files, List<String> errors, List<String> warnings) {
 		this.eogenFile = eogenFile;
 		this.written = written;
 		this.files = Collections.unmodifiableList(new ArrayList<>(files));
 		this.errors = Collections.unmodifiableList(new ArrayList<>(errors));
+		this.warnings = Collections.unmodifiableList(new ArrayList<>(warnings));
 	}
 
 	/**
@@ -124,5 +140,15 @@ public final class GenerationResult {
 	 */
 	public boolean hasErrors() {
 		return !errors.isEmpty();
+	}
+
+	/**
+	 * Returns the problems that don't stop generating: the lint findings in the
+	 * models, unless the generator is strict, which makes them errors.
+	 *
+	 * @return warning messages
+	 */
+	public List<String> getWarnings() {
+		return warnings;
 	}
 }

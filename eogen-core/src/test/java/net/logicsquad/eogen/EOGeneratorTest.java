@@ -287,6 +287,33 @@ class EOGeneratorTest {
 				.doesNotContain("noSuchProperty", "never");
 	}
 
+	/**
+	 * A class property that matches nothing silently drops it from the class,
+	 * so the lint reports it: as a warning, or as an error when strict.
+	 */
+	@Test
+	void lintFindingsAreWarningsOrErrorsWhenStrict() throws Exception {
+		FixtureProject project = FixtureProject.copyTo(temp);
+		Path product = project.resolve("src/main/resources/Shop.eomodeld/Product.plist");
+		write(product, read(product).replace("classProperties = (active, category, name, price, tags);", "classProperties = (active, category, name, prise, tags);"));
+		String finding = "Shop.eomodeld/Product.plist: entity Product: classProperties names prise, which is not an attribute or relationship (did you mean price?).";
+
+		GenerationResult lenient = project.forcedGenerator().generate(project.eogen("ShopWonder"));
+		assertThat(lenient.getWarnings()).containsExactly(finding);
+		assertThat(lenient.getErrors()).doesNotContain(finding);
+
+		EOGenerator strict = project.forcedGenerator();
+		strict.setStrict(true);
+		assertThat(strict.check(project.eogen("ShopWonder")).getErrors()).contains(finding);
+
+		assertThat(project.generator().verify(false).getWarnings()).extracting(EOModelVerificationFailure::getMessage).containsExactly(finding);
+		EOGenerator strictVerifier = project.generator();
+		strictVerifier.setStrict(true);
+		VerificationResult verification = strictVerifier.verify(false);
+		assertThat(verification.getErrors()).extracting(EOModelVerificationFailure::getMessage).containsExactly(finding);
+		assertThat(verification.getErrors().get(0).getModel().getName()).isEqualTo("Shop");
+	}
+
 	@Test
 	void modelThatFailsToLoadIsAnError() throws Exception {
 		FixtureProject project = FixtureProject.copyTo(temp);

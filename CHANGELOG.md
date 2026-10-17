@@ -12,6 +12,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `EOGenerator.setForce`) writes the classes anyway, as WOLips does.
   #1, #2
 
+### Added
+- A lint for the mistakes that loading a model hides: unknown keys, with
+  the key most likely meant; names in `classProperties`,
+  `primaryKeyAttributes` and `attributesUsedForLocking` that match
+  nothing; and entity files that `index.eomodeld` doesn't match. Its
+  findings are warnings, or errors with the new `strict` option
+  (`eogen.strict`, `--strict`, `EOGenerator.setStrict`). #3, #4
+
 ### Fixed
 - The Maven plugin finds models in runtime-scoped dependencies, such as
   a framework of prototypes, as WOLips does through Eclipse's classpath.

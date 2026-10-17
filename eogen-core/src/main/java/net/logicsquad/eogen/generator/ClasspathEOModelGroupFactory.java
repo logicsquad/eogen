@@ -108,13 +108,32 @@ public class ClasspathEOModelGroupFactory implements IEOModelGroupFactory {
 	}
 
 	/**
-	 * Loads every model under a folder. Like
+	 * Loads every model under a folder, in the order of
+	 * {@link #findModelFolders(File)}.
+	 */
+	private static void loadModelsUnder(File folder, EOModelGroup modelGroup, Set<EOModelVerificationFailure> failures, boolean skipOnDuplicates, IProgressMonitor progressMonitor) throws IOException, EOModelException {
+		for (File model : findModelFolders(folder)) {
+			modelGroup.loadModelFromURL(model.toURI().toURL(), failures, skipOnDuplicates, progressMonitor);
+		}
+	}
+
+	/**
+	 * Returns every {@code .eomodeld} under a folder, at any depth. Like
 	 * {@link EOModelGroup#loadModelsFromURL(URL, int, Set, boolean, IProgressMonitor)},
 	 * it skips hidden folders, {@code .wo} folders and folders named
 	 * {@code Java}, but it visits folders in name order, so the result does not
 	 * depend on the file system.
+	 *
+	 * @param folder a folder
+	 * @return model folders, in name order, depth first
 	 */
-	private static void loadModelsUnder(File folder, EOModelGroup modelGroup, Set<EOModelVerificationFailure> failures, boolean skipOnDuplicates, IProgressMonitor progressMonitor) throws IOException, EOModelException {
+	public static List<File> findModelFolders(File folder) {
+		List<File> models = new ArrayList<File>();
+		findModelFolders(folder, models);
+		return models;
+	}
+
+	private static void findModelFolders(File folder, List<File> models) {
 		File[] children = folder.listFiles();
 		if (children == null) {
 			return;
@@ -126,9 +145,9 @@ public class ClasspathEOModelGroupFactory implements IEOModelGroupFactory {
 				continue;
 			}
 			if (name.endsWith(".eomodeld")) {
-				modelGroup.loadModelFromURL(child.toURI().toURL(), failures, skipOnDuplicates, progressMonitor);
+				models.add(child);
 			} else if (!name.endsWith(".wo") && !name.equals("Java")) {
-				loadModelsUnder(child, modelGroup, failures, skipOnDuplicates, progressMonitor);
+				findModelFolders(child, models);
 			}
 		}
 	}
