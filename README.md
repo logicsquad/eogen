@@ -212,8 +212,43 @@ Using eogen with a coding agent
 EOModels with eogen. It covers the model files, how to add, rename and
 remove entities, attributes and relationships, the loop of `format`,
 `verify` and `generate` with `strict` on, and what eogen's messages
-mean. Copy the `skills/eogen` folder into a project's `.claude/skills`
-folder to use it there.
+mean.
+
+The repository is also a Claude Code plugin marketplace, whose one
+plugin has the skill, so you can install it rather than copy it. In
+Claude Code:
+
+    /plugin install eogen --marketplace logicsquad/eogen
+
+or, before Claude Code 2.1.275:
+
+    /plugin marketplace add logicsquad/eogen
+    /plugin install eogen@eogen
+
+To give it to everyone who works on a project, declare it in the
+project's committed `.claude/settings.json`, pinned to the release of
+eogen that the project uses:
+
+    {
+      "extraKnownMarketplaces": {
+        "eogen": {
+          "source": {
+            "source": "github",
+            "repo": "logicsquad/eogen",
+            "ref": "release/0.3"
+          }
+        }
+      },
+      "enabledPlugins": {
+        "eogen@eogen": true
+      }
+    }
+
+The plugin's version is eogen's, so an installed skill changes only
+when eogen does. Its skill is `/eogen:eogen`. Claude Code on the web
+doesn't load plugins that a repository declares. Copying the
+`skills/eogen` folder into a project's `.claude/skills` folder still
+works too.
 
 Agents should run with `strict`, so that the lint's findings are
 errors. Scripts can read the command line's `--json` report instead of

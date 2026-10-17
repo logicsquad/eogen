@@ -30,6 +30,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   They come after the project's own templates, and before the WOLips
   folders and the bundled templates. #23
 
+- The repository is a Claude Code plugin marketplace, whose one plugin
+  has the skill, so that teams can install it, with
+  `/plugin install eogen --marketplace logicsquad/eogen`, or declare it
+  in a project's `.claude/settings.json`, rather than copy it. The
+  plugin has eogen's version, and the skill says which eogen it
+  describes. #22
+
 ### Fixed
 - A to-many relationship to a partial entity (`ERXPartial`) is fetched
   with the inverse relationship's key from the partial's class, which

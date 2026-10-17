@@ -1,0 +1,14 @@
+{
+  "name": "eogen",
+  "description": "eogen's skill for coding agents that edit EOModels and keep their classes in sync.",
+  "owner": {
+    "name": "Logic Squad"
+  },
+  "plugins": [
+    {
+      "name": "eogen",
+      "source": "./",
+      "description": "Edit EOModels, then format, verify and regenerate their classes with eogen."
+    }
+  ]
+}

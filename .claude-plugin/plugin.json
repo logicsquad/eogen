@@ -1,0 +1,12 @@
+{
+  "name": "eogen",
+  "version": "0.3",
+  "description": "A skill for editing EOModels, and keeping their classes in sync with eogen.",
+  "author": {
+    "name": "Logic Squad"
+  },
+  "homepage": "https://github.com/logicsquad/eogen",
+  "repository": "https://github.com/logicsquad/eogen",
+  "license": "BSD-2-Clause",
+  "keywords": ["webobjects", "eof", "eomodel", "eogenerator", "wonder"]
+}
