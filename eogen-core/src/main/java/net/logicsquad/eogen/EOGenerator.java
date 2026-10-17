@@ -32,6 +32,7 @@ import net.logicsquad.eogen.generator.EOModelReference;
 import net.logicsquad.eogen.format.FormatResult;
 import net.logicsquad.eogen.format.ModelFormatter;
 import net.logicsquad.eogen.generator.VelocityEOGeneratorRunner;
+import net.logicsquad.eogen.lint.KeyLinter;
 import net.logicsquad.eogen.lint.LintFinding;
 import net.logicsquad.eogen.lint.ModelLinter;
 import net.logicsquad.eogen.model.EOModel;
@@ -60,8 +61,10 @@ import net.logicsquad.eogen.utils.URLUtils;
  * </p>
  * <p>
  * It also lints the models it uses, with {@link ModelLinter}, for the mistakes
- * that loading a model hides, such as a misspelt key. Its findings are
- * warnings, or errors when {@link #setStrict(boolean) strict}.
+ * that loading a model hides, such as a misspelt key, and with
+ * {@link KeyLinter}, for keys in fetch specifications and restricting
+ * qualifiers that match nothing. Their findings are warnings, or errors when
+ * {@link #setStrict(boolean) strict}.
  * </p>
  */
 public class EOGenerator {
@@ -185,9 +188,10 @@ public class EOGenerator {
 	}
 
 	/**
-	 * Sets whether the findings of {@link ModelLinter} are errors, which stop
-	 * {@link #generate(File)} writing and fail {@link #verify(boolean)}, rather
-	 * than warnings. The default is {@code false}.
+	 * Sets whether the findings of {@link ModelLinter} and {@link KeyLinter} are
+	 * errors, which stop {@link #generate(File)} writing and fail
+	 * {@link #verify(boolean)}, rather than warnings. The default is
+	 * {@code false}.
 	 *
 	 * @param strict whether lint findings are errors
 	 */
@@ -433,6 +437,11 @@ public class EOGenerator {
 				for (LintFinding finding : ModelLinter.lint(model)) {
 					failures.add(new EOModelVerificationFailure(eomodel, finding.toString(), !strict));
 				}
+				if (eomodel != null) {
+					for (LintFinding finding : KeyLinter.lint(eomodel, model)) {
+						failures.add(new EOModelVerificationFailure(eomodel, finding.toString(), !strict));
+					}
+				}
 			}
 		}
 
@@ -542,6 +551,7 @@ public class EOGenerator {
 				findings.add(finding.toString());
 			}
 		}
+		findings.addAll(keyFindings(models));
 		Path scratch;
 		try {
 			scratch = Files.createTempDirectory("eogen");
@@ -568,7 +578,9 @@ public class EOGenerator {
 			List<String> errors = errors(results);
 			List<String> warnings = new ArrayList<>();
 			if (strict) {
-				errors.addAll(findings);
+				// A finding, such as a key that matches nothing, can be the cause of
+				// a template's error, so it comes first.
+				errors.addAll(0, findings);
 			} else {
 				warnings.addAll(findings);
 			}
@@ -584,6 +596,35 @@ public class EOGenerator {
 		} finally {
 			delete(scratch);
 		}
+	}
+
+	/**
+	 * Lints the keys of the models that an .eogen file names, with
+	 * {@link KeyLinter}, which needs the model group loaded and resolved.
+	 *
+	 * @return the findings, as eogen reports them
+	 */
+	private List<String> keyFindings(List<File> models) {
+		EOModelGroup modelGroup = new EOModelGroup();
+		Set<EOModelVerificationFailure> failures = new LinkedHashSet<>();
+		try {
+			modelGroupFactory().loadModelGroup(null, modelGroup, failures, true, new NullProgressMonitor());
+			modelGroup.resolve(failures);
+		} catch (EOModelException | RuntimeException e) {
+			// Generating reports why the model group doesn't load.
+			return Collections.emptyList();
+		}
+		List<String> findings = new ArrayList<>();
+		for (File model : models) {
+			String name = EOModelGroup.getModelNameForFile(model);
+			EOModel eomodel = name == null ? null : modelGroup.getModelNamed(name);
+			if (eomodel != null) {
+				for (LintFinding finding : KeyLinter.lint(eomodel, model)) {
+					findings.add(finding.toString());
+				}
+			}
+		}
+		return findings;
 	}
 
 	/**

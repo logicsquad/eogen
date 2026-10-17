@@ -112,6 +112,31 @@ class CorpusTest {
 				.contains("er.example.erxpartials.model.Partial_EmployeePerson.DEPARTMENT_KEY").doesNotContain("model.Person.DEPARTMENT_KEY");
 	}
 
+	/**
+	 * A rename leaves People's login fetch specification comparing login, which
+	 * no longer exists, with $username. Generating fails, because the
+	 * template can't type the binding, and the key comes first, as its cause.
+	 */
+	@Test
+	void reportsAKeyThatMatchesNothingBeforeTheTemplateErrorItCauses() throws Exception {
+		Path people = project.resolve("src/main/resources/BugTracker.eomodeld/People.plist");
+		String text = new String(Files.readAllBytes(people), StandardCharsets.UTF_8);
+		assertThat(text).contains("name = login;");
+		Files.write(people, text.replace("name = login;", "name = username;").replaceAll("(?m)^(\\s+)login, $", "$1username, ").getBytes(StandardCharsets.UTF_8));
+		String finding = "BugTracker.eomodeld/People.fspec: fetch specification login: qualifier key login matches nothing in People.";
+		File eogenFile = project.resolve("src/main/resources/BugTrackerWonder.eogen").toFile();
+
+		assertThat(generator.verify(false).getWarnings()).extracting(EOModelVerificationFailure::getMessage).containsExactly(finding);
+		GenerationResult result = generator.generate(eogenFile);
+		assertThat(result.getWarnings()).containsExactly(finding);
+		assertThat(result.getErrors()).singleElement().asString().contains("has no value for binding username");
+		assertThat(result.isWritten()).isFalse();
+
+		generator.setStrict(true);
+		assertThat(generator.verify(false).getErrors()).extracting(EOModelVerificationFailure::getMessage).containsExactly(finding);
+		assertThat(generator.generate(eogenFile).getErrors()).hasSize(2).first().isEqualTo(finding);
+	}
+
 	@Test
 	void verifiesAndLintsWithoutAProblem() throws Exception {
 		VerificationResult result = generator.verify(false);

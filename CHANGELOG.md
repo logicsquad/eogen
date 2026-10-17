@@ -4,6 +4,14 @@ The format here is based on [Keep a Changelog](https://keepachangelog.com/en/1.0
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Added
+- The lint reports keys that match nothing in a fetch specification's
+  qualifier, sort orderings, prefetching or raw-row key paths, or in an
+  entity's restricting qualifier, following relationships into the
+  model group's other models. A rename or a typo leaves them behind,
+  and the fetch fails only when it runs. With `strict`, the lint's
+  errors come before the template errors that they cause. #19
+
 ### Fixed
 - A to-many relationship to a partial entity (`ERXPartial`) is fetched
   with the inverse relationship's key from the partial's class, which

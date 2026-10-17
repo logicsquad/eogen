@@ -39,9 +39,10 @@ Maven stops at the first goal that fails.
    names the first such change. Fix that by hand, and run it again.
 2. `verify` checks the model group as Entity Modeler does, and lints
    the models. The lint finds misspelt keys, names in `classProperties`
-   and the other lists that match nothing, and entity files that
-   `index.eomodeld` doesn't list. With `-Deogen.strict`, these are
-   errors.
+   and the other lists that match nothing, entity files that
+   `index.eomodeld` doesn't list, and keys in fetch specifications and
+   restricting qualifiers that match nothing. With `-Deogen.strict`,
+   these are errors.
 3. `generate` writes the superclasses that changed, and any missing
    subclass. If the model group or a template has an error, it writes
    nothing, and says why. Fix the model rather than reaching for
@@ -102,6 +103,15 @@ module's folder, so that Maven can find the framework's models.
 - `classProperties names titel, which is not an attribute or
   relationship (did you mean title?)`: the class would silently lack
   `title`.
+- `fetch specification byAuthor: qualifier key autor matches nothing in
+  Book (did you mean author?)`: a key in a fetch specification, or in a
+  restricting qualifier, that no attribute or relationship has, often
+  left behind by a rename. The fetch would fail when it runs. Fix the
+  key in the `.fspec` or the entity's `.plist`.
+- `${binding.attributePath.childClassName} has no value for binding
+  username`: a fetch specification's qualifier compares a key that
+  matches nothing with that variable. Fix the key, which eogen reports
+  first.
 - `Library failed to load: Library.eomodeld/Book.plist:12:58: ...`: a
   syntax error, at that line and column.
 - `_Book.java is an orphan: no .eogen file generates it any more.`: its

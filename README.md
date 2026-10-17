@@ -261,11 +261,19 @@ project's models when it verifies. It reports:
   `attributesUsedForLocking` that is not one of the entity's attributes
   or relationships, which silently drops it from the class;
 * an entity file that `index.eomodeld` doesn't list, or one it lists
-  that doesn't exist, and an entity whose `name` isn't its file's.
+  that doesn't exist, and an entity whose `name` isn't its file's;
+* a key in a fetch specification's qualifier, sort orderings,
+  prefetching or raw-row key paths, or in an entity's restricting
+  qualifier, that matches nothing, following relationships into the
+  model group's other models, such as `fetch specification
+  RawFetchAllMovies: sort key titel matches nothing in Movie (did you
+  mean title?)`. These name keys as text, so a rename or a typo leaves
+  them behind, and the fetch fails only when it runs. A qualifier's
+  variables, such as `$username`, are values, and aren't checked.
 
 The keys it knows are the ones the model classes read and write, and
 the ones found in 116 real models, Project Wonder's among them. It
-doesn't look inside `userInfo`, `internalInfo` or qualifiers.
+doesn't look inside `userInfo` or `internalInfo`.
 
 Its findings are warnings. `strict` (`eogen.strict`, `--strict`) makes
 them errors, which stop `generate` as other errors do. Use `strict`
