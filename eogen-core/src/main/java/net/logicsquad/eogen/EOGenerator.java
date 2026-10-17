@@ -15,7 +15,6 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
@@ -23,6 +22,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
@@ -529,8 +529,10 @@ public class EOGenerator {
 	 * changes, as Entity Modeler saved them. So it is refused, as
 	 * {@link #format(boolean)} leaves a model alone, if saving any of those
 	 * files would lose anything else that it says, such as a key that the
-	 * writer drops, or a {@code YES} that it writes as {@code Y}. Nothing
-	 * changes if the model group has errors, or if the rename is refused.
+	 * writer drops, or a {@code YES} that it writes as {@code Y}. A renamed
+	 * entity's files are renamed too, so it is refused if another file in the
+	 * model's folder already has one of their names. Nothing changes if the
+	 * model group has errors, or if the rename is refused.
 	 * </p>
 	 *
 	 * @param target {@code Entity}, or {@code Entity.property}
@@ -615,10 +617,16 @@ public class EOGenerator {
 			}
 			Map<EOModel, File> after = save(folders.keySet(), scratch.resolve("after").toFile());
 			List<RefactorResult.ChangedFile> files = new ArrayList<>();
-			List<Finding> losses = new ArrayList<>();
+			List<Finding> refusals = new ArrayList<>();
 			for (Map.Entry<EOModel, File> folder : folders.entrySet()) {
 				File saved = after.get(folder.getKey());
 				Map<String, String> renamed = renamedFiles(folder.getKey(), entityNames);
+				for (Map.Entry<String, String> file : renamed.entrySet()) {
+					Finding taken = nameTaken(new File(folder.getValue(), file.getKey()), new File(folder.getValue(), file.getValue()), folder.getKey().getName());
+					if (taken != null) {
+						refusals.add(taken);
+					}
+				}
 				for (String name : modelFiles(before.get(folder.getKey()), saved)) {
 					File old = new File(before.get(folder.getKey()), name);
 					File updated = new File(saved, name);
@@ -639,13 +647,13 @@ public class EOGenerator {
 					if (original != null) {
 						Finding loss = loss(new File(folder.getValue(), original), new File(before.get(folder.getKey()), original), folder.getKey().getName());
 						if (loss != null) {
-							losses.add(loss);
+							refusals.add(loss);
 						}
 					}
 				}
 			}
-			if (!losses.isEmpty()) {
-				return new RefactorResult(Collections.<RefactorResult.ChangedFile>emptyList(), losses, false);
+			if (!refusals.isEmpty()) {
+				return new RefactorResult(Collections.<RefactorResult.ChangedFile>emptyList(), refusals, false);
 			}
 			if (write) {
 				for (RefactorResult.ChangedFile file : files) {
@@ -677,7 +685,7 @@ public class EOGenerator {
 	 * @param entityNames each entity's name before the change
 	 */
 	private static Map<String, String> renamedFiles(EOModel model, Map<EOEntity, String> entityNames) {
-		Map<String, String> renamed = new HashMap<>();
+		Map<String, String> renamed = new TreeMap<>();
 		for (EOEntity entity : model.getEntities()) {
 			String oldName = entityNames.get(entity);
 			if (oldName != null && !oldName.equals(entity.getName())) {
@@ -686,6 +694,30 @@ public class EOGenerator {
 			}
 		}
 		return renamed;
+	}
+
+	/**
+	 * Returns an error if a renamed entity's file would take the place of a
+	 * file in the project that isn't the entity's own: one that index.eomodeld
+	 * doesn't list, say, which writing the entity's file would replace, or a
+	 * stale .fspec, which the renamed entity would load. Otherwise returns
+	 * null.
+	 *
+	 * @param file where the renamed entity's file goes
+	 * @param own where the entity's file was before the rename
+	 * @param model the model's name
+	 */
+	private Finding nameTaken(File file, File own, String model) throws IOException {
+		// Where the file system ignores case, a rename that changes only the
+		// case of the name finds the entity's own file.
+		if (!file.exists() || own.exists() && Files.isSameFile(file.toPath(), own.toPath())) {
+			return null;
+		}
+		String oldName = own.getName().substring(0, own.getName().lastIndexOf('.'));
+		String newName = file.getName().substring(0, file.getName().lastIndexOf('.'));
+		String path = relative(file.getPath());
+		String message = "There is already a file at " + path + ", so " + oldName + " can't be renamed to " + newName + ". Move it away first.";
+		return Finding.error(Finding.NAME_TAKEN, message).file(path).model(model).entity(oldName).build();
 	}
 
 	/**

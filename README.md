@@ -436,7 +436,12 @@ table or the class; `rename` keeps them, so that the database needs no
 change, and an entity's class changes only with `renameClass`
 (`eogen.renameClass`). It saves the models with Entity Modeler's writer,
 and writes back only the files that the rename changes. A renamed
-entity's files are renamed too.
+entity's files are renamed too, so the rename is refused if another
+file in the model's folder already has one of their names, such as an
+entity file that `index.eomodeld` doesn't list, which the rename would
+replace, or a stale `.fspec`, which the renamed entity would load:
+
+    There is already a file at src/main/resources/Library.eomodeld/Volume.plist, so Book can't be renamed to Volume. Move it away first.
 
 `remove` removes an entity, attribute or relationship:
 

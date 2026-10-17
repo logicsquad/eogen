@@ -232,6 +232,48 @@ class RefactorTest {
 	}
 
 	/**
+	 * Renaming Studio to Distributor would write Distributor.plist over a file
+	 * that index.eomodeld doesn't list, so it is refused, even when only
+	 * reporting.
+	 */
+	@Test
+	void refusesToRenameOverAFileThatIsntTheEntitys() throws Exception {
+		write(resources.resolve("Movies.eomodeld/Distributor.plist"), "{\n    name = Distributor; \n}\n");
+		Map<String, String> original = modelFiles();
+		Object refusal = tuple(Finding.NAME_TAKEN,
+				"There is already a file at src/main/resources/Movies.eomodeld/Distributor.plist, so Studio can't be renamed to Distributor. Move it away first.");
+		for (boolean write : new boolean[] { false, true }) {
+			RefactorResult result = generator.rename("Studio", "Distributor", true, write);
+			assertThat(refusal(result)).isEqualTo(refusal);
+			assertThat(result.getFindings().get(0)).extracting(Finding::getFile, Finding::getModel, Finding::getEntity)
+					.containsExactly("src/main/resources/Movies.eomodeld/Distributor.plist", "Movies", "Studio");
+		}
+		assertThat(differences(original, modelFiles())).isEmpty();
+	}
+
+	/**
+	 * Review has no fetch specifications, so renaming it to Critique writes no
+	 * Critique.fspec, and the model would load a stale one as Critique's. Once
+	 * it is moved away, the rename goes ahead.
+	 */
+	@Test
+	void refusesToRenameOntoAStaleFile() throws Exception {
+		Path stale = resources.resolve("Movies.eomodeld/Critique.fspec");
+		write(stale, read("Movies.eomodeld/Studio.fspec"));
+		Map<String, String> original = modelFiles();
+		assertThat(refusal(generator.rename("Review", "Critique", false, true))).isEqualTo(tuple(Finding.NAME_TAKEN,
+				"There is already a file at src/main/resources/Movies.eomodeld/Critique.fspec, so Review can't be renamed to Critique. Move it away first."));
+		assertThat(differences(original, modelFiles())).isEmpty();
+
+		Files.delete(stale);
+		RefactorResult result = generator.rename("Review", "Critique", false, true);
+		assertThat(result.isRefused()).as(String.valueOf(result.getFindings())).isFalse();
+		assertThat(files(result)).contains(tuple("Movies.eomodeld/Critique.plist", Status.CREATED), tuple("Movies.eomodeld/Review.plist", Status.DELETED));
+		assertThat(Files.exists(stale)).isFalse();
+		assertWorks();
+	}
+
+	/**
 	 * Project Wonder's BugTracker names the selectors in People's login fetch
 	 * specification without their colon, as isEqualTo, which Entity Modeler
 	 * writes as isEqualTo:. As format does, a change that would write People's

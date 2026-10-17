@@ -112,7 +112,8 @@ public final class Finding {
 	public static final String NOT_FOUND = "not-found";
 
 	/**
-	 * A rename to a name that something already has.
+	 * A rename to a name that something already has, such as another entity,
+	 * or a file in the model's folder.
 	 */
 	public static final String NAME_TAKEN = "name-taken";
 

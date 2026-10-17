@@ -44,7 +44,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   entity indexes and the property lists. A rename also rewrites the keys
   in fetch specifications and restricting qualifiers, and renames names
   only: columns and tables stay as they are, and an entity's class
-  changes only with `renameClass`. A removal is refused while anything
+  changes only with `renameClass`. A renamed entity's files are renamed
+  too, and the rename is refused if another file in the model's folder
+  already has one of their names. A removal is refused while anything
   else uses what it would remove. Both write only the model files they
   change, and are refused, as `format` leaves a model alone, if saving
   one of those would lose anything else that it says, such as a
