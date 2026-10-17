@@ -54,6 +54,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `checkFormat` (`eogen.checkFormat`, or `--format --check`) only
   reports. #16
 
+- `skills/eogen/SKILL.md`, a Claude Code skill for editing EOModels and
+  keeping their classes in sync with eogen. #17
+
 ### Fixed
 - A model that fails to load is an error, reported in one line with the
   file and the position the parser stopped at. It was a warning, with a

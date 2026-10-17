@@ -34,7 +34,7 @@ a model without regenerating its classes:
     <plugin>
       <groupId>net.logicsquad</groupId>
       <artifactId>eogen-maven-plugin</artifactId>
-      <version>0.1</version>
+      <version>0.2</version>
       <executions>
         <execution>
           <goals>
@@ -97,7 +97,7 @@ They take these parameters:
 
 `mvn eogen:generate` works in any project whose POM declares the
 plugin. Elsewhere, use the full name,
-`mvn net.logicsquad:eogen-maven-plugin:0.1:generate`, or add
+`mvn net.logicsquad:eogen-maven-plugin:0.2:generate`, or add
 `net.logicsquad` to the `pluginGroups` in `~/.m2/settings.xml`.
 
 Using the command line
@@ -157,6 +157,20 @@ with a `kind` (`superclass` or `subclass`) and a `status` (`created`,
 `updated`, `unchanged` or `orphaned`); `orphans` and `verification` are
 there when `--all` and `--verify` are; and `problems` has any failure
 that stopped it. Problems still go to standard error, as text.
+
+Using eogen with a coding agent
+-------------------------------
+[`skills/eogen/SKILL.md`](skills/eogen/SKILL.md) is a
+[Claude Code](https://claude.com/claude-code) skill for editing
+EOModels with eogen. It covers the model files, how to add, rename and
+remove entities, attributes and relationships, the loop of `format`,
+`verify` and `generate` with `strict` on, and what eogen's messages
+mean. Copy the `skills/eogen` folder into a project's `.claude/skills`
+folder to use it there.
+
+Agents should run with `strict`, so that the lint's findings are
+errors. Scripts can read the command line's `--json` report instead of
+its text.
 
 Using the library
 -----------------
