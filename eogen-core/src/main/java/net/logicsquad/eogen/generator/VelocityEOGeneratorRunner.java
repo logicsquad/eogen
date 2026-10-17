@@ -95,6 +95,9 @@ public class VelocityEOGeneratorRunner {
 	// eogen: what the run reported as errors, as findings.
 	private final List<Finding> _findings = new ArrayList<Finding>();
 
+	// eogen: jars and folders of shared templates.
+	private List<File> _templatePath = Collections.emptyList();
+
 	public VelocityEOGeneratorRunner() {
 	}
 
@@ -112,6 +115,17 @@ public class VelocityEOGeneratorRunner {
 
 	public List<IEOModelGroupFactory> getModelGroupFactories() {
 		return _modelGroupFactories;
+	}
+
+	/**
+	 * Sets the jars and folders of shared templates, which come after the
+	 * project's own and before WOLips's.
+	 *
+	 * @param templatePath
+	 *            jars and folders
+	 */
+	public void setTemplatePath(List<File> templatePath) {
+		_templatePath = new ArrayList<File>(templatePath);
 	}
 
 	/**
@@ -190,7 +204,7 @@ public class VelocityEOGeneratorRunner {
 			}
 		}
 
-		VelocityEngine velocityEngine = WOLipsVelocityUtils.createVelocityEngine("EOGenerator", eogeneratorModel.getTemplateDir(), eogeneratorModel.getProjectPath(), resourceLoaderClass);
+		VelocityEngine velocityEngine = WOLipsVelocityUtils.createVelocityEngine("EOGenerator", eogeneratorModel.getTemplateDir(), eogeneratorModel.getProjectPath(), _templatePath, resourceLoaderClass);
 
 		List<EOModel> models = new LinkedList<EOModel>();
 		EOModelRenderContext renderContext = new EOModelRenderContext();

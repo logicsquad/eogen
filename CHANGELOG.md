@@ -22,6 +22,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and the fetch fails only when it runs. With `strict`, the lint's
   errors come before the template errors that they cause. #19
 
+- Shared templates: the Maven plugin finds templates in its
+  dependencies, at `eogen/templates/<name>` in a jar, so that a team can
+  publish its templates once rather than copy them into every project.
+  The command line takes jars and folders of templates with
+  `--templates`, and the library with `EOGenerator.setTemplatePath`.
+  They come after the project's own templates, and before the WOLips
+  folders and the bundled templates. #23
+
 ### Fixed
 - A to-many relationship to a partial entity (`ERXPartial`) is fetched
   with the inverse relationship's key from the partial's class, which

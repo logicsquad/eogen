@@ -64,6 +64,8 @@ import java.io.Writer;
 import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.Collections;
+import java.util.List;
 
 import org.apache.velocity.Template;
 import org.apache.velocity.VelocityContext;
@@ -112,6 +114,33 @@ public class WOLipsVelocityUtils {
 	 *             if velocity engine creation fails
 	 */
 	public static VelocityEngine createVelocityEngine(String templateFamilyName, String customTemplatePath, Path projectPath, Class<? extends ResourceLoader> resourceLoaderClass) throws Exception {
+		return createVelocityEngine(templateFamilyName, customTemplatePath, projectPath, Collections.<File>emptyList(), resourceLoaderClass);
+	}
+
+	/**
+	 * eogen: creates a Velocity engine as above, which looks for shared
+	 * templates, with {@link SharedTemplateResourceLoader}, after the project
+	 * folder and the custom template path, and before the WOLips folders and
+	 * the bundled templates.
+	 * 
+	 * @param templateFamilyName
+	 *            the name of the template family (the common folder name that
+	 *            contains the templates)
+	 * @param customTemplatePath
+	 *            the custom template path to load with
+	 * @param projectPath
+	 *            the project path to prepend if the customTemplatePath is
+	 *            relative
+	 * @param sharedTemplatePath
+	 *            jars and folders of shared templates, which come before
+	 *            those on eogen's classpath
+	 * @param resourceLoaderClass
+	 *            the resource loader for the bundled templates, or null
+	 * @return an initialized VelocityEngine
+	 * @throws Exception
+	 *             if velocity engine creation fails
+	 */
+	public static VelocityEngine createVelocityEngine(String templateFamilyName, String customTemplatePath, Path projectPath, List<File> sharedTemplatePath, Class<? extends ResourceLoader> resourceLoaderClass) throws Exception {
 		StringBuffer templatePaths = new StringBuffer();
 		templatePaths.append(projectPath != null ? projectPath.toFile().getAbsolutePath() : new File(".").getAbsolutePath());
 		if (customTemplatePath != null && customTemplatePath.length() > 0) {
@@ -123,14 +152,22 @@ public class WOLipsVelocityUtils {
 			templatePaths.append(templateFolder.getAbsolutePath());
 		}
 
-		templatePaths.append(",");
-		templatePaths.append(new File("/Library/Application Support/WOLips/" + templateFamilyName).getAbsolutePath());
-		templatePaths.append(",");
-		templatePaths.append(new File(System.getProperty("user.home"), "Documents and Settings/Application Data/WOLips/" + templateFamilyName).getAbsolutePath());
-		templatePaths.append(",");
-		templatePaths.append(new File(System.getProperty("user.home"), "Documents and Settings/AppData/Local/WOLips/" + templateFamilyName).getAbsolutePath());
-		templatePaths.append(",");
-		templatePaths.append(new File(System.getProperty("user.home"), "Library/Application Support/WOLips/" + templateFamilyName).getAbsolutePath());
+		StringBuffer folderPaths = new StringBuffer();
+		folderPaths.append(new File("/Library/Application Support/WOLips/" + templateFamilyName).getAbsolutePath());
+		folderPaths.append(",");
+		folderPaths.append(new File(System.getProperty("user.home"), "Documents and Settings/Application Data/WOLips/" + templateFamilyName).getAbsolutePath());
+		folderPaths.append(",");
+		folderPaths.append(new File(System.getProperty("user.home"), "Documents and Settings/AppData/Local/WOLips/" + templateFamilyName).getAbsolutePath());
+		folderPaths.append(",");
+		folderPaths.append(new File(System.getProperty("user.home"), "Library/Application Support/WOLips/" + templateFamilyName).getAbsolutePath());
+
+		StringBuffer sharedPaths = new StringBuffer();
+		for (File entry : sharedTemplatePath) {
+			if (sharedPaths.length() > 0) {
+				sharedPaths.append(",");
+			}
+			sharedPaths.append(entry.getAbsolutePath());
+		}
 
 		Thread thread = Thread.currentThread();
 		ClassLoader loader = thread.getContextClassLoader();
@@ -138,9 +175,13 @@ public class WOLipsVelocityUtils {
 		try {
 			VelocityEngine velocityEngine = new VelocityEngine();
 			velocityEngine.setProperty(RuntimeConstants.RUNTIME_LOG_INSTANCE, NOPLogger.NOP_LOGGER);
-			velocityEngine.setProperty(RuntimeConstants.RESOURCE_LOADERS, resourceLoaderClass != null ? "file,wolips" : "file");
+			velocityEngine.setProperty(RuntimeConstants.RESOURCE_LOADERS, resourceLoaderClass != null ? "file,shared,folders,wolips" : "file,shared,folders");
 			velocityEngine.setProperty("resource.loader.file.class", VelocityOneFileResourceLoader.class.getName());
 			velocityEngine.setProperty(RuntimeConstants.FILE_RESOURCE_LOADER_PATH, templatePaths.toString());
+			velocityEngine.setProperty("resource.loader.shared.class", SharedTemplateResourceLoader.class.getName());
+			velocityEngine.setProperty("resource.loader.shared." + SharedTemplateResourceLoader.PATH, sharedPaths.toString());
+			velocityEngine.setProperty("resource.loader.folders.class", VelocityOneFileResourceLoader.class.getName());
+			velocityEngine.setProperty("resource.loader.folders.path", folderPaths.toString());
 			if (resourceLoaderClass != null) {
 				velocityEngine.setProperty("resource.loader.wolips.class", resourceLoaderClass.getName());
 			}

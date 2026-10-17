@@ -70,6 +70,9 @@ public final class Main {
 			"                          separated by '" + File.pathSeparator + "'. Default: <project>/src/main/resources.",
 			"  --classpath <path>      Jars and folders whose Resources folders add their",
 			"                          models to the model group, separated by '" + File.pathSeparator + "'.",
+			"  --templates <path>      Jars, with templates in eogen/templates, and folders of",
+			"                          templates, separated by '" + File.pathSeparator + "'. Their templates come",
+			"                          after the project's own and before WOLips's.",
 			"  --all                   Use every .eogen file under the model folders, and",
 			"                          report orphans: superclasses that no .eogen file",
 			"                          generates any more, and their subclasses.",
@@ -104,6 +107,8 @@ public final class Main {
 	private List<File> models;
 
 	private List<File> classpath = Collections.emptyList();
+
+	private List<File> templates = Collections.emptyList();
 
 	private boolean all;
 
@@ -212,7 +217,7 @@ public final class Main {
 				json = true;
 			} else if ("--debug".equals(arg)) {
 				debug = true;
-			} else if ("--project".equals(arg) || "--models".equals(arg) || "--classpath".equals(arg)) {
+			} else if ("--project".equals(arg) || "--models".equals(arg) || "--classpath".equals(arg) || "--templates".equals(arg)) {
 				if (i + 1 == args.length) {
 					return usage(arg + " needs a value.");
 				}
@@ -221,6 +226,8 @@ public final class Main {
 					project = new File(value);
 				} else if ("--models".equals(arg)) {
 					models = files(value);
+				} else if ("--templates".equals(arg)) {
+					templates = files(value);
 				} else {
 					classpath = files(value);
 				}
@@ -266,6 +273,7 @@ public final class Main {
 		EOGenerator generator = new EOGenerator(project, models, classpath);
 		generator.setForce(force);
 		generator.setStrict(strict);
+		generator.setTemplatePath(templates);
 		if (verify) {
 			return verify(generator);
 		}

@@ -1,0 +1,10 @@
+ -destination src/main/java \
+ -extension java \
+ -java \
+ -javaTemplate _Shared.java \
+ -model src/main/resources/Library.eomodeld \
+ -packagedirs \
+ -subclassDestination src/main/java \
+ -subclassJavaTemplate Shared.java \
+ -verbose \
+ -loadModelGroup

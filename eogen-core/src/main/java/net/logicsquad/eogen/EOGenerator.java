@@ -106,6 +106,8 @@ public class EOGenerator {
 
 	private String generatedMarker = DEFAULT_GENERATED_MARKER;
 
+	private List<File> templatePath = Collections.emptyList();
+
 	/**
 	 * Constructor for a Maven project with no dependencies: models come from
 	 * {@code src/main/resources}.
@@ -198,6 +200,30 @@ public class EOGenerator {
 	 */
 	public void setStrict(boolean strict) {
 		this.strict = strict;
+	}
+
+	/**
+	 * Returns the jars and folders of shared templates.
+	 *
+	 * @return template path
+	 */
+	public List<File> getTemplatePath() {
+		return templatePath;
+	}
+
+	/**
+	 * Sets the jars and folders of shared templates. A jar has them at
+	 * {@code eogen/templates/}, and a folder at its top. They come after the
+	 * project folder and an .eogen file's {@code -templatedir}, so that a
+	 * project can override one, then the templates at
+	 * {@code eogen/templates/} on eogen's own classpath, where the Maven
+	 * plugin's dependencies are, and then WOLips's folders and the bundled
+	 * templates. The default is none.
+	 *
+	 * @param templatePath jars and folders
+	 */
+	public void setTemplatePath(List<File> templatePath) {
+		this.templatePath = Collections.unmodifiableList(new ArrayList<>(templatePath));
 	}
 
 	/**
@@ -585,6 +611,7 @@ public class EOGenerator {
 			Map<String, File> outputs = new LinkedHashMap<>();
 			VelocityEOGeneratorRunner runner = new VelocityEOGeneratorRunner();
 			runner.setModelGroupFactories(Collections.singletonList(modelGroupFactory()));
+			runner.setTemplatePath(templatePath);
 			runner.setDestinationMapper((name, destination) -> {
 				File output = new File(scratch.toFile(), name);
 				destinations.put(name, destination);

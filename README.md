@@ -116,6 +116,10 @@ Using the command line
     --classpath <path>      Jars and folders whose Resources folders add
                             their models to the model group, separated
                             by ':' (';' on Windows).
+    --templates <path>      Jars, with templates in eogen/templates, and
+                            folders of templates, separated by ':'
+                            (';' on Windows). Their templates come after
+                            the project's own and before WOLips's.
     --all                   Use every .eogen file under the model
                             folders, and report orphans.
     --check                 Write nothing. List the files that
@@ -367,17 +371,53 @@ does nothing if it has errors.
 
 How eogen finds templates
 -------------------------
-As WOLips does, eogen looks for each template in:
+eogen looks for each template in:
 
 1. the project folder (WOLips looks in its working directory, which
    outside Eclipse could be anywhere);
 2. the `.eogen` file's `-templatedir`, relative to the project folder;
-3. `/Library/Application Support/WOLips/EOGenerator`, and the
+3. shared templates, which WOLips doesn't have: the jars and folders
+   that `--templates` names (`EOGenerator.setTemplatePath`), then
+   `eogen/templates/` on eogen's classpath, which for the Maven plugin
+   means in its dependencies (see [Sharing templates](#sharing-templates));
+4. `/Library/Application Support/WOLips/EOGenerator`, and the
    `WOLips/EOGenerator` folders under the user's home folder that
    WOLips searches;
-4. the templates bundled with WOLips: `_Entity.java` and `Entity.java`,
+5. the templates bundled with WOLips: `_Entity.java` and `Entity.java`,
    which are the defaults, `_WonderEntity.java` and `WonderEntity.java`,
    and the Java 1.4 versions.
+
+### Sharing templates
+
+A team with its own templates can publish them in a jar, at
+`eogen/templates/<name>`, and make it a dependency of the plugin, once,
+in a parent POM, rather than copy them into each project's
+`-templatedir`:
+
+    <plugin>
+      <groupId>net.logicsquad</groupId>
+      <artifactId>eogen-maven-plugin</artifactId>
+      <version>0.3</version>
+      <dependencies>
+        <dependency>
+          <groupId>com.example</groupId>
+          <artifactId>example-eogen-templates</artifactId>
+          <version>1.0</version>
+        </dependency>
+      </dependencies>
+    </plugin>
+
+Then an `.eogen` file names them with `-javaTemplate` and
+`-subclassJavaTemplate`, and needs no `-templatedir`. A project can
+still override one with its own copy in its `-templatedir`, and shared
+templates come before the WOLips folders, so that a build doesn't
+depend on what a machine has installed. The command line takes the
+same jars, or folders of templates, with `--templates`.
+
+WOLips in Eclipse can't read templates from a jar, so a project that
+relies on them generates with eogen. A project that generates from
+Eclipse gets WOLips's own templates instead, which `check` then
+catches.
 
 Differences from WOLips
 -----------------------

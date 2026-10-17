@@ -103,6 +103,20 @@ public class EOGenMojoIT {
 	}
 
 	/**
+	 * The plugin finds templates in a jar that it depends on, as a team shares
+	 * them: here the reactor's templates module, which has them in
+	 * eogen/templates.
+	 */
+	@MavenTest
+	@MavenGoal("package")
+	void generateWithSharedTemplates(MavenExecutionResult result) throws IOException {
+		assertThat(result).isSuccessful();
+		Path app = result.getMavenProjectResult().getTargetProjectDirectory().resolve("app");
+		assertThat(read(app.resolve(LIBRARY + "_Book.java"))).isEqualTo("// From the shared templates.\npublic class _Book {}\n");
+		assertThat(read(app.resolve(LIBRARY + "Book.java"))).isEqualTo("public class Book extends _Book {}\n");
+	}
+
+	/**
 	 * With modelDirectories, the models are in models, and the broken model in
 	 * src/main/resources is not part of the model group.
 	 */

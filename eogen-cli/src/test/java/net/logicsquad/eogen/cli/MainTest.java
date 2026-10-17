@@ -274,6 +274,16 @@ class MainTest {
 	}
 
 	@Test
+	void templatesComeFromTheTemplatePathBeforeTheBundledOnes() throws Exception {
+		Path templates = Files.createDirectories(temp.resolve("templates"));
+		Files.write(templates.resolve("_Entity.java"), "// shared\npublic class $entity.prefixClassNameWithoutPackage {}\n".getBytes(StandardCharsets.UTF_8));
+		assertThat(run("--project", project.toString(), "--classpath", reference.toString(), "--templates", templates.toString(), eogen())).isEqualTo(Main.OK);
+		assertThat(new String(Files.readAllBytes(project.resolve(LIBRARY + "_Book.java")), StandardCharsets.UTF_8)).isEqualTo("// shared\npublic class _Book {}\n");
+		// The folder has no Entity.java, so the subclass comes from the bundled one.
+		assertThat(new String(Files.readAllBytes(project.resolve(LIBRARY + "Book.java")), StandardCharsets.UTF_8)).contains("public class Book extends");
+	}
+
+	@Test
 	void reportsMissingFiles() throws Exception {
 		assertThat(run("--project", project.toString(), temp.resolve("Missing.eogen").toString())).isEqualTo(Main.FAILED);
 		assertThat(err()).contains("Missing.eogen does not exist.");
