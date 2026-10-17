@@ -19,6 +19,19 @@ class LoadErrorsTest {
 				.isEqualTo("Library.eomodeld/Book.plist:12:58: Property list parsing failed while attempting to read dictionary. Read key and value with no terminating semicolon.");
 	}
 
+	/**
+	 * The model classes quote an entity file as its URL's path, which has %20
+	 * for a space, and on Windows is /C:/...
+	 */
+	@Test
+	void readsAFileGivenAsItsURLsPath() {
+		File model = new File("/projects/my library/src/main/resources/Library.eomodeld");
+		Exception failure = new EOModelException("Failed to load entity from '" + new File(model, "Book.plist").toURI().getRawPath() + "'.",
+				new IllegalArgumentException("Property list parsing failed while attempting to read dictionary. Read key and value with no terminating semicolon. At line number: 12, column: 58."));
+		assertThat(LoadErrors.describe(failure, model))
+				.isEqualTo("Library.eomodeld/Book.plist:12:58: Property list parsing failed while attempting to read dictionary. Read key and value with no terminating semicolon.");
+	}
+
 	@Test
 	void leavesOutAnUnknownColumn() {
 		Exception failure = new EOModelException("Failed to load entity from '" + new File(MODEL, "Book.plist").getAbsolutePath() + "'.",

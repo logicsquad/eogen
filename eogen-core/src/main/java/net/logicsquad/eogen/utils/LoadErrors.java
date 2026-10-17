@@ -1,6 +1,8 @@
 package net.logicsquad.eogen.utils;
 
 import java.io.File;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -17,7 +19,7 @@ import java.util.regex.Pattern;
 public final class LoadErrors {
 	/**
 	 * A model file, as the model classes quote it: "Failed to load entity from
-	 * '/path/Book.plist'."
+	 * '/path/Book.plist'." That's its URL's path, or its URL.
 	 */
 	private static final Pattern FILE = Pattern.compile("'([^']+\\.(?:plist|fspec|storedProcedure|eomodeld))'");
 
@@ -91,10 +93,25 @@ public final class LoadErrors {
 		}
 		try {
 			Path parent = modelFolder.getAbsoluteFile().getParentFile().toPath().normalize();
-			Path path = Paths.get(file).toAbsolutePath().normalize();
+			Path path = toPath(file).toAbsolutePath().normalize();
 			return path.startsWith(parent) ? parent.relativize(path).toString().replace(File.separatorChar, '/') : file;
 		} catch (InvalidPathException e) {
 			return file;
 		}
+	}
+
+	/**
+	 * Returns a file that the model classes quote as a URL, or as a URL's path,
+	 * which has %20 for a space and on Windows is /C:/..., as a path.
+	 */
+	private static Path toPath(String file) {
+		if (file.startsWith("file:") || file.startsWith("/")) {
+			try {
+				return Paths.get(new URI(file.startsWith("file:") ? file : "file:" + file));
+			} catch (URISyntaxException | IllegalArgumentException e) {
+				// A path after all, such as one with a space in it.
+			}
+		}
+		return Paths.get(file);
 	}
 }
