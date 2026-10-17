@@ -7,6 +7,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -20,6 +21,11 @@ import net.logicsquad.eogen.format.FormatResult.Status;
 class FormatTest {
 	@TempDir
 	Path temp;
+
+	@AfterEach
+	void releaseJars() throws IOException {
+		Jars.release(temp);
+	}
 
 	@Test
 	void restoresTheLayoutEntityModelerWrites() throws Exception {
