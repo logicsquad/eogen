@@ -110,7 +110,7 @@ class EOGeneratorTest {
 		EOGenerator generator = project.forcedGenerator();
 		generator.generate(project.eogen("ShopWonder"));
 		Path superclass = project.resolve("src/main/java/" + PACKAGE + "_Product.java");
-		String lf = read(superclass);
+		String lf = read(superclass).replace("\r\n", "\n");
 		String crlf = lf.replace("\n", "\r\n");
 		write(superclass, crlf);
 		assertThat(statuses(generator.generate(project.eogen("ShopWonder")))).containsEntry("_Product.java", UNCHANGED);

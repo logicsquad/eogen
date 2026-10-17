@@ -1,0 +1,3 @@
+# Check out every text file with LF line endings, on Windows too, so that a
+# build there has the same templates and expected output as everywhere else.
+* text=auto eol=lf
