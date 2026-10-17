@@ -279,6 +279,19 @@ public class EOGenMojoIT {
 	}
 
 	/**
+	 * Writes the Library model's pages, with a link from each entity's class
+	 * name, into the site.
+	 */
+	@MavenTest
+	void doc(MavenExecutionResult result) throws IOException {
+		assertThat(result).isSuccessful();
+		assertThat(result).out().info().contains("Documented Library in target/site/eomodeldoc: 11 files.");
+		Path site = result.getMavenProjectResult().getTargetProjectDirectory().resolve("target/site/eomodeldoc");
+		assertThat(site.resolve("index.html")).exists();
+		assertThat(read(site.resolve("Library/entities/Book.html"))).contains("<a href = \"../../../apidocs/Book.html\">com.example.library.Book</a>");
+	}
+
+	/**
 	 * Writes the Library model's next migration, after the one written by
 	 * hand, for two new columns, compared with the model in a folder: one of
 	 * them doesn't allow null, so it needs a value for the rows a table has.

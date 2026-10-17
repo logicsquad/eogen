@@ -1,0 +1,401 @@
+<html>
+<head>
+	<title>Shop, Order</title>
+	<link href = "../../eomodeldoc.css" rel = "stylesheet" type = "text/css">
+	<script src = "../../prototype.js"></script>
+	<script src = "../../eomodeldoc.js"></script>
+</head>
+<body>
+
+<div class = "section entity">
+	<h1>
+			<a href = "../content.html">Shop</a> / Order
+					<div class = "referencingEntities">
+		referenced by 
+					<a href = "../../Shop/entities/Company.html">Company</a>,					<a href = "../../Shop/entities/OrderLine.html">OrderLine</a>,					<a href = "../../Shop/entities/Party.html">Party</a>,					<a href = "../../Shop/entities/Person.html">Person</a>			</div>
+		</h1>
+	
+	<table class = "details">
+				<tr>
+			<th>External Name</th>
+			<td>shop_order</td>
+		</tr>
+		
+				<tr>
+			<th>Class Name</th>
+						<td>com.example.shop.Order</td>
+					</tr>
+		
+			</table>
+</div>
+
+<div class = "section attributes">
+	<h2>Attributes</h2>
+	<div class = "actions">
+				<a id = "attribute_details_toggle" href = "javascript:void(0)" onclick = "toggleProperty('attribute', 'details')">show details</a>
+						<a id = "attribute_nonClassProperty_toggle" href = "javascript:void(0)" onclick = "toggleProperty('attribute', 'nonClassProperty')">hide non-class</a>
+							</div>
+		<ul>
+				<li class = "attribute  nonClassProperty  nonInheritedProperty ">
+			<div class = "name">currencyCode</div>
+							<div class = "mainDetail">
+				currency_code
+								</div>
+						
+						<table class = "details" style = "display: none">
+								<tr>
+					<th>External Type</th>
+										<td>varchar100 (varchar)</td>
+									</tr>
+								<tr>
+					<th>Allows Null?</th>
+										<td>No</td>
+									</tr>
+				<tr>
+					<th>Used For Locking?</th>
+										<td>Yes</td>
+									</tr>
+												<tr>
+					<th>Width</th>
+					<td>100</td>
+				</tr>
+															</table>
+		</li>
+				<li class = "attribute  nonClassProperty  nonInheritedProperty ">
+			<div class = "name">customerID</div>
+							<div class = "mainDetail">
+				customer_id
+								</div>
+						
+						<table class = "details" style = "display: none">
+								<tr>
+					<th>External Type</th>
+										<td>id (integer)</td>
+									</tr>
+								<tr>
+					<th>Allows Null?</th>
+										<td>No</td>
+									</tr>
+				<tr>
+					<th>Used For Locking?</th>
+										<td>Yes</td>
+									</tr>
+																			</table>
+		</li>
+				<li class = "attribute  classProperty  nonInheritedProperty ">
+			<div class = "name flattened">customerName</div>
+						
+						<table class = "details" style = "display: none">
+								<tr>
+					<th>Allows Null?</th>
+										<td>No</td>
+									</tr>
+				<tr>
+					<th>Used For Locking?</th>
+										<td>No</td>
+									</tr>
+								<tr>
+					<th>Definition</th>
+					<td>customer.name</td>
+				</tr>
+																			</table>
+		</li>
+				<li class = "attribute  nonClassProperty  nonInheritedProperty  primaryKey">
+			<div class = "name">id [primary key]</div>
+							<div class = "mainDetail">
+				id
+								</div>
+						
+						<table class = "details" style = "display: none">
+								<tr>
+					<th>External Type</th>
+										<td>id (integer)</td>
+									</tr>
+								<tr>
+					<th>Allows Null?</th>
+										<td>No</td>
+									</tr>
+				<tr>
+					<th>Used For Locking?</th>
+										<td>Yes</td>
+									</tr>
+																			</table>
+		</li>
+				<li class = "attribute  classProperty  nonInheritedProperty ">
+			<div class = "name">note</div>
+							<div class = "mainDetail">
+				note
+								</div>
+						
+						<table class = "details" style = "display: none">
+								<tr>
+					<th>External Type</th>
+										<td>longText (text)</td>
+									</tr>
+								<tr>
+					<th>Allows Null?</th>
+										<td>No</td>
+									</tr>
+				<tr>
+					<th>Used For Locking?</th>
+										<td>No</td>
+									</tr>
+																			</table>
+		</li>
+				<li class = "attribute  classProperty  nonInheritedProperty ">
+			<div class = "name">placed</div>
+							<div class = "mainDetail">
+				placed
+								</div>
+						
+						<table class = "details" style = "display: none">
+								<tr>
+					<th>External Type</th>
+										<td>dateTime (timestamp)</td>
+									</tr>
+								<tr>
+					<th>Allows Null?</th>
+										<td>No</td>
+									</tr>
+				<tr>
+					<th>Used For Locking?</th>
+										<td>Yes</td>
+									</tr>
+																			</table>
+		</li>
+				<li class = "attribute  classProperty  nonInheritedProperty ">
+			<div class = "name">total</div>
+							<div class = "mainDetail">
+				total
+								</div>
+						
+						<table class = "details" style = "display: none">
+								<tr>
+					<th>External Type</th>
+										<td>amount (numeric)</td>
+									</tr>
+								<tr>
+					<th>Allows Null?</th>
+										<td>No</td>
+									</tr>
+				<tr>
+					<th>Used For Locking?</th>
+										<td>Yes</td>
+									</tr>
+																<tr>
+					<th>Scale</th>
+					<td>2</td>
+				</tr>
+												<tr>
+					<th>Precision</th>
+					<td>12</td>
+				</tr>
+							</table>
+		</li>
+			</ul>
+	</div>
+
+<div class = "section relationships">
+	<h2>Relationships</h2>
+	<div class = "actions">
+				<a id = "relationship_details_toggle" href = "javascript:void(0)" onclick = "toggleProperty('relationship', 'details')">show details</a>
+									</div>
+		<ul class = "relationships">
+				<li class = "relationship  classProperty  nonInheritedProperty">
+			<div class = "name">currency</div>
+						<div class = "mainDetail">
+				Currency							</div>
+							
+			<table class = "details" style = "display: none">
+				<tr>
+					<th>Type</th>
+					<td>
+																																	Mandatory To-One
+																		</td>
+				</tr>
+				
+				<tr>
+					<th>Delete Rule</th>
+					<td>
+												Nullify
+											</td>
+				</tr>
+				
+								<tr>
+					<th>Joins</th>
+					<td>
+						<table class = "joins">
+															<tr>
+									<td>currencyCode</td>
+									<td class = "direction">&nbsp;&gt;&nbsp;</td>
+									<td>code</td>
+								</tr>
+													</table>
+					</td>
+				</tr>
+							</table>
+		</li>
+				<li class = "relationship  classProperty  nonInheritedProperty">
+			<div class = "name">customer</div>
+						<div class = "mainDetail">
+				<a href = "../../Shop/entities/Party.html">Party</a>							</div>
+							
+			<table class = "details" style = "display: none">
+				<tr>
+					<th>Type</th>
+					<td>
+																																	Mandatory To-One
+																		</td>
+				</tr>
+				
+				<tr>
+					<th>Delete Rule</th>
+					<td>
+												Nullify
+											</td>
+				</tr>
+				
+								<tr>
+					<th>Joins</th>
+					<td>
+						<table class = "joins">
+															<tr>
+									<td>customerID</td>
+									<td class = "direction">&nbsp;&gt;&nbsp;</td>
+									<td>id</td>
+								</tr>
+													</table>
+					</td>
+				</tr>
+							</table>
+		</li>
+				<li class = "relationship  classProperty  nonInheritedProperty">
+			<div class = "name">lines</div>
+						<div class = "mainDetail">
+				<a href = "../../Shop/entities/OrderLine.html">OrderLine</a>							</div>
+							
+			<table class = "details" style = "display: none">
+				<tr>
+					<th>Type</th>
+					<td>
+																								To-Many
+											</td>
+				</tr>
+				
+				<tr>
+					<th>Delete Rule</th>
+					<td>
+												Cascade
+											</td>
+				</tr>
+				
+								<tr>
+					<th>Joins</th>
+					<td>
+						<table class = "joins">
+															<tr>
+									<td>id</td>
+									<td class = "direction">&nbsp;&gt;&nbsp;</td>
+									<td>orderID</td>
+								</tr>
+													</table>
+					</td>
+				</tr>
+							</table>
+		</li>
+			</ul>
+	</div>
+
+<div class = "section fetchSpecs">
+	<h2>Fetch Specifications</h2>
+	<div class = "actions">
+				<a id = "fetchSpec_details_toggle" href = "javascript:void(0)" onclick = "toggleProperty('fetchSpec', 'details')">show details</a>
+					</div>
+		<ul>
+				<li class = "fetchSpec">
+			<div class = "name">byCustomerName</div>
+				
+			<table class = "details" style = "display: none">
+								<tr>
+					<th>Qualifier</th>
+					<td>customer.name caseInsensitiveLike $name and total &gt; $minimum</td>
+				</tr>
+								
+								<tr>
+					<th>Sort Orderings</th>
+					<td>
+						<ol class = "sortOrderings">
+													<li>
+							placed
+															(desc)
+																					</li>
+												</ol>
+					</td>
+				</tr>
+								
+				
+				<tr>
+					<th>Deep Fetch?</th>
+					<td>true</td>
+				</tr>
+				
+				<tr>
+					<th>Refreshes Refetched?</th>
+					<td>
+											false
+										</td>
+				</tr>
+			</table>
+		</li>
+				<li class = "fetchSpec">
+			<div class = "name">recent</div>
+				
+			<table class = "details" style = "display: none">
+								
+								<tr>
+					<th>Sort Orderings</th>
+					<td>
+						<ol class = "sortOrderings">
+													<li>
+							placed
+															(desc)
+																					</li>
+												</ol>
+					</td>
+				</tr>
+								
+								<tr>
+					<th>Fetch Limit</th>
+					<td>10</td>
+				</tr>
+				
+				<tr>
+					<th>Deep Fetch?</th>
+					<td>true</td>
+				</tr>
+				
+				<tr>
+					<th>Refreshes Refetched?</th>
+					<td>
+											false
+										</td>
+				</tr>
+			</table>
+		</li>
+			</ul>
+	</div>
+
+<div class = "section entityIndexes">
+	<h2>Entity Indexes</h2>
+	<div class = "actions">
+					no entity indexes
+				&nbsp;
+	</div>
+	</div>
+
+<script>
+initializeDetailsToggle();
+</script>
+
+</body>
+</html>

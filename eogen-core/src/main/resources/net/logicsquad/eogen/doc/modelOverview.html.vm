@@ -11,7 +11,8 @@
 <h2>Entities</h2>
 <ul>
 	#foreach($entity in $model.sortedEntities)
-	#if ($entity.abstractEntity)
+	#if ($entity.prototype)
+	#elseif ($entity.abstractEntity)
 	<li class = "entity abstract"><a href = "entities/${entity.name}.html" target = "content">$entity.name</a></li>
 	#else
 	<li><a href = "entities/${entity.name}.html" target = "content">$entity.name</a></li>

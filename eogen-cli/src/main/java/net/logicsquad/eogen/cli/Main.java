@@ -22,6 +22,8 @@ import net.logicsquad.eogen.GeneratedFile.Kind;
 import net.logicsquad.eogen.GeneratedFile.Status;
 import net.logicsquad.eogen.GenerationResult;
 import net.logicsquad.eogen.VerificationResult;
+import net.logicsquad.eogen.doc.DocOptions;
+import net.logicsquad.eogen.doc.DocResult;
 import net.logicsquad.eogen.format.FormatResult;
 import net.logicsquad.eogen.format.FormatResult.FormattedFile;
 import net.logicsquad.eogen.migration.MigrationOptions;
@@ -33,7 +35,7 @@ import net.logicsquad.eogen.refactor.RefactorResult;
 /**
  * Generates the entity classes for .eogen files, checks them, or verifies the
  * model group; or formats, renames or removes in the models, or writes their
- * migrations.
+ * migrations or their documentation.
  *
  * <pre>
  * eogen [options] [file.eogen...]
@@ -66,6 +68,7 @@ public final class Main {
 			"       eogen [options] --rename <Entity[.property]> --to <name>",
 			"       eogen [options] --remove <Entity[.property]>",
 			"       eogen [options] --migration",
+			"       eogen [options] --doc",
 			"",
 			"Generates the entity classes for .eogen files as WOLips's EOGenerator does:",
 			"every superclass whose contents have changed, and every subclass that is",
@@ -91,7 +94,7 @@ public final class Main {
 			"                          Modeler does, and lint the project's models. Exit",
 			"                          with status 2 if there are errors.",
 			"  --include-dependencies  With --verify, report on the dependencies' models",
-			"                          too.",
+			"                          too. With --doc, document them too.",
 			"  --format                Format the project's models as Entity Modeler saves",
 			"                          them. Only the layout changes; a model whose contents",
 			"                          saving would change is left alone, and the exit",
@@ -130,6 +133,16 @@ public final class Main {
 			"                          With --migration, the models to write migrations for,",
 			"                          separated by ','. A model named here with no migrations",
 			"                          gets its first, even if it didn't change.",
+			"  --doc                   Write EOModelDoc's HTML pages for the project's",
+			"                          models: an index, and a page for each model, entity",
+			"                          and stored procedure, with their documentation.",
+			"  --output <folder>       With --doc, the folder of the pages. Default:",
+			"                          <project>/target/site/eomodeldoc.",
+			"  --doc-templates <folder>",
+			"                          With --doc, a folder of templates and files, which",
+			"                          come before the bundled ones.",
+			"  --entity-url <template> With --doc, a Velocity template for the link from",
+			"                          each entity's class name, relative to its page.",
 			"  --delete-orphans        With --all, delete the orphaned superclasses. Their",
 			"                          subclasses are only reported.",
 			"  --force                 Write the classes even when the model group or a",
@@ -170,6 +183,14 @@ public final class Main {
 	private String template;
 
 	private List<String> migrationModels = Collections.emptyList();
+
+	private boolean doc;
+
+	private File output;
+
+	private File docTemplates;
+
+	private String entityURL;
 
 	private boolean all;
 
@@ -270,6 +291,8 @@ public final class Main {
 				format = true;
 			} else if ("--migration".equals(arg)) {
 				migration = true;
+			} else if ("--doc".equals(arg)) {
+				doc = true;
 			} else if ("--include-dependencies".equals(arg)) {
 				includeDependencies = true;
 			} else if ("--delete-orphans".equals(arg)) {
@@ -284,7 +307,7 @@ public final class Main {
 				debug = true;
 			} else if ("--project".equals(arg) || "--models".equals(arg) || "--classpath".equals(arg) || "--templates".equals(arg) || "--rename".equals(arg)
 					|| "--to".equals(arg) || "--remove".equals(arg) || "--from".equals(arg) || "--sources".equals(arg) || "--package".equals(arg) || "--template".equals(arg)
-					|| "--migration-models".equals(arg)) {
+					|| "--migration-models".equals(arg) || "--output".equals(arg) || "--doc-templates".equals(arg) || "--entity-url".equals(arg)) {
 				if (i + 1 == args.length) {
 					return usage(arg + " needs a value.");
 				}
@@ -309,6 +332,12 @@ public final class Main {
 					packageName = value;
 				} else if ("--template".equals(arg)) {
 					template = value;
+				} else if ("--output".equals(arg)) {
+					output = new File(value);
+				} else if ("--doc-templates".equals(arg)) {
+					docTemplates = new File(value);
+				} else if ("--entity-url".equals(arg)) {
+					entityURL = value;
 				} else if ("--migration-models".equals(arg)) {
 					migrationModels = new ArrayList<>();
 					for (String name : value.split(",")) {
@@ -324,6 +353,12 @@ public final class Main {
 			} else {
 				eogenFiles.add(new File(arg));
 			}
+		}
+		if (doc && (verify || format || migration || all || check || deleteOrphans || rename != null || remove != null || !eogenFiles.isEmpty())) {
+			return usage("--doc takes no .eogen files, and goes only with --force, --include-dependencies and its own options.");
+		}
+		if (!doc && (output != null || docTemplates != null || entityURL != null)) {
+			return usage("--output, --doc-templates and --entity-url go with --doc.");
 		}
 		if (migration && (verify || format || all || deleteOrphans || rename != null || remove != null || !eogenFiles.isEmpty())) {
 			return usage("--migration takes no .eogen files, and goes only with --check and its own options.");
@@ -343,10 +378,10 @@ public final class Main {
 		if (deleteOrphans && (!all || check)) {
 			return usage("--delete-orphans needs --all, and doesn't go with --check.");
 		}
-		if (includeDependencies && !verify) {
-			return usage("--include-dependencies goes with --verify.");
+		if (includeDependencies && !verify && !doc) {
+			return usage("--include-dependencies goes with --verify or --doc.");
 		}
-		if (!verify && !format && !migration && !all && rename == null && remove == null && eogenFiles.isEmpty()) {
+		if (!verify && !format && !migration && !doc && !all && rename == null && remove == null && eogenFiles.isEmpty()) {
 			return usage("Give an .eogen file.");
 		}
 		for (File eogenFile : eogenFiles) {
@@ -390,6 +425,9 @@ public final class Main {
 		}
 		if (migration) {
 			return migration(generator);
+		}
+		if (doc) {
+			return doc(generator);
 		}
 		if (format) {
 			return format(generator);
@@ -582,6 +620,48 @@ public final class Main {
 			return STALE;
 		}
 		say(result.getFiles().size() + " model files checked, " + result.getFormattedFiles().size() + (check ? " to format." : " formatted."));
+		return OK;
+	}
+
+	/**
+	 * Writes EOModelDoc's pages, and reports them.
+	 *
+	 * @return exit status for them
+	 */
+	private int doc(EOGenerator generator) {
+		DocOptions options = new DocOptions();
+		options.setOutput(output == null ? new File(project, DocOptions.DEFAULT_OUTPUT) : output);
+		options.setTemplateFolder(docTemplates);
+		options.setEntityURL(entityURL);
+		options.setIncludeDependencies(includeDependencies);
+		DocResult result;
+		try {
+			result = generator.generateDoc(options);
+		} catch (EOGeneratorException e) {
+			return failed(e.getMessage(), e);
+		}
+		Map<String, Object> docReport = new LinkedHashMap<>();
+		docReport.put("written", result.isWritten());
+		docReport.put("models", result.getModels());
+		List<Object> files = new ArrayList<>();
+		for (File file : result.getFiles()) {
+			files.add(relative(file));
+		}
+		docReport.put("files", files);
+		docReport.put("errors", findings(result.getFindings(), true));
+		report.put("doc", docReport);
+		for (Finding finding : result.getFindings()) {
+			if (force) {
+				warn(finding.getMessage());
+			} else {
+				problem(finding.getMessage());
+			}
+		}
+		if (!result.isWritten()) {
+			problem("there are errors, so no page was written. Fix them, or use --force to write anyway.");
+			return FAILED;
+		}
+		say("Documented " + String.join(", ", result.getModels()) + " in " + relative(options.getOutput()) + ": " + result.getFiles().size() + " files.");
 		return OK;
 	}
 

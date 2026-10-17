@@ -31,6 +31,8 @@ eogen-core come from it:
                                  eogenerator.core.runner
   velocity.WOLipsVelocityUtils   thirdparty.velocity
   templates (resources)          eogenerator.core's templates folder
+  doc (resources)                eomodeler.doc's templates, style sheet
+                                 and script (prototype.js is below)
 
 They are distributed under the ObjectStyle Group Software License,
 Version 1.0, below. Each Java file keeps the licence header it had in
@@ -58,6 +60,18 @@ changed.
 
   This product includes software developed at
   The Apache Software Foundation (http://www.apache.org/).
+
+
+Prototype
+---------
+
+eogen-core's net/logicsquad/eogen/doc/prototype.js is version 1.5.0 of
+the Prototype JavaScript framework (http://prototypejs.org/), as WOLips's
+EOModelDoc has it, unchanged. It is distributed under the MIT License,
+in licenses/Prototype-MIT.txt.
+
+  Prototype JavaScript framework, version 1.5.0
+  (c) 2005-2007 Sam Stephenson
 
 
 The command-line jar

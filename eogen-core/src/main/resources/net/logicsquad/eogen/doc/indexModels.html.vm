@@ -9,7 +9,7 @@
 <h1>Models</h1>
 <ul>
 	<li><a href = "overview.html" target = "overview">All Entities</a></li>
-	#foreach($model in $modelGroup.sortedModels)
+	#foreach($model in $models)
 	<li><a href = "$model.name/overview.html" target = "overview">$model.name</a></li>
 	#end
 </ul>

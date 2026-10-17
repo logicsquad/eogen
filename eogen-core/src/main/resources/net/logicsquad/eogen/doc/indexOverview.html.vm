@@ -8,7 +8,7 @@
 
 <h1>All Entities</h1>
 <ul>
-	#foreach($entity in $modelGroup.sortedEntities)
+	#foreach($entity in $entities)
 	#if ($entity.abstractEntity)
 	<li class = "entity abstract"><a href = "$entity.model.name/entities/${entity.name}.html" target = "content">$entity.name</a></li>
 	#else

@@ -3,6 +3,18 @@
 The format here is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+### Added
+- `doc` (the goal, `--doc`, and `EOGenerator.generateDoc`) writes
+  WOLips's EOModelDoc pages for the project's models, and with
+  `includeDependencies` the dependencies' too: an index of every model
+  and entity, and a page for each model, entity and stored procedure,
+  with the documentation that Entity Modeler keeps for them. The pages
+  go in `target/site/eomodeldoc`, before the Maven site is built, or in
+  `outputDirectory`; a folder of templates comes before the bundled
+  ones; and `entityURL` links each entity's class name, such as to its
+  Javadoc. WOLips 5.0.3 doesn't ship EOModelDoc. #25
+
 ## [0.4] - 2026-10-18
 ### Added
 - `migration` (the goal, `--migration`, and

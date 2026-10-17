@@ -8,11 +8,15 @@
 
 <h1>$model.name</h1>
 <h3><a href = "../content.html">All Models</a></h3>
+#if ($model.documentation)
+<div class = "documentation">$model.documentation</div>
+#end
 
 #if (!$model.sortedEntities.empty)
 <h2>Entities</h2>
 <table class = "summary">
 	#foreach($entity in $model.sortedEntities)
+	#if (!$entity.prototype)
 	<tr>
 		<th><a href = "entities/${entity.name}.html">$entity.name</a></th>
 		<td>
@@ -23,6 +27,7 @@
 		#end
 		</td>
 	</tr>
+	#end
 	#end
 </table>
 #end

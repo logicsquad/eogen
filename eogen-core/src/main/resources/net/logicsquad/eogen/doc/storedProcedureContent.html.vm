@@ -7,11 +7,14 @@
 <body>
 <h1>${storedProcedure.model.name}</h1>
 <h2>${storedProcedure.name}</h2>
+#if ($storedProcedure.documentation)
+<div class = "documentation">$storedProcedure.documentation</div>
+#end
 
 <h3>Arguments</h3>
 <ul>
 	#foreach($argument in $storedProcedure.sortedArguments)
-	<li>${argument.name}</li>
+	<li>${argument.name}#if ($argument.documentation)<div class = "documentation">$argument.documentation</div>#end</li>
 	#end
 </ul>
 

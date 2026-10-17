@@ -7,9 +7,9 @@
 <body>
 <h1>EOModelDoc</h1>
 
-<h2>Models</h1>
+<h2>Models</h2>
 <table class = "summary">
-	#foreach($model in $modelGroup.sortedModels)
+	#foreach($model in $models)
 	<tr>
 		<th><a href = "$model.name/content.html">$model.name</a></th>
 		<td>
@@ -23,7 +23,9 @@
 		
 		<div class = "entities">
 		#foreach($entity in $model.sortedEntities)
+		#if (!$entity.prototype)
 		<a href = "$model.name/entities/${entity.name}.html">$entity.name</a>,
+		#end
 		#end 
 		</div>
 		</td>

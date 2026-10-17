@@ -32,6 +32,9 @@ import java.util.stream.Stream;
 
 import net.logicsquad.eogen.GeneratedFile.Kind;
 import net.logicsquad.eogen.GeneratedFile.Status;
+import net.logicsquad.eogen.doc.DocOptions;
+import net.logicsquad.eogen.doc.DocResult;
+import net.logicsquad.eogen.doc.ModelDocGenerator;
 import net.logicsquad.eogen.generator.ClasspathEOModelGroupFactory;
 import net.logicsquad.eogen.generator.EOGeneratorModel;
 import net.logicsquad.eogen.generator.EOGeneratorResourceLoader;
@@ -912,6 +915,22 @@ public class EOGenerator {
 		resolved.setModels(options.getModels());
 		resolved.setSourceFolders(options.getSourceFolders().stream().map(folder -> folder.isAbsolute() ? folder : new File(projectDirectory, folder.getPath())).collect(Collectors.toList()));
 		return new MigrationGenerator(projectDirectory, modelFolders, classpath, templatePath).generate(resolved, write);
+	}
+
+	/**
+	 * Writes EOModelDoc's HTML pages for the project's models, with
+	 * {@link ModelDocGenerator}: an index of every model and entity, and a page
+	 * for each model, entity and stored procedure, with their documentation.
+	 * Nothing is written if the model group or a template has errors, unless
+	 * forced.
+	 *
+	 * @param options where to write the pages, and what with
+	 * @return what was written
+	 * @throws EOGeneratorException if the model group can't be loaded, a
+	 *         template fails, or a file can't be written
+	 */
+	public DocResult generateDoc(DocOptions options) throws EOGeneratorException {
+		return new ModelDocGenerator(projectDirectory, modelFolders, classpath, templatePath).generate(options, force);
 	}
 
 	private ClasspathEOModelGroupFactory modelGroupFactory() {

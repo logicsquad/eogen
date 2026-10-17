@@ -178,7 +178,7 @@ class MainTest {
 		assertThat(err()).contains("--delete-orphans needs --all");
 		err.reset();
 		assertThat(run("--include-dependencies", eogen())).isEqualTo(Main.FAILED);
-		assertThat(err()).contains("--include-dependencies goes with --verify.");
+		assertThat(err()).contains("--include-dependencies goes with --verify or --doc.");
 	}
 
 	@Test
@@ -371,6 +371,29 @@ class MainTest {
 		err.reset();
 		assertThat(run("--migration", eogen())).isEqualTo(Main.FAILED);
 		assertThat(err()).contains("--migration takes no .eogen files");
+	}
+
+	@Test
+	void writesTheModelsDocumentation() throws Exception {
+		Path output = temp.resolve("doc");
+		assertThat(run("--json", "--project", project.toString(), "--classpath", reference.toString(), "--doc", "--output", output.toString(), "--include-dependencies",
+				"--entity-url", "../../../apidocs/${entity.name}.html")).isEqualTo(Main.OK);
+		assertThat(out()).contains("\"doc\": {\n    \"written\": true,\n    \"models\": [\n      \"Library\",\n      \"Reference\"\n    ],");
+		assertThat(new String(Files.readAllBytes(output.resolve("Library/entities/Book.html")), StandardCharsets.UTF_8))
+				.contains("<a href = \"../../../apidocs/Book.html\">com.example.library.Book</a>", "<a href = \"../../Reference/entities/Currency.html\">Currency</a>");
+		assertThat(output.resolve("prototype.js")).exists();
+
+		// By default, the project's own models, in its site.
+		out.reset();
+		assertThat(run("--project", project.toString(), "--classpath", reference.toString(), "--doc")).isEqualTo(Main.OK);
+		assertThat(out()).contains("Documented Library in target/site/eomodeldoc: 11 files.");
+
+		err.reset();
+		assertThat(run("--output", output.toString(), eogen())).isEqualTo(Main.FAILED);
+		assertThat(err()).contains("--output, --doc-templates and --entity-url go with --doc.");
+		err.reset();
+		assertThat(run("--doc", "--check")).isEqualTo(Main.FAILED);
+		assertThat(err()).contains("--doc takes no .eogen files");
 	}
 
 	@Test

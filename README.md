@@ -40,7 +40,7 @@ There are three modules:
 
 * `eogen-core`: the library.
 * `eogen-maven-plugin`: the `generate`, `check`, `verify`, `format`,
-  `rename`, `remove` and `migration` goals.
+  `rename`, `remove`, `migration` and `doc` goals.
 * `eogen-cli`: a command line that does what the plugin does.
 
 Using the Maven plugin
@@ -94,6 +94,8 @@ The goals are:
 * `migration` (no default phase): writes the next Project Wonder
   migration for each model whose tables changed (see
   [Writing migrations](#writing-migrations)).
+* `doc` (default phase `pre-site`): writes EOModelDoc's HTML pages for
+  the project's models (see [Documenting models](#documenting-models)).
 
 They take these parameters:
 
@@ -132,6 +134,7 @@ Using the command line
     java -jar eogen-cli-0.4.jar [options] --all
     java -jar eogen-cli-0.4.jar [options] --verify
     java -jar eogen-cli-0.4.jar [options] --migration
+    java -jar eogen-cli-0.4.jar [options] --doc
 
     --project <folder>      The folder that the .eogen files' paths are
                             relative to. Default: the current folder.
@@ -154,7 +157,7 @@ Using the command line
                             Entity Modeler does, and lint the project's
                             models. Exit with status 2 on errors.
     --include-dependencies  With --verify, report on the dependencies'
-                            models too.
+                            models too. With --doc, document them too.
     --format                Format the project's models as Entity
                             Modeler saves them. With --check, write
                             nothing, and exit with status 1 if any
@@ -180,6 +183,15 @@ Using the command line
     --migration-models <names>
                             With --migration, the models to write
                             migrations for, separated by ','.
+    --doc                   Write EOModelDoc's HTML pages for the
+                            project's models.
+    --output <folder>       With --doc, the folder of the pages.
+                            Default: <project>/target/site/eomodeldoc.
+    --doc-templates <folder>
+                            With --doc, a folder of templates and files,
+                            which come before the bundled ones.
+    --entity-url <template> With --doc, a Velocity template for the link
+                            from each entity's class name.
     --delete-orphans        With --all, delete the orphaned superclasses.
     --force                 Write the classes even when there are
                             errors, as WOLips does. Without it, errors
@@ -211,8 +223,10 @@ has the earlier version it compared with, as `since`, whether it was
 `model`, a `status` (`created`, `unchanged` or `skipped`), the `since`
 it was compared with, and for a created one its `file`, `class`,
 `number`, whether it is the `first`, how many `gaps` it has, and its
-`changes`, or else the `reason`; and `problems` has any failure that
-stopped it. Problems still go to standard error, as text.
+`changes`, or else the `reason`; `doc`, with `--doc`, has whether it was
+`written`, the `models` documented, the `files`, and its `errors`; and
+`problems` has any failure that stopped it. Problems still go to
+standard error, as text.
 
 Each error, warning and problem is a finding, the same object wherever
 it appears:
@@ -333,7 +347,8 @@ writes nothing, and `isWritten()` is false, unless
 `setForce(true)` was called. `getWarnings()` lists the lint's
 findings, which `setStrict(true)` makes errors instead.
 `format`, `rename` and `remove` do what the goals of those names do,
-and `generateMigrations` what `migration` does.
+`generateMigrations` what `migration` does, and `generateDoc` what
+`doc` does.
 Below `EOGenerator`, the extracted WOLips classes are available as
 they were: `EOModelGroup`, `EOModel`, `EOEntity` and the rest in
 `net.logicsquad.eogen.model`, and `EOGeneratorModel` and
@@ -730,6 +745,50 @@ of them with gaps where the person had filled in a value, and most of 5
 more. Of the rest, some have gaps that ask what the person decided, such
 as whether a column was renamed, and some move data with SQL.
 
+Documenting models
+------------------
+Entity Modeler keeps documentation for each model, entity, attribute,
+relationship, fetch specification, entity index and stored procedure,
+as HTML in its `userInfo`. `doc` writes it as WOLips's EOModelDoc did,
+as a set of HTML pages: an index of every model and entity, in frames,
+and a page for each model, entity and stored procedure, which has its
+attributes, relationships, fetch specifications and entity indexes:
+
+    mvn eogen:doc
+
+The pages go in `target/site/eomodeldoc`, and the goal's default phase
+is `pre-site`, so that a project that binds it has them in its Maven
+site:
+
+    <execution>
+      <goals>
+        <goal>doc</goal>
+      </goals>
+    </execution>
+
+It documents the project's own models, and with `includeDependencies`
+(`eogen.doc.includeDependencies`) its dependencies' too, but no
+prototype entity. A page links only to the pages of the models that are
+documented. The other parameters are:
+
+* `outputDirectory` (`eogen.doc.output`): the folder of the pages.
+* `templateDirectory` (`eogen.doc.templates`): a folder of templates,
+  which come before the bundled ones: a page's, such as
+  `entityContent.html.vm`, or a file that is copied, such as
+  `eomodeldoc.css`.
+* `entityURL` (`eogen.doc.entityURL`): a Velocity template for the link
+  from each entity's class name, such as to its Javadoc, which sees
+  `$entity` and `$model`. It is relative to the entity's page, which is
+  `<Model>/entities/<Entity>.html`:
+  `../../../apidocs/${entity.className.replace(".", "/")}.html`.
+
+As for the classes, a reference that renders with no value is an
+error, and nothing is written unless `force` is set. The command line
+does the same with `--doc`, `--output`, `--doc-templates`,
+`--entity-url` and `--include-dependencies`. Unlike WOLips's EOModelDoc,
+`doc` has no OmniGraffle export, whose diagrams placed entities at
+random.
+
 How eogen finds templates
 -------------------------
 eogen looks for each template in:
@@ -747,7 +806,8 @@ eogen looks for each template in:
 5. the templates bundled with WOLips: `_Entity.java` and `Entity.java`,
    which are the defaults, `_WonderEntity.java` and `WonderEntity.java`,
    and the Java 1.4 versions; and eogen's own, `Migration.java`, for
-   migrations.
+   migrations. EOModelDoc's templates are bundled too, and a folder of
+   them comes before the shared templates.
 
 ### Sharing templates
 

@@ -15,13 +15,13 @@
 		<a href = "../content.html">$entity.model.name</a> / $entity.name
 	#end
 	#if ($entity.parent)
-	<div class = "parentEntity"> : <a href = "../../$entity.parent.model.name/entities/${entity.parent.name}.html">$entity.parent.name</a></div>
+	<div class = "parentEntity"> : #if ($documented.contains($entity.parent.model.name))<a href = "../../$entity.parent.model.name/entities/${entity.parent.name}.html">$entity.parent.name</a>#{else}$entity.parent.name#end</div>
 	#end
 	#if (!$entity.childrenEntities.empty)
 	<div class = "childrenEntities">
 		parent of
 		#foreach ($child in $entity.childrenEntities)
-			<a href = "../../$child.model.name/entities/${child.name}.html">$child.name</a>#if ($velocityCount < $entity.childrenEntities.size()),#end
+			#if ($documented.contains($child.model.name))<a href = "../../$child.model.name/entities/${child.name}.html">$child.name</a>#{else}$child.name#end#if ($velocityCount < $entity.childrenEntities.size()),#end
 		#end
 	</div>
 	#end
@@ -29,7 +29,7 @@
 	<div class = "referencingEntities">
 		referenced by 
 		#foreach ($referencingEntity in $entity.referencingEntities)
-			<a href = "../../$referencingEntity.model.name/entities/${referencingEntity.name}.html">$referencingEntity.name</a>#if ($velocityCount < $entity.referencingEntities.size()),#end
+			#if ($documented.contains($referencingEntity.model.name))<a href = "../../$referencingEntity.model.name/entities/${referencingEntity.name}.html">$referencingEntity.name</a>#{else}$referencingEntity.name#end#if ($velocityCount < $entity.referencingEntities.size()),#end
 		#end
 	</div>
 	#end
@@ -60,7 +60,7 @@
 		#if ($entity.restrictingQualifier)
 		<tr>
 			<th>Restricting Qualifier</th>
-			<td>$entity.restrictingQualifier</td>
+			<td>$html.escape($entity.restrictingQualifier)</td>
 		</tr>
 		#end
 	</table>
@@ -164,7 +164,7 @@
 		<a id = "relationship_details_toggle" href = "javascript:void(0)" onclick = "toggleProperty('relationship', 'details')">show details</a>
 		#end
 		#if (!$entity.nonClassRelationships.empty)
-		<a id = "relationship_nonClassProperty_toggle"href = "javascript:void(0)" onclick = "toggleProperty('relationship', 'nonClassProperty')">hide non-class</a>
+		<a id = "relationship_nonClassProperty_toggle" href = "javascript:void(0)" onclick = "toggleProperty('relationship', 'nonClassProperty')">hide non-class</a>
 		#end
 		#if (!$entity.inheritedRelationships.empty)
 		<a id = "relationship_inheritedProperty_toggle" href = "javascript:void(0)" onclick = "toggleProperty('relationship', 'inheritedProperty')">hide inherited</a>
@@ -180,10 +180,10 @@
 			<div class = "name#if ($relationship.flattened) flattened#end">$relationship.name</div>
 			#if ($relationship.destination)
 			<div class = "mainDetail">
-				<a href = "../../$relationship.destination.model.name/entities/${relationship.destination.name}.html">$relationship.destination.name</a>
+				#if ($documented.contains($relationship.destination.model.name))<a href = "../../$relationship.destination.model.name/entities/${relationship.destination.name}.html">$relationship.destination.name</a>#{else}$relationship.destination.name#end
 				#if ($relationship.flattened)
 					via
-					#foreach ($pathElement in $relationship.definitionPath.pathElements)<a href = "../../$pathElement.childRelationship.destination.model.name/entities/${pathElement.childRelationship.destination.name}.html">$pathElement.childRelationship.name</a>#if ($velocityCount < $relationship.definitionPath.pathElements.size()).#end#end 
+					#foreach ($pathElement in $relationship.definitionPath.pathElements)#if ($documented.contains($pathElement.childRelationship.destination.model.name))<a href = "../../$pathElement.childRelationship.destination.model.name/entities/${pathElement.childRelationship.destination.name}.html">$pathElement.childRelationship.name</a>#{else}$pathElement.childRelationship.name#end#if ($velocityCount < $relationship.definitionPath.pathElements.size()).#end#end 
 				#end
 			</div>
 			#end
@@ -196,7 +196,7 @@
 					<th>Type</th>
 					<td>
 						#if ($relationship.flattened) Flattened #end
-						#if ($relationship.joinSemantic.ID != "EOInnerJoin") $relationship.joinSemantic.name #end
+						#if ($relationship.joinSemantic && $relationship.joinSemantic.ID != "EOInnerJoin") $relationship.joinSemantic.name #end
 						#if ($relationship.toOne)
 							#if ($relationship.mandatory)
 								Mandatory To-One
@@ -212,7 +212,9 @@
 				<tr>
 					<th>Delete Rule</th>
 					<td>
+						#if ($relationship.deleteRule)
 						$relationship.deleteRule.name
+						#end
 					</td>
 				</tr>
 				
@@ -259,10 +261,12 @@
 			#end
 	
 			<table class = "details" style = "display: none">
+				#if ($fetchSpec.qualifier)
 				<tr>
 					<th>Qualifier</th>
-					<td>$fetchSpec.qualifier</td>
+					<td>$html.escape($fetchSpec.qualifier)</td>
 				</tr>
+				#end
 				
 				#if (!$fetchSpec.sortOrderings.empty)
 				<tr>
@@ -296,7 +300,7 @@
 
 				<tr>
 					<th>Deep Fetch?</th>
-					<td>$fetchSpec.deep</td>
+					<td>#if ($fetchSpec.deep)true#{else}false#end</td>
 				</tr>
 				
 				<tr>
