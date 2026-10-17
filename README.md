@@ -348,6 +348,10 @@ Testing
   from a jar. `src/test/oracle/run.sh` produced the expected output
   with WOLips 5.0.3's own jars and Velocity 1.5, and can produce it
   again from an Eclipse install with WOLips.
+* `eogen-core`'s corpus tests, which do the same for eleven models, ten
+  of them Project Wonder's: every superclass must be byte for byte what
+  WOLips generates, with no errors and no lint findings. See
+  `src/test/resources/corpus/README.md`.
 * `eogen-maven-plugin`'s integration tests, which run each goal in
   Maven with [ITF](https://github.com/khmarbaise/maven-it-extension).
 * `eogen-cli`'s tests.

@@ -144,7 +144,7 @@ final class FixtureProject {
 		}
 	}
 
-	private static void copyTree(Path source, Path target) throws IOException {
+	static void copyTree(Path source, Path target) throws IOException {
 		try (Stream<Path> paths = Files.walk(source)) {
 			for (Path path : paths.collect(Collectors.toList())) {
 				Path copy = target.resolve(source.relativize(path).toString());

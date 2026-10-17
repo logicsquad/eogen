@@ -1,0 +1,11 @@
+{
+    EOModelVersion = "2.1"; 
+    adaptorName = JDBC; 
+    connectionDictionary = {}; 
+    entities = (
+        {className = "com.example.ledger.Account"; name = Account; }, 
+        {className = "com.example.ledger.Posting"; name = Posting; }
+    ); 
+    storedProcedures = (closeAccounts, fetchAccounts); 
+    userInfo = {"_EntityModeler" = {documentation = "A ledger, with an entity index and stored procedures, which Project Wonder's models don't have."; }; }; 
+}

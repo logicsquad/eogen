@@ -1,18 +1,22 @@
 #!/bin/bash
 # Regenerates eogen-core's expected test output with WOLips's own EOGenerator,
-# and the Velocity 1.5 output of the templates in src/test/resources/velocity.
+# for the fixture project and the corpus of Project Wonder's models, and the
+# Velocity 1.5 output of the templates in src/test/resources/velocity.
 #
 # Usage: src/test/oracle/run.sh    (from eogen-core)
 #
 # It runs WOLips's unmodified eomodeler.core and eogenerator.core jars, and
 # Velocity 1.5, from an Eclipse install's ~/.p2/pool/plugins, on each .eogen
-# file in the test fixture project. Each file's output replaces
-# src/test/resources/fixtures/expected/<name of the .eogen file>.
+# file in the test fixture project and the corpus. Each file's output replaces
+# src/test/resources/fixtures/expected/<name of the .eogen file>, or, for the
+# corpus, src/test/resources/corpus/expected/<name>, which keeps only the
+# superclasses.
 set -euo pipefail
 
 here=$(cd "$(dirname "$0")" && pwd)
 core=$(cd "$here/../../.." && pwd)
 fixtures=$core/src/test/resources/fixtures
+corpus=$core/src/test/resources/corpus
 pool=${WOLIPS_POOL:-$HOME/.p2/pool/plugins}
 build=$core/target/oracle
 
@@ -52,6 +56,19 @@ for eogen in "$fixtures"/project/src/main/resources/*.eogen; do
 	# Run from the project, since Velocity 1.5 looks for templates in "." first.
 	(cd "$fixtures/project" && java -cp "$build/classes:$classpath" oracle.WOLipsOracle \
 		"$fixtures/project" "$eogen" "$build/reference.jar" "$out")
+done
+
+# The corpus: Project Wonder's models, with ERPrototypes in a jar.
+jar cf "$build/erprototypes.jar" -C "$corpus/framework" Resources
+for eogen in "$corpus"/project/src/main/resources/*.eogen; do
+	name=$(basename "$eogen" .eogen)
+	out=$corpus/expected/$name
+	rm -rf "$out"
+	echo "corpus: $name"
+	(cd "$corpus/project" && java -cp "$build/classes:$classpath" oracle.WOLipsOracle \
+		"$corpus/project" "$eogen" "$build/erprototypes.jar" "$out" > "$build/$name.log")
+	# Subclasses are generated once and edited by hand, so only superclasses count.
+	find "$out" -type f ! -name '_*' -delete
 done
 
 # Velocity 1.5's output for each compatibility template, as <template>.v15.

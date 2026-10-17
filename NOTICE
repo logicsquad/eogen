@@ -75,6 +75,21 @@ eogen-cli's jar bundles the libraries that it needs:
                              META-INF/licenses/SLF4J-MIT.txt
 
 
+The test corpus
+---------------
+
+eogen-core/src/test/resources/corpus holds models and templates from
+Project Wonder (https://github.com/wocommunity/wonder), at commit
+bd44b6ce2 (2022-10-23), for testing only:
+
+  project/src/main/resources/*.eomodeld, except Ledger.eomodeld
+  framework/Resources/erprototypes.eomodeld
+  project/src/main/templates/wonder
+
+They are distributed under the NetStruxr Public Software License,
+"Copyright (c) 2001, NetStruxr, inc", in corpus/LICENSE.NPL.
+
+
 Everything else
 ---------------
 

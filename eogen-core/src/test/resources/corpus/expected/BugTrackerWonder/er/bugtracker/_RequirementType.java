@@ -1,0 +1,115 @@
+// DO NOT EDIT.  Make changes to RequirementType.java instead.
+package er.bugtracker;
+
+import com.webobjects.eoaccess.*;
+import com.webobjects.eocontrol.*;
+import com.webobjects.foundation.*;
+import java.math.*;
+import java.util.*;
+
+import er.extensions.eof.*;
+import er.extensions.eof.ERXKey.Type;
+import er.extensions.foundation.*;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+@SuppressWarnings("all")
+public abstract class _RequirementType extends er.extensions.eof.ERXGenericRecord {
+  public static final String ENTITY_NAME = "RequirementType";
+
+  // Attribute Keys
+  public static final ERXKey<String> TYPE_DESCRIPTION = new ERXKey<String>("typeDescription", Type.Attribute);
+
+  // Relationship Keys
+
+  // Attributes
+  public static final String TYPE_DESCRIPTION_KEY = TYPE_DESCRIPTION.key();
+
+  // Relationships
+
+  private static final Logger log = LoggerFactory.getLogger(_RequirementType.class);
+
+  public RequirementType localInstanceIn(EOEditingContext editingContext) {
+    RequirementType localInstance = (RequirementType)EOUtilities.localInstanceOfObject(editingContext, this);
+    if (localInstance == null) {
+      throw new IllegalStateException("You attempted to localInstance " + this + ", which has not yet committed.");
+    }
+    return localInstance;
+  }
+
+  public String typeDescription() {
+    return (String) storedValueForKey(_RequirementType.TYPE_DESCRIPTION_KEY);
+  }
+
+  public void setTypeDescription(String value) {
+    log.debug( "updating typeDescription from {} to {}", typeDescription(), value);
+    takeStoredValueForKey(value, _RequirementType.TYPE_DESCRIPTION_KEY);
+  }
+
+
+  public static RequirementType createRequirementType(EOEditingContext editingContext, String typeDescription
+) {
+    RequirementType eo = (RequirementType) EOUtilities.createAndInsertInstance(editingContext, _RequirementType.ENTITY_NAME);
+    eo.setTypeDescription(typeDescription);
+    return eo;
+  }
+
+  public static ERXFetchSpecification<RequirementType> fetchSpec() {
+    return new ERXFetchSpecification<RequirementType>(_RequirementType.ENTITY_NAME, null, null, false, true, null);
+  }
+
+  public static NSArray<RequirementType> fetchAllRequirementTypes(EOEditingContext editingContext) {
+    return _RequirementType.fetchAllRequirementTypes(editingContext, null);
+  }
+
+  public static NSArray<RequirementType> fetchAllRequirementTypes(EOEditingContext editingContext, NSArray<EOSortOrdering> sortOrderings) {
+    return _RequirementType.fetchRequirementTypes(editingContext, null, sortOrderings);
+  }
+
+  public static NSArray<RequirementType> fetchRequirementTypes(EOEditingContext editingContext, EOQualifier qualifier, NSArray<EOSortOrdering> sortOrderings) {
+    ERXFetchSpecification<RequirementType> fetchSpec = new ERXFetchSpecification<RequirementType>(_RequirementType.ENTITY_NAME, qualifier, sortOrderings);
+    NSArray<RequirementType> eoObjects = fetchSpec.fetchObjects(editingContext);
+    return eoObjects;
+  }
+
+  public static RequirementType fetchRequirementType(EOEditingContext editingContext, String keyName, Object value) {
+    return _RequirementType.fetchRequirementType(editingContext, ERXQ.equals(keyName, value));
+  }
+
+  public static RequirementType fetchRequirementType(EOEditingContext editingContext, EOQualifier qualifier) {
+    NSArray<RequirementType> eoObjects = _RequirementType.fetchRequirementTypes(editingContext, qualifier, null);
+    RequirementType eoObject;
+    int count = eoObjects.count();
+    if (count == 0) {
+      eoObject = null;
+    }
+    else if (count == 1) {
+      eoObject = eoObjects.objectAtIndex(0);
+    }
+    else {
+      throw new IllegalStateException("There was more than one RequirementType that matched the qualifier '" + qualifier + "'.");
+    }
+    return eoObject;
+  }
+
+  public static RequirementType fetchRequiredRequirementType(EOEditingContext editingContext, String keyName, Object value) {
+    return _RequirementType.fetchRequiredRequirementType(editingContext, ERXQ.equals(keyName, value));
+  }
+
+  public static RequirementType fetchRequiredRequirementType(EOEditingContext editingContext, EOQualifier qualifier) {
+    RequirementType eoObject = _RequirementType.fetchRequirementType(editingContext, qualifier);
+    if (eoObject == null) {
+      throw new NoSuchElementException("There was no RequirementType that matched the qualifier '" + qualifier + "'.");
+    }
+    return eoObject;
+  }
+
+  public static RequirementType localInstanceIn(EOEditingContext editingContext, RequirementType eo) {
+    RequirementType localInstance = (eo == null) ? null : ERXEOControlUtilities.localInstanceOfObject(editingContext, eo);
+    if (localInstance == null && eo != null) {
+      throw new IllegalStateException("You attempted to localInstance " + eo + ", which has not yet committed.");
+    }
+    return localInstance;
+  }
+}

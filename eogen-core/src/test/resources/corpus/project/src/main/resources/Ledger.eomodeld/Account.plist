@@ -1,0 +1,36 @@
+{
+    attributes = (
+        {allowsNull = N; columnName = id; name = id; prototypeName = id; }, 
+        {allowsNull = N; columnName = name; name = name; prototypeName = varchar100; }, 
+        {allowsNull = N; columnName = number; name = number; prototypeName = varchar16; }, 
+        {allowsNull = Y; columnName = "opened_on"; name = openedOn; prototypeName = javaLocalDate; }
+    ); 
+    attributesUsedForLocking = (id, name, number); 
+    className = "com.example.ledger.Account"; 
+    classProperties = (name, number, openedOn, postings); 
+    entityIndexes = (
+        {
+            attributes = (number); 
+            constraint = distinct; 
+            indexType = clustered; 
+            name = "account_number"; 
+            order = asc; 
+            userInfo = {"_EntityModeler" = {documentation = "Account numbers are unique."; }; }; 
+        }
+    ); 
+    externalName = account; 
+    fetchSpecificationDictionary = {}; 
+    name = Account; 
+    primaryKeyAttributes = (id); 
+    relationships = (
+        {
+            deleteRule = EODeleteRuleDeny; 
+            destination = Posting; 
+            isToMany = Y; 
+            joinSemantic = EOInnerJoin; 
+            joins = ({destinationAttribute = accountID; sourceAttribute = id; }); 
+            name = postings; 
+        }
+    ); 
+    storedProcedureNames = {EOFetchAllProcedure = fetchAccounts; }; 
+}

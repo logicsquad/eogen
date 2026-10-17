@@ -1,0 +1,11 @@
+ -destination generated/ERMailWonder \
+ -extension java \
+ -java \
+ -javaTemplate _WonderEntity.java \
+ -model src/main/resources/ERMail.eomodeld \
+ -packagedirs \
+ -subclassDestination generated/ERMailWonder \
+ -subclassJavaTemplate WonderEntity.java \
+ -verbose \
+ -loadModelGroup \
+ -define-EOGenericRecord er.extensions.eof.ERXGenericRecord

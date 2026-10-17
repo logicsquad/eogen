@@ -1,0 +1,25 @@
+{
+    attributes = (
+        {allowsNull = N; columnName = "account_id"; name = accountID; prototypeName = id; }, 
+        {allowsNull = N; columnName = amount; name = amount; prototypeName = currencyAmount; }, 
+        {allowsNull = N; columnName = id; name = id; prototypeName = id; }, 
+        {allowsNull = N; columnName = "posted_at"; name = postedAt; prototypeName = dateTime; }
+    ); 
+    attributesUsedForLocking = (accountID, amount, id, postedAt); 
+    className = "com.example.ledger.Posting"; 
+    classProperties = (account, amount, postedAt); 
+    externalName = posting; 
+    fetchSpecificationDictionary = {}; 
+    name = Posting; 
+    primaryKeyAttributes = (id); 
+    relationships = (
+        {
+            destination = Account; 
+            isMandatory = Y; 
+            isToMany = N; 
+            joinSemantic = EOInnerJoin; 
+            joins = ({destinationAttribute = id; sourceAttribute = accountID; }); 
+            name = account; 
+        }
+    ); 
+}

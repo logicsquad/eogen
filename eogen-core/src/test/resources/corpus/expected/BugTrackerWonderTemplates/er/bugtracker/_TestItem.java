@@ -1,0 +1,415 @@
+// DO NOT EDIT.  Make changes to TestItem.java instead.
+package er.bugtracker;
+
+import com.webobjects.eoaccess.*;
+import com.webobjects.eocontrol.*;
+import com.webobjects.foundation.*;
+import java.math.*;
+import java.util.*;
+import org.apache.log4j.Logger;
+
+import er.extensions.eof.*;
+import er.extensions.foundation.*;
+
+@SuppressWarnings("all")
+public abstract class _TestItem extends er.extensions.eof.ERXGenericRecord {
+  public static final String ENTITY_NAME = "TestItem";
+
+  // Attribute Keys
+  public static final ERXKey<String> COMMENTS = new ERXKey<String>("comments");
+  public static final ERXKey<String> CONTROLLED = new ERXKey<String>("controlled");
+  public static final ERXKey<NSTimestamp> DATE_CREATED = new ERXKey<NSTimestamp>("dateCreated");
+  public static final ERXKey<Integer> ID = new ERXKey<Integer>("id");
+  public static final ERXKey<String> TEXT_DESCRIPTION = new ERXKey<String>("textDescription");
+  public static final ERXKey<String> TITLE = new ERXKey<String>("title");
+  // Relationship Keys
+  public static final ERXKey<er.bugtracker.Bug> BUGS = new ERXKey<er.bugtracker.Bug>("bugs");
+  public static final ERXKey<er.bugtracker.Component> COMPONENT = new ERXKey<er.bugtracker.Component>("component");
+  public static final ERXKey<er.bugtracker.People> OWNER = new ERXKey<er.bugtracker.People>("owner");
+  public static final ERXKey<er.bugtracker.Requirement> REQUIREMENTS = new ERXKey<er.bugtracker.Requirement>("requirements");
+  public static final ERXKey<er.bugtracker.TestItemState> STATE = new ERXKey<er.bugtracker.TestItemState>("state");
+
+  // Attributes
+  public static final String COMMENTS_KEY = COMMENTS.key();
+  public static final String CONTROLLED_KEY = CONTROLLED.key();
+  public static final String DATE_CREATED_KEY = DATE_CREATED.key();
+  public static final String ID_KEY = ID.key();
+  public static final String TEXT_DESCRIPTION_KEY = TEXT_DESCRIPTION.key();
+  public static final String TITLE_KEY = TITLE.key();
+  // Relationships
+  public static final String BUGS_KEY = BUGS.key();
+  public static final String COMPONENT_KEY = COMPONENT.key();
+  public static final String OWNER_KEY = OWNER.key();
+  public static final String REQUIREMENTS_KEY = REQUIREMENTS.key();
+  public static final String STATE_KEY = STATE.key();
+
+  private static Logger LOG = Logger.getLogger(_TestItem.class);
+
+  public TestItem localInstanceIn(EOEditingContext editingContext) {
+    TestItem localInstance = (TestItem)EOUtilities.localInstanceOfObject(editingContext, this);
+    if (localInstance == null) {
+      throw new IllegalStateException("You attempted to localInstance " + this + ", which has not yet committed.");
+    }
+    return localInstance;
+  }
+
+  public String comments() {
+    return (String) storedValueForKey(_TestItem.COMMENTS_KEY);
+  }
+
+  public void setComments(String value) {
+    if (_TestItem.LOG.isDebugEnabled()) {
+    	_TestItem.LOG.debug( "updating comments from " + comments() + " to " + value);
+    }
+    takeStoredValueForKey(value, _TestItem.COMMENTS_KEY);
+  }
+
+  public String controlled() {
+    return (String) storedValueForKey(_TestItem.CONTROLLED_KEY);
+  }
+
+  public void setControlled(String value) {
+    if (_TestItem.LOG.isDebugEnabled()) {
+    	_TestItem.LOG.debug( "updating controlled from " + controlled() + " to " + value);
+    }
+    takeStoredValueForKey(value, _TestItem.CONTROLLED_KEY);
+  }
+
+  public NSTimestamp dateCreated() {
+    return (NSTimestamp) storedValueForKey(_TestItem.DATE_CREATED_KEY);
+  }
+
+  public void setDateCreated(NSTimestamp value) {
+    if (_TestItem.LOG.isDebugEnabled()) {
+    	_TestItem.LOG.debug( "updating dateCreated from " + dateCreated() + " to " + value);
+    }
+    takeStoredValueForKey(value, _TestItem.DATE_CREATED_KEY);
+  }
+
+  public Integer id() {
+    return (Integer) storedValueForKey(_TestItem.ID_KEY);
+  }
+
+  public void setId(Integer value) {
+    if (_TestItem.LOG.isDebugEnabled()) {
+    	_TestItem.LOG.debug( "updating id from " + id() + " to " + value);
+    }
+    takeStoredValueForKey(value, _TestItem.ID_KEY);
+  }
+
+  public String textDescription() {
+    return (String) storedValueForKey(_TestItem.TEXT_DESCRIPTION_KEY);
+  }
+
+  public void setTextDescription(String value) {
+    if (_TestItem.LOG.isDebugEnabled()) {
+    	_TestItem.LOG.debug( "updating textDescription from " + textDescription() + " to " + value);
+    }
+    takeStoredValueForKey(value, _TestItem.TEXT_DESCRIPTION_KEY);
+  }
+
+  public String title() {
+    return (String) storedValueForKey(_TestItem.TITLE_KEY);
+  }
+
+  public void setTitle(String value) {
+    if (_TestItem.LOG.isDebugEnabled()) {
+    	_TestItem.LOG.debug( "updating title from " + title() + " to " + value);
+    }
+    takeStoredValueForKey(value, _TestItem.TITLE_KEY);
+  }
+
+  public er.bugtracker.Component component() {
+    return (er.bugtracker.Component)storedValueForKey(_TestItem.COMPONENT_KEY);
+  }
+  
+  public void setComponent(er.bugtracker.Component value) {
+    takeStoredValueForKey(value, _TestItem.COMPONENT_KEY);
+  }
+
+  public void setComponentRelationship(er.bugtracker.Component value) {
+    if (_TestItem.LOG.isDebugEnabled()) {
+      _TestItem.LOG.debug("updating component from " + component() + " to " + value);
+    }
+    if (er.extensions.eof.ERXGenericRecord.InverseRelationshipUpdater.updateInverseRelationships()) {
+    	setComponent(value);
+    }
+    else if (value == null) {
+    	er.bugtracker.Component oldValue = component();
+    	if (oldValue != null) {
+    		removeObjectFromBothSidesOfRelationshipWithKey(oldValue, _TestItem.COMPONENT_KEY);
+      }
+    } else {
+    	addObjectToBothSidesOfRelationshipWithKey(value, _TestItem.COMPONENT_KEY);
+    }
+  }
+  
+  public er.bugtracker.People owner() {
+    return (er.bugtracker.People)storedValueForKey(_TestItem.OWNER_KEY);
+  }
+  
+  public void setOwner(er.bugtracker.People value) {
+    takeStoredValueForKey(value, _TestItem.OWNER_KEY);
+  }
+
+  public void setOwnerRelationship(er.bugtracker.People value) {
+    if (_TestItem.LOG.isDebugEnabled()) {
+      _TestItem.LOG.debug("updating owner from " + owner() + " to " + value);
+    }
+    if (er.extensions.eof.ERXGenericRecord.InverseRelationshipUpdater.updateInverseRelationships()) {
+    	setOwner(value);
+    }
+    else if (value == null) {
+    	er.bugtracker.People oldValue = owner();
+    	if (oldValue != null) {
+    		removeObjectFromBothSidesOfRelationshipWithKey(oldValue, _TestItem.OWNER_KEY);
+      }
+    } else {
+    	addObjectToBothSidesOfRelationshipWithKey(value, _TestItem.OWNER_KEY);
+    }
+  }
+  
+  public er.bugtracker.TestItemState state() {
+    return (er.bugtracker.TestItemState)storedValueForKey(_TestItem.STATE_KEY);
+  }
+  
+  public void setState(er.bugtracker.TestItemState value) {
+    takeStoredValueForKey(value, _TestItem.STATE_KEY);
+  }
+
+  public void setStateRelationship(er.bugtracker.TestItemState value) {
+    if (_TestItem.LOG.isDebugEnabled()) {
+      _TestItem.LOG.debug("updating state from " + state() + " to " + value);
+    }
+    if (er.extensions.eof.ERXGenericRecord.InverseRelationshipUpdater.updateInverseRelationships()) {
+    	setState(value);
+    }
+    else if (value == null) {
+    	er.bugtracker.TestItemState oldValue = state();
+    	if (oldValue != null) {
+    		removeObjectFromBothSidesOfRelationshipWithKey(oldValue, _TestItem.STATE_KEY);
+      }
+    } else {
+    	addObjectToBothSidesOfRelationshipWithKey(value, _TestItem.STATE_KEY);
+    }
+  }
+  
+  public NSArray<er.bugtracker.Bug> bugs() {
+    return (NSArray<er.bugtracker.Bug>)storedValueForKey(_TestItem.BUGS_KEY);
+  }
+
+  public NSArray<er.bugtracker.Bug> bugs(EOQualifier qualifier) {
+    return bugs(qualifier, null);
+  }
+
+  public NSArray<er.bugtracker.Bug> bugs(EOQualifier qualifier, NSArray<EOSortOrdering> sortOrderings) {
+    NSArray<er.bugtracker.Bug> results;
+      results = bugs();
+      if (qualifier != null) {
+        results = (NSArray<er.bugtracker.Bug>)EOQualifier.filteredArrayWithQualifier(results, qualifier);
+      }
+      if (sortOrderings != null) {
+        results = (NSArray<er.bugtracker.Bug>)EOSortOrdering.sortedArrayUsingKeyOrderArray(results, sortOrderings);
+      }
+    return results;
+  }
+  
+  public void addToBugs(er.bugtracker.Bug object) {
+    includeObjectIntoPropertyWithKey(object, _TestItem.BUGS_KEY);
+  }
+
+  public void removeFromBugs(er.bugtracker.Bug object) {
+    excludeObjectFromPropertyWithKey(object, _TestItem.BUGS_KEY);
+  }
+
+  public void addToBugsRelationship(er.bugtracker.Bug object) {
+    if (_TestItem.LOG.isDebugEnabled()) {
+      _TestItem.LOG.debug("adding " + object + " to bugs relationship");
+    }
+    if (er.extensions.eof.ERXGenericRecord.InverseRelationshipUpdater.updateInverseRelationships()) {
+    	addToBugs(object);
+    }
+    else {
+    	addObjectToBothSidesOfRelationshipWithKey(object, _TestItem.BUGS_KEY);
+    }
+  }
+
+  public void removeFromBugsRelationship(er.bugtracker.Bug object) {
+    if (_TestItem.LOG.isDebugEnabled()) {
+      _TestItem.LOG.debug("removing " + object + " from bugs relationship");
+    }
+    if (er.extensions.eof.ERXGenericRecord.InverseRelationshipUpdater.updateInverseRelationships()) {
+    	removeFromBugs(object);
+    }
+    else {
+    	removeObjectFromBothSidesOfRelationshipWithKey(object, _TestItem.BUGS_KEY);
+    }
+  }
+
+  public er.bugtracker.Bug createBugsRelationship() {
+    EOClassDescription eoClassDesc = EOClassDescription.classDescriptionForEntityName( er.bugtracker.Bug.ENTITY_NAME );
+    EOEnterpriseObject eo = eoClassDesc.createInstanceWithEditingContext(editingContext(), null);
+    editingContext().insertObject(eo);
+    addObjectToBothSidesOfRelationshipWithKey(eo, _TestItem.BUGS_KEY);
+    return (er.bugtracker.Bug) eo;
+  }
+
+  public void deleteBugsRelationship(er.bugtracker.Bug object) {
+    removeObjectFromBothSidesOfRelationshipWithKey(object, _TestItem.BUGS_KEY);
+    editingContext().deleteObject(object);
+  }
+
+  public void deleteAllBugsRelationships() {
+    Enumeration<er.bugtracker.Bug> objects = bugs().immutableClone().objectEnumerator();
+    while (objects.hasMoreElements()) {
+      deleteBugsRelationship(objects.nextElement());
+    }
+  }
+
+  public NSArray<er.bugtracker.Requirement> requirements() {
+    return (NSArray<er.bugtracker.Requirement>)storedValueForKey(_TestItem.REQUIREMENTS_KEY);
+  }
+
+  public NSArray<er.bugtracker.Requirement> requirements(EOQualifier qualifier) {
+    return requirements(qualifier, null);
+  }
+
+  public NSArray<er.bugtracker.Requirement> requirements(EOQualifier qualifier, NSArray<EOSortOrdering> sortOrderings) {
+    NSArray<er.bugtracker.Requirement> results;
+      results = requirements();
+      if (qualifier != null) {
+        results = (NSArray<er.bugtracker.Requirement>)EOQualifier.filteredArrayWithQualifier(results, qualifier);
+      }
+      if (sortOrderings != null) {
+        results = (NSArray<er.bugtracker.Requirement>)EOSortOrdering.sortedArrayUsingKeyOrderArray(results, sortOrderings);
+      }
+    return results;
+  }
+  
+  public void addToRequirements(er.bugtracker.Requirement object) {
+    includeObjectIntoPropertyWithKey(object, _TestItem.REQUIREMENTS_KEY);
+  }
+
+  public void removeFromRequirements(er.bugtracker.Requirement object) {
+    excludeObjectFromPropertyWithKey(object, _TestItem.REQUIREMENTS_KEY);
+  }
+
+  public void addToRequirementsRelationship(er.bugtracker.Requirement object) {
+    if (_TestItem.LOG.isDebugEnabled()) {
+      _TestItem.LOG.debug("adding " + object + " to requirements relationship");
+    }
+    if (er.extensions.eof.ERXGenericRecord.InverseRelationshipUpdater.updateInverseRelationships()) {
+    	addToRequirements(object);
+    }
+    else {
+    	addObjectToBothSidesOfRelationshipWithKey(object, _TestItem.REQUIREMENTS_KEY);
+    }
+  }
+
+  public void removeFromRequirementsRelationship(er.bugtracker.Requirement object) {
+    if (_TestItem.LOG.isDebugEnabled()) {
+      _TestItem.LOG.debug("removing " + object + " from requirements relationship");
+    }
+    if (er.extensions.eof.ERXGenericRecord.InverseRelationshipUpdater.updateInverseRelationships()) {
+    	removeFromRequirements(object);
+    }
+    else {
+    	removeObjectFromBothSidesOfRelationshipWithKey(object, _TestItem.REQUIREMENTS_KEY);
+    }
+  }
+
+  public er.bugtracker.Requirement createRequirementsRelationship() {
+    EOClassDescription eoClassDesc = EOClassDescription.classDescriptionForEntityName( er.bugtracker.Requirement.ENTITY_NAME );
+    EOEnterpriseObject eo = eoClassDesc.createInstanceWithEditingContext(editingContext(), null);
+    editingContext().insertObject(eo);
+    addObjectToBothSidesOfRelationshipWithKey(eo, _TestItem.REQUIREMENTS_KEY);
+    return (er.bugtracker.Requirement) eo;
+  }
+
+  public void deleteRequirementsRelationship(er.bugtracker.Requirement object) {
+    removeObjectFromBothSidesOfRelationshipWithKey(object, _TestItem.REQUIREMENTS_KEY);
+    editingContext().deleteObject(object);
+  }
+
+  public void deleteAllRequirementsRelationships() {
+    Enumeration<er.bugtracker.Requirement> objects = requirements().immutableClone().objectEnumerator();
+    while (objects.hasMoreElements()) {
+      deleteRequirementsRelationship(objects.nextElement());
+    }
+  }
+
+
+  public static TestItem createTestItem(EOEditingContext editingContext, String controlled
+, NSTimestamp dateCreated
+, Integer id
+, String title
+, er.bugtracker.Component component, er.bugtracker.TestItemState state) {
+    TestItem eo = (TestItem) EOUtilities.createAndInsertInstance(editingContext, _TestItem.ENTITY_NAME);    
+		eo.setControlled(controlled);
+		eo.setDateCreated(dateCreated);
+		eo.setId(id);
+		eo.setTitle(title);
+    eo.setComponentRelationship(component);
+    eo.setStateRelationship(state);
+    return eo;
+  }
+
+  public static ERXFetchSpecification<TestItem> fetchSpec() {
+    return new ERXFetchSpecification<TestItem>(_TestItem.ENTITY_NAME, null, null, false, true, null);
+  }
+
+  public static NSArray<TestItem> fetchAllTestItems(EOEditingContext editingContext) {
+    return _TestItem.fetchAllTestItems(editingContext, null);
+  }
+
+  public static NSArray<TestItem> fetchAllTestItems(EOEditingContext editingContext, NSArray<EOSortOrdering> sortOrderings) {
+    return _TestItem.fetchTestItems(editingContext, null, sortOrderings);
+  }
+
+  public static NSArray<TestItem> fetchTestItems(EOEditingContext editingContext, EOQualifier qualifier, NSArray<EOSortOrdering> sortOrderings) {
+    ERXFetchSpecification<TestItem> fetchSpec = new ERXFetchSpecification<TestItem>(_TestItem.ENTITY_NAME, qualifier, sortOrderings);
+    fetchSpec.setIsDeep(true);
+    NSArray<TestItem> eoObjects = fetchSpec.fetchObjects(editingContext);
+    return eoObjects;
+  }
+
+  public static TestItem fetchTestItem(EOEditingContext editingContext, String keyName, Object value) {
+    return _TestItem.fetchTestItem(editingContext, new EOKeyValueQualifier(keyName, EOQualifier.QualifierOperatorEqual, value));
+  }
+
+  public static TestItem fetchTestItem(EOEditingContext editingContext, EOQualifier qualifier) {
+    NSArray<TestItem> eoObjects = _TestItem.fetchTestItems(editingContext, qualifier, null);
+    TestItem eoObject;
+    int count = eoObjects.count();
+    if (count == 0) {
+      eoObject = null;
+    }
+    else if (count == 1) {
+      eoObject = eoObjects.objectAtIndex(0);
+    }
+    else {
+      throw new IllegalStateException("There was more than one TestItem that matched the qualifier '" + qualifier + "'.");
+    }
+    return eoObject;
+  }
+
+  public static TestItem fetchRequiredTestItem(EOEditingContext editingContext, String keyName, Object value) {
+    return _TestItem.fetchRequiredTestItem(editingContext, new EOKeyValueQualifier(keyName, EOQualifier.QualifierOperatorEqual, value));
+  }
+
+  public static TestItem fetchRequiredTestItem(EOEditingContext editingContext, EOQualifier qualifier) {
+    TestItem eoObject = _TestItem.fetchTestItem(editingContext, qualifier);
+    if (eoObject == null) {
+      throw new NoSuchElementException("There was no TestItem that matched the qualifier '" + qualifier + "'.");
+    }
+    return eoObject;
+  }
+
+  public static TestItem localInstanceIn(EOEditingContext editingContext, TestItem eo) {
+    TestItem localInstance = (eo == null) ? null : ERXEOControlUtilities.localInstanceOfObject(editingContext, eo);
+    if (localInstance == null && eo != null) {
+      throw new IllegalStateException("You attempted to localInstance " + eo + ", which has not yet committed.");
+    }
+    return localInstance;
+  }
+}

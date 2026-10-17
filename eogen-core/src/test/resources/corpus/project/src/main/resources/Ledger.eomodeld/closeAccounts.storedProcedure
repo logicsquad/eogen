@@ -1,0 +1,8 @@
+{
+    arguments = (
+        {columnName = before; externalType = DATE; name = before; parameterDirection = 1; valueClassName = NSCalendarDate; }, 
+        {columnName = closed; externalType = INTEGER; name = closed; parameterDirection = 2; valueClassName = NSNumber; valueType = i; }
+    ); 
+    externalName = "close_accounts"; 
+    name = closeAccounts; 
+}

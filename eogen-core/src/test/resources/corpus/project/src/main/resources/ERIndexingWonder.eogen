@@ -1,0 +1,11 @@
+ -destination generated/ERIndexingWonder \
+ -extension java \
+ -java \
+ -javaTemplate _WonderEntity.java \
+ -model src/main/resources/ERIndexing.eomodeld \
+ -packagedirs \
+ -subclassDestination generated/ERIndexingWonder \
+ -subclassJavaTemplate WonderEntity.java \
+ -verbose \
+ -loadModelGroup \
+ -define-EOGenericRecord er.extensions.eof.ERXGenericRecord

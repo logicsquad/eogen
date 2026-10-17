@@ -34,6 +34,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   group, with `--include-dependencies`, and report in JSON with
   `--json`. `--debug` shows stack traces. #15
 
+- A test corpus of eleven models, ten of them Project Wonder's, which
+  CI runs: eogen must generate the 108 superclasses that WOLips 5.0.3
+  does, byte for byte, with no errors and no lint findings. It covers
+  inheritance, restricting qualifiers, raw-row fetch specifications,
+  flattened relationships, partial entities, `ERXConstantClassName`,
+  entity indexes and stored procedures. #10, #11
+
 ### Fixed
 - A model that fails to load is an error, reported in one line with the
   file and the position the parser stopped at. It was a warning, with a
