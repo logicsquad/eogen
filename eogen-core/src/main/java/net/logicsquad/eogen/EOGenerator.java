@@ -1,6 +1,7 @@
 package net.logicsquad.eogen;
 
 import java.io.BufferedReader;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.MalformedInputException;
@@ -553,7 +554,9 @@ public class EOGenerator {
 
 	/**
 	 * Compares the files generated into a scratch folder with the destination's,
-	 * and copies the stale ones there if asked.
+	 * and copies the stale ones there if asked. A file that differs only in its
+	 * line endings, as a Windows checkout with Git's {@code core.autocrlf} has
+	 * them, is unchanged, and an updated file keeps the line endings it had.
 	 */
 	private static List<GeneratedFile> compare(Path output, Path destination, Kind kind, boolean write) throws IOException {
 		List<GeneratedFile> files = new ArrayList<>();
@@ -570,10 +573,16 @@ public class EOGenerator {
 			Status status;
 			if (!Files.exists(target)) {
 				status = Status.CREATED;
-			} else if (Arrays.equals(contents, Files.readAllBytes(target))) {
-				status = Status.UNCHANGED;
 			} else {
-				status = Status.UPDATED;
+				byte[] existing = Files.readAllBytes(target);
+				if (Arrays.equals(contents, existing) || Arrays.equals(toLF(contents), toLF(existing))) {
+					status = Status.UNCHANGED;
+				} else {
+					status = Status.UPDATED;
+					if (usesCRLF(existing)) {
+						contents = toCRLF(contents);
+					}
+				}
 			}
 			if (write && status != Status.UNCHANGED) {
 				Files.createDirectories(target.getParent());
@@ -582,6 +591,46 @@ public class EOGenerator {
 			files.add(new GeneratedFile(target.toFile(), kind, status));
 		}
 		return files;
+	}
+
+	/**
+	 * Returns contents with each CRLF line ending as an LF.
+	 */
+	static byte[] toLF(byte[] contents) {
+		ByteArrayOutputStream out = new ByteArrayOutputStream(contents.length);
+		for (int i = 0; i < contents.length; i++) {
+			if (!(contents[i] == '\r' && i + 1 < contents.length && contents[i + 1] == '\n')) {
+				out.write(contents[i]);
+			}
+		}
+		return out.toByteArray();
+	}
+
+	/**
+	 * Returns contents with each LF line ending as a CRLF.
+	 */
+	static byte[] toCRLF(byte[] contents) {
+		byte[] lf = toLF(contents);
+		ByteArrayOutputStream out = new ByteArrayOutputStream(lf.length + lf.length / 20);
+		for (byte b : lf) {
+			if (b == '\n') {
+				out.write('\r');
+			}
+			out.write(b);
+		}
+		return out.toByteArray();
+	}
+
+	/**
+	 * Returns whether contents end their first line with a CRLF.
+	 */
+	static boolean usesCRLF(byte[] contents) {
+		for (int i = 0; i < contents.length; i++) {
+			if (contents[i] == '\n') {
+				return i > 0 && contents[i - 1] == '\r';
+			}
+		}
+		return false;
 	}
 
 	/**

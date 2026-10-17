@@ -11,6 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   errors too. The new `force` option (`eogen.force`, `--force`,
   `EOGenerator.setForce`) writes the classes anyway, as WOLips does.
   #1, #2
+- A generated file that differs from the project's only in its line
+  endings is unchanged, and an updated file keeps its line endings, so a
+  Windows checkout with `core.autocrlf` doesn't look stale. #8
+- CI builds with JDKs 11, 17, 21 and 25 on Linux, and 17 on Windows and
+  macOS. #9
 
 ### Added
 - A lint for the mistakes that loading a model hides: unknown keys, with

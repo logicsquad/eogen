@@ -302,6 +302,9 @@ options, with these differences:
 * `-filenameTemplate` is read but ignored, as it is in WOLips.
 * Errors mean nothing is written, unless forced. WOLips writes classes
   that don't compile; see [Errors](#errors).
+* A file that differs only in its line endings is unchanged, so a
+  Windows checkout with Git's `core.autocrlf` is not all stale, and an
+  updated file keeps the line endings it had. WOLips compares bytes.
 
 WOLips renders templates with Velocity 1.5, and eogen with Velocity
 2.4.1. eogen sets Velocity 2 up to behave as 1.5 does: `bc` space
@@ -370,7 +373,9 @@ that `eogen:generate` recreates each one byte for byte, that
 
 Building
 --------
-eogen needs Java 11 or later. The plugin is tested with Maven 3.9.
+eogen needs Java 11 or later. The plugin is tested with Maven 3.9. CI
+builds it with JDKs 11, 17, 21 and 25 on Linux, and 17 on Windows and
+macOS.
 
     mvn install
 

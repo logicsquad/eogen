@@ -100,6 +100,28 @@ class EOGeneratorTest {
 		assertThat(Files.getLastModifiedTime(superclass)).isEqualTo(old);
 	}
 
+	/**
+	 * A Windows checkout with Git's core.autocrlf has CRLF line endings, which
+	 * are not a change; an update keeps them.
+	 */
+	@Test
+	void lineEndingsAloneAreNotAChange() throws Exception {
+		FixtureProject project = FixtureProject.copyTo(temp);
+		EOGenerator generator = project.forcedGenerator();
+		generator.generate(project.eogen("ShopWonder"));
+		Path superclass = project.resolve("src/main/java/" + PACKAGE + "_Product.java");
+		String lf = read(superclass);
+		String crlf = lf.replace("\n", "\r\n");
+		write(superclass, crlf);
+		assertThat(statuses(generator.generate(project.eogen("ShopWonder")))).containsEntry("_Product.java", UNCHANGED);
+		assertThat(generator.check(project.eogen("ShopWonder")).isStale()).isFalse();
+		assertThat(read(superclass)).isEqualTo(crlf);
+
+		write(superclass, crlf + "// edited\r\n");
+		assertThat(statuses(generator.generate(project.eogen("ShopWonder")))).containsEntry("_Product.java", UPDATED);
+		assertThat(read(superclass)).isEqualTo(crlf);
+	}
+
 	@Test
 	void checkWritesNothing() throws Exception {
 		FixtureProject project = FixtureProject.copyTo(temp);
