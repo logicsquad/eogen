@@ -21,6 +21,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import net.logicsquad.eogen.format.FormatResult.FormattedFile;
 import net.logicsquad.eogen.refactor.RefactorResult;
 import net.logicsquad.eogen.refactor.RefactorResult.ChangedFile;
 import net.logicsquad.eogen.refactor.RefactorResult.Status;
@@ -180,6 +181,99 @@ class RefactorTest {
 	}
 
 	/**
+	 * Entity Modeler writes a sort ordering with only its class, key and
+	 * selectorName, so writing Movie.fspec would drop a misspelt selectorName.
+	 * A change that would write it is refused, even when only reporting, and
+	 * format names the same loss.
+	 */
+	@Test
+	void refusesAChangeThatWouldDropPartOfAFile() throws Exception {
+		misspellASortOrderingsSelector();
+		Map<String, String> original = modelFiles();
+		String loss = "RawFetchAllMovies.sortOrderings[0].selector would be dropped";
+		for (boolean write : new boolean[] { false, true }) {
+			RefactorResult result = generator.rename("Movie.title", "name", false, write);
+			assertThat(result.isWritten()).isFalse();
+			assertThat(result.getFiles()).isEmpty();
+			assertThat(refusal(result)).isEqualTo(tuple(Finding.FORMAT_LOSS, "src/main/resources/Movies.eomodeld/Movie.fspec: nothing is changed, since saving it would change what it says: "
+					+ loss + ". Fix that by hand first; format names the same loss."));
+			assertThat(result.getFindings().get(0)).extracting(Finding::getFile, Finding::getModel).containsExactly("src/main/resources/Movies.eomodeld/Movie.fspec", "Movies");
+		}
+		assertThat(differences(original, modelFiles())).isEmpty();
+		assertThat(generator.format(false).getRefusedFiles()).extracting(file -> file.getFile().getName(), FormattedFile::getReason).contains(tuple("Movie.fspec", loss));
+	}
+
+	/**
+	 * A change that doesn't write Movie.fspec goes ahead, and leaves its
+	 * misspelt key as it is.
+	 */
+	@Test
+	void goesAheadIfItDoesntWriteTheFile() throws Exception {
+		misspellASortOrderingsSelector();
+		RefactorResult result = generator.rename("Movie.posterName", "posterFileName", false, true);
+		assertThat(result.isRefused()).as(String.valueOf(result.getFindings())).isFalse();
+		assertThat(files(result)).containsExactly(tuple("Movies.eomodeld/Movie.plist", Status.CHANGED));
+		assertThat(read("Movies.eomodeld/Movie.plist")).contains("name = posterFileName;");
+		assertThat(read("Movies.eomodeld/Movie.fspec")).contains("selector = \"compareAscending:\";");
+	}
+
+	/**
+	 * Entity Modeler writes a relationship's isMandatory as Y, so a removal
+	 * that would write an entity that says YES is refused too.
+	 */
+	@Test
+	void refusesARemovalThatWouldChangeWhatAFileSays() throws Exception {
+		Path movie = resources.resolve("Movies.eomodeld/Movie.plist");
+		write(movie, read("Movies.eomodeld/Movie.plist").replaceFirst("isMandatory = Y;", "isMandatory = YES;"));
+		Map<String, String> original = modelFiles();
+		assertThat(refusal(generator.remove("Movie.posterName", true))).isEqualTo(tuple(Finding.FORMAT_LOSS,
+				"src/main/resources/Movies.eomodeld/Movie.plist: nothing is changed, since saving it would change what it says: relationships[plotSummary].isMandatory would change from YES to Y. Fix that by hand first; format names the same loss."));
+		assertThat(differences(original, modelFiles())).isEmpty();
+	}
+
+	/**
+	 * Project Wonder's BugTracker names the selectors in People's login fetch
+	 * specification without their colon, as isEqualTo, which Entity Modeler
+	 * writes as isEqualTo:. As format does, a change that would write People's
+	 * fetch specifications, as People.fspec or as a renamed entity's file, is
+	 * refused until the colons are added by hand.
+	 */
+	@Test
+	void refusesToWriteSelectorsWithoutTheirColonUntilTheyAreFixed() throws Exception {
+		Map<String, String> original = modelFiles();
+		Object refusal = tuple(Finding.FORMAT_LOSS,
+				"src/main/resources/BugTracker.eomodeld/People.fspec: nothing is changed, since saving it would change what it says: login.qualifier.qualifiers[0].selectorName would change from isEqualTo to isEqualTo:. Fix that by hand first; format names the same loss.");
+		assertThat(refusal(generator.rename("People.login", "username", false, true))).isEqualTo(refusal);
+		assertThat(refusal(generator.rename("People", "Member", false, true))).isEqualTo(refusal);
+		assertThat(differences(original, modelFiles())).isEmpty();
+
+		RefactorResult email = generator.rename("People.email", "emailAddress", false, true);
+		assertThat(email.isRefused()).as(String.valueOf(email.getFindings())).isFalse();
+		assertThat(files(email)).containsExactly(tuple("BugTracker.eomodeld/People.plist", Status.CHANGED));
+
+		Path people = resources.resolve("BugTracker.eomodeld/People.fspec");
+		write(people, read("BugTracker.eomodeld/People.fspec").replace("selectorName = isEqualTo;", "selectorName = \"isEqualTo:\";"));
+		RefactorResult login = generator.rename("People.login", "username", false, true);
+		assertThat(login.isRefused()).as(String.valueOf(login.getFindings())).isFalse();
+		assertThat(read("BugTracker.eomodeld/People.fspec")).contains("key = username;", "selectorName = \"isEqualTo:\";");
+		RefactorResult entity = generator.rename("People", "Member", false, true);
+		assertThat(entity.isRefused()).as(String.valueOf(entity.getFindings())).isFalse();
+		assertThat(files(entity)).contains(tuple("BugTracker.eomodeld/Member.fspec", Status.CREATED), tuple("BugTracker.eomodeld/People.fspec", Status.DELETED));
+		assertWorks();
+	}
+
+	/**
+	 * Misspells selectorName as selector in the sort ordering of Movie's
+	 * RawFetchAllMovies.
+	 */
+	private void misspellASortOrderingsSelector() throws IOException {
+		String fetchSpecifications = read("Movies.eomodeld/Movie.fspec");
+		String sortOrdering = "sortOrderings = ({class = EOSortOrdering; key = title; selectorName = \"compareAscending:\"; });";
+		assertThat(fetchSpecifications).contains(sortOrdering);
+		write(resources.resolve("Movies.eomodeld/Movie.fspec"), fetchSpecifications.replace(sortOrdering, sortOrdering.replace("selectorName", "selector")));
+	}
+
+	/**
 	 * After a change, the models load, verify and lint with no findings, and
 	 * generate without errors.
 	 */
@@ -246,5 +340,9 @@ class RefactorTest {
 
 	private String read(String path) throws IOException {
 		return new String(Files.readAllBytes(resources.resolve(path)), StandardCharsets.UTF_8);
+	}
+
+	private static void write(Path path, String text) throws IOException {
+		Files.write(path, text.getBytes(StandardCharsets.UTF_8));
 	}
 }

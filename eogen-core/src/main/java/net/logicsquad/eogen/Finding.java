@@ -95,8 +95,8 @@ public final class Finding {
 	public static final String UNRESOLVED_REFERENCE = "unresolved-reference";
 
 	/**
-	 * A model that formatting leaves alone, since saving it would change what a
-	 * file says.
+	 * A model that formatting leaves alone, or a rename or a removal that is
+	 * refused, since saving a file would change what it says.
 	 */
 	public static final String FORMAT_LOSS = "format-loss";
 

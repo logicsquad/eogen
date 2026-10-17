@@ -94,6 +94,9 @@ module's folder, so that Maven can find the framework's models.
   - `mvn eogen:remove -Deogen.remove=Book.notes`. It refuses while
     anything else uses what it would remove, and names each use: remove
     those first.
+  Both are refused, as `format` leaves a model alone, if a file they
+  would write says something that Entity Modeler's writer would drop
+  or change, and they name it: fix that by hand, and run them again.
   Add `-Deogen.dryRun` to see what would change. Then do what they
   report as left to do by hand, such as renaming a subclass, and run
   the loop. `mvn eogen:generate -Deogen.deleteOrphans` deletes an old

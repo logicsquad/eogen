@@ -15,6 +15,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
@@ -525,8 +526,11 @@ public class EOGenerator {
 	 * <p>
 	 * It saves the models with Entity Modeler's writer into a scratch folder,
 	 * before and after the rename, and writes back only the files the rename
-	 * changes. Nothing changes if the model group has errors, or if the rename
-	 * is refused.
+	 * changes, as Entity Modeler saved them. So it is refused, as
+	 * {@link #format(boolean)} leaves a model alone, if saving any of those
+	 * files would lose anything else that it says, such as a key that the
+	 * writer drops, or a {@code YES} that it writes as {@code Y}. Nothing
+	 * changes if the model group has errors, or if the rename is refused.
 	 * </p>
 	 *
 	 * @param target {@code Entity}, or {@code Entity.property}
@@ -597,6 +601,13 @@ public class EOGenerator {
 			throw new EOGeneratorException("Failed to create a scratch folder: " + e.getMessage(), e);
 		}
 		try {
+			// Each entity's name, so that a renamed entity's files can be found.
+			Map<EOEntity, String> entityNames = new IdentityHashMap<>();
+			for (EOModel model : folders.keySet()) {
+				for (EOEntity entity : model.getEntities()) {
+					entityNames.put(entity, entity.getName());
+				}
+			}
 			Map<EOModel, File> before = save(folders.keySet(), scratch.resolve("before").toFile());
 			ModelRefactorer.Change change = operation.apply(modelGroup, folders.keySet());
 			if (!change.getRefusals().isEmpty()) {
@@ -604,20 +615,37 @@ public class EOGenerator {
 			}
 			Map<EOModel, File> after = save(folders.keySet(), scratch.resolve("after").toFile());
 			List<RefactorResult.ChangedFile> files = new ArrayList<>();
+			List<Finding> losses = new ArrayList<>();
 			for (Map.Entry<EOModel, File> folder : folders.entrySet()) {
 				File saved = after.get(folder.getKey());
+				Map<String, String> renamed = renamedFiles(folder.getKey(), entityNames);
 				for (String name : modelFiles(before.get(folder.getKey()), saved)) {
 					File old = new File(before.get(folder.getKey()), name);
 					File updated = new File(saved, name);
 					File file = new File(folder.getValue(), name);
+					// The project's file that says what this one will, but for the
+					// change, which saving must lose nothing from: itself, or a
+					// renamed entity's old file.
+					String original = null;
 					if (!updated.isFile()) {
 						files.add(new RefactorResult.ChangedFile(file, RefactorResult.Status.DELETED));
 					} else if (!old.isFile()) {
 						files.add(new RefactorResult.ChangedFile(file, RefactorResult.Status.CREATED));
+						original = renamed.get(name);
 					} else if (!Arrays.equals(Files.readAllBytes(old.toPath()), Files.readAllBytes(updated.toPath()))) {
 						files.add(new RefactorResult.ChangedFile(file, RefactorResult.Status.CHANGED));
+						original = name;
+					}
+					if (original != null) {
+						Finding loss = loss(new File(folder.getValue(), original), new File(before.get(folder.getKey()), original), folder.getKey().getName());
+						if (loss != null) {
+							losses.add(loss);
+						}
 					}
 				}
+			}
+			if (!losses.isEmpty()) {
+				return new RefactorResult(Collections.<RefactorResult.ChangedFile>emptyList(), losses, false);
 			}
 			if (write) {
 				for (RefactorResult.ChangedFile file : files) {
@@ -639,6 +667,45 @@ public class EOGenerator {
 		} finally {
 			delete(scratch);
 		}
+	}
+
+	/**
+	 * Returns the old name of each file of a model's renamed entities, by its
+	 * new name.
+	 *
+	 * @param model the model, after a change
+	 * @param entityNames each entity's name before the change
+	 */
+	private static Map<String, String> renamedFiles(EOModel model, Map<EOEntity, String> entityNames) {
+		Map<String, String> renamed = new HashMap<>();
+		for (EOEntity entity : model.getEntities()) {
+			String oldName = entityNames.get(entity);
+			if (oldName != null && !oldName.equals(entity.getName())) {
+				renamed.put(entity.getName() + ".plist", oldName + ".plist");
+				renamed.put(entity.getName() + ".fspec", oldName + ".fspec");
+			}
+		}
+		return renamed;
+	}
+
+	/**
+	 * Returns an error if saving a model file would lose anything that it says,
+	 * as {@link ModelFormatter#loss(File, File)} names it, since writing a
+	 * change to the file would take that with it. Otherwise returns null.
+	 *
+	 * @param file the project's file
+	 * @param saved the file as Entity Modeler's writer saved it before the
+	 *        change
+	 * @param model the model's name
+	 */
+	private Finding loss(File file, File saved, String model) {
+		String loss = ModelFormatter.loss(file, saved);
+		if (loss == null) {
+			return null;
+		}
+		String path = relative(file.getPath());
+		String message = path + ": nothing is changed, since saving it would change what it says: " + loss + ". Fix that by hand first; format names the same loss.";
+		return Finding.error(Finding.FORMAT_LOSS, message).file(path).model(model).build();
 	}
 
 	/**

@@ -2,6 +2,11 @@ package net.logicsquad.eogen.format;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.io.File;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -9,6 +14,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 class ModelFormatterTest {
 	@Test
@@ -52,11 +58,29 @@ class ModelFormatterTest {
 	}
 
 	@Test
+	void namesWhatSavingAFileWouldLose(@TempDir Path temp) throws IOException {
+		File file = temp.resolve("Book.plist").toFile();
+		File saved = Files.createDirectory(temp.resolve("saved")).resolve("Book.plist").toFile();
+		write(saved, "{\n    isReadOnly = Y; \n    name = Book; \n}\n");
+		assertThat(ModelFormatter.loss(file, saved)).isEqualTo("Entity Modeler would write Book.plist, which the model doesn't have");
+		write(file, "{name = Book;}");
+		assertThat(ModelFormatter.loss(file, saved)).isNull();
+		write(file, "{name = Book; isReadOnly = YES;}");
+		assertThat(ModelFormatter.loss(file, saved)).isEqualTo("isReadOnly would change from YES to Y");
+		write(file, "{name = Book; isReadOnly = Y");
+		assertThat(ModelFormatter.loss(file, saved)).startsWith("it can't be read: ");
+	}
+
+	@Test
 	void allowsAdditionsEmptyValuesAndDuplicatesToGo() {
 		assertThat(ModelFormatter.difference(map("name", "Book"), map("name", "Book", "isReadOnly", "Y"), "")).isNull();
 		assertThat(ModelFormatter.difference(map("name", "Order", "fetchSpecificationDictionary", Collections.emptyMap()), map("name", "Order"), "")).isNull();
 		List<String> twice = Arrays.asList("title", "title");
 		assertThat(ModelFormatter.difference(map("classProperties", twice), map("classProperties", Collections.singletonList("title")), "")).isNull();
+	}
+
+	private static void write(File file, String text) throws IOException {
+		Files.write(file.toPath(), text.getBytes(StandardCharsets.UTF_8));
 	}
 
 	private static Map<String, Object> map(Object... keysAndValues) {

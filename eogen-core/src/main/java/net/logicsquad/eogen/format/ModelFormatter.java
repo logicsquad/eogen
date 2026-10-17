@@ -75,27 +75,15 @@ public final class ModelFormatter {
 		for (String name : names) {
 			File original = new File(modelFolder, name);
 			File formatted = new File(saved, name);
-			if (!original.isFile()) {
-				files.add(new FormattedFile(original, Status.REFUSED, "Entity Modeler would write " + name + ", which the model doesn't have."));
-				refused = true;
-				continue;
-			}
-			byte[] originalBytes = Files.readAllBytes(original.toPath());
-			byte[] formattedBytes = Files.readAllBytes(formatted.toPath());
-			if (Arrays.equals(originalBytes, formattedBytes)) {
+			if (original.isFile() && Arrays.equals(Files.readAllBytes(original.toPath()), Files.readAllBytes(formatted.toPath()))) {
 				files.add(new FormattedFile(original, Status.UNCHANGED, null));
 				continue;
 			}
-			String difference;
-			try {
-				difference = difference(read(original), read(formatted), "");
-			} catch (Exception e) {
-				difference = "it can't be read: " + e.getMessage();
-			}
-			if (difference == null) {
+			String loss = loss(original, formatted);
+			if (loss == null) {
 				files.add(new FormattedFile(original, Status.FORMATTED, null));
 			} else {
-				files.add(new FormattedFile(original, Status.REFUSED, difference));
+				files.add(new FormattedFile(original, Status.REFUSED, loss));
 				refused = true;
 			}
 		}
@@ -107,6 +95,30 @@ public final class ModelFormatter {
 			}
 		}
 		return files;
+	}
+
+	/**
+	 * Describes the first thing that saving a model file with Entity Modeler's
+	 * writer would lose from it, as {@link #format} names it in a refusal, or
+	 * returns null if it would lose nothing. Saving may change the file's
+	 * layout, drop an empty value, and add what Entity Modeler writes, as
+	 * formatting may.
+	 *
+	 * @param file the model's file
+	 * @param saved the same file, as Entity Modeler's writer saved the model
+	 * @return what saving would lose, such as
+	 *         {@code relationships[author].isMandatory would change from YES to Y},
+	 *         or null
+	 */
+	public static String loss(File file, File saved) {
+		if (!file.isFile()) {
+			return "Entity Modeler would write " + saved.getName() + ", which the model doesn't have";
+		}
+		try {
+			return difference(read(file), read(saved), "");
+		} catch (Exception e) {
+			return "it can't be read: " + e.getMessage();
+		}
 	}
 
 	/**

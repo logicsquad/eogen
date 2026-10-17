@@ -46,8 +46,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   only: columns and tables stay as they are, and an entity's class
   changes only with `renameClass`. A removal is refused while anything
   else uses what it would remove. Both write only the model files they
-  change, report what is left to do by hand, and with `dryRun`
-  (`--check`) change nothing. #21
+  change, and are refused, as `format` leaves a model alone, if saving
+  one of those would lose anything else that it says, such as a
+  misspelt key that Entity Modeler's writer drops. They report what is
+  left to do by hand, and with `dryRun` (`--check`) change nothing. #21
 
 ### Fixed
 - A to-many relationship to a partial entity (`ERXPartial`) is fetched

@@ -201,7 +201,7 @@ names the kind of finding, and keeps its meaning once released:
 | `misnamed-entity` | an entity whose `name` isn't its file's |
 | `unmatched-key` | a key in a fetch specification or a restricting qualifier that matches nothing |
 | `unresolved-reference` | a template reference that rendered with no value |
-| `format-loss` | a model that formatting leaves alone, since saving it would change what a file says |
+| `format-loss` | a model that formatting leaves alone, or a rename or removal that is refused, since saving a file would change what it says |
 | `eogen-file` | an `.eogen` file that eogen can't use, such as one with no `-destination` |
 | `not-found` | a rename or removal whose target names nothing |
 | `name-taken` | a rename to a name that something already has |
@@ -447,6 +447,20 @@ each use: a join, a flattened definition, an index, a relationship to
 an entity, a subentity, or a key in a fetch specification or restricting
 qualifier. Nothing is removed by cascade, so remove those uses first.
 A column or table stays in the database.
+
+Both write each file they change as Entity Modeler's writer saves it,
+which would take with it anything else in the file that the writer
+drops or changes: a misspelt key in a sort ordering, which it drops,
+or `isMandatory = YES`, which it writes as `Y`. So, as `format` does,
+they compare each file they would write with Entity Modeler's save of
+it from before the change (for a renamed entity's new file, its old
+one), and if saving it would lose anything, they are refused, and name
+the file and the loss:
+
+    src/main/resources/Library.eomodeld/Book.fspec: nothing is changed, since saving it would change what it says: byAuthor.sortOrderings[0].selector would be dropped. Fix that by hand first; format names the same loss.
+
+Fix that by hand, and run them again. A change that doesn't write the
+file goes ahead, and leaves it as it is.
 
 Both report what is left to do by hand, as warnings with the code
 `by-hand`: renaming a subclass, since eogen never edits one; deleting an
