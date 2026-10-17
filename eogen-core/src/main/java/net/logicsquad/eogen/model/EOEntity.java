@@ -59,6 +59,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.LinkedList;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -1257,6 +1258,42 @@ public class EOEntity extends UserInfoableEOModelObject<EOModel> implements IEOE
 			}
 		}
 		return referencingRelationships;
+	}
+
+	/**
+	 * eogen: renames a property in the lists that the entity was loaded with:
+	 * classProperties, primaryKeyAttributes, attributesUsedForLocking, and the
+	 * client and common class properties. Saving starts from them, so the
+	 * property keeps its place in each, where otherwise it would move to the
+	 * end.
+	 *
+	 * @param oldName the property's old name
+	 * @param newName its new name
+	 */
+	public void _renameInPropertyLists(String oldName, String newName) {
+		for (String key : new String[] { "classProperties", "primaryKeyAttributes", "attributesUsedForLocking" }) {
+			Object names = myEntityMap.get(key);
+			if (names != null) {
+				myEntityMap.put(key, renamed(names, oldName, newName));
+			}
+		}
+		Map<Object, Object> internalInfo = myEntityMap.getMap("internalInfo");
+		if (internalInfo != null) {
+			for (String key : new String[] { "_clientClassPropertyNames", "_commonClassPropertyNames" }) {
+				Object names = internalInfo.get(key);
+				if (names != null) {
+					internalInfo.put(key, renamed(names, oldName, newName));
+				}
+			}
+		}
+	}
+
+	private static List<Object> renamed(Object names, String oldName, String newName) {
+		List<Object> renamed = new ArrayList<Object>();
+		for (Object name : EOModelMap.asArray(names)) {
+			renamed.add(oldName.equals(name) ? newName : name);
+		}
+		return renamed;
 	}
 
 	public Set<EOEntity> getChildrenEntities() {

@@ -37,6 +37,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   plugin has eogen's version, and the skill says which eogen it
   describes. #22
 
+- `rename` and `remove` (the goals, `--rename` with `--to`, `--remove`,
+  and `EOGenerator.rename` and `remove`) rename or remove an entity,
+  attribute or relationship, through Entity Modeler's model classes,
+  which carry a rename into subentities, flattened definitions, joins,
+  entity indexes and the property lists. A rename also rewrites the keys
+  in fetch specifications and restricting qualifiers, and renames names
+  only: columns and tables stay as they are, and an entity's class
+  changes only with `renameClass`. A removal is refused while anything
+  else uses what it would remove. Both write only the model files they
+  change, report what is left to do by hand, and with `dryRun`
+  (`--check`) change nothing. #21
+
 ### Fixed
 - A to-many relationship to a partial entity (`ERXPartial`) is fetched
   with the inverse relationship's key from the partial's class, which

@@ -284,6 +284,28 @@ class MainTest {
 	}
 
 	@Test
+	void renamesAndRemovesModelProperties() throws Exception {
+		Path book = project.resolve("src/main/resources/Library.eomodeld/Book.plist");
+		assertThat(run("--json", "--check", "--project", project.toString(), "--classpath", reference.toString(), "--rename", "Book.title", "--to", "name"))
+				.isEqualTo(Main.OK);
+		assertThat(out()).contains("\"refactor\": {\n    \"written\": false,\n    \"files\": [\n      {\n        \"file\": \"src/main/resources/Library.eomodeld/Book.plist\",\n"
+				+ "        \"status\": \"changed\"", "\"code\": \"by-hand\"");
+		assertThat(new String(Files.readAllBytes(book), StandardCharsets.UTF_8)).contains("name = title;");
+
+		out.reset();
+		assertThat(run("--project", project.toString(), "--classpath", reference.toString(), "--rename", "Book.title", "--to", "name")).isEqualTo(Main.OK);
+		assertThat(out()).contains("Changed src/main/resources/Library.eomodeld/Book.plist", "Renaming Book.title to name changed 1 model file.");
+		assertThat(new String(Files.readAllBytes(book), StandardCharsets.UTF_8)).contains("name = name;").doesNotContain("name = title;");
+
+		err.reset();
+		assertThat(run("--project", project.toString(), "--classpath", reference.toString(), "--remove", "Book.authorID")).isEqualTo(Main.FAILED);
+		assertThat(err()).contains("eogen: Book.authorID is in use, so it isn't removed: authorID is referenced by the relationship author.",
+				"eogen: Removing Book.authorID was refused, so nothing changed.");
+		assertThat(run("--project", project.toString(), "--classpath", reference.toString(), "--rename", "Book.price")).isEqualTo(Main.FAILED);
+		assertThat(err()).contains("--rename needs --to.");
+	}
+
+	@Test
 	void reportsMissingFiles() throws Exception {
 		assertThat(run("--project", project.toString(), temp.resolve("Missing.eogen").toString())).isEqualTo(Main.FAILED);
 		assertThat(err()).contains("Missing.eogen does not exist.");

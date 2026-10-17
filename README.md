@@ -22,8 +22,9 @@ superclass byte for byte, 125 in all.
 There are three modules:
 
 * `eogen-core`: the library.
-* `eogen-maven-plugin`: the `generate`, `check` and `verify` goals.
-* `eogen-cli`: a command line that generates from one `.eogen` file.
+* `eogen-maven-plugin`: the `generate`, `check`, `verify`, `format`,
+  `rename` and `remove` goals.
+* `eogen-cli`: a command line that does what the plugin does.
 
 Using the Maven plugin
 ----------------------
@@ -70,6 +71,9 @@ The goals are:
   Modeler saves them (see [Formatting models](#formatting-models)).
   With `checkFormat` (`eogen.checkFormat`), it changes nothing, and
   fails if any model needs formatting.
+* `rename` and `remove` (no default phase): rename or remove an entity,
+  attribute or relationship in the project's models (see
+  [Renaming and removing](#renaming-and-removing)).
 
 They take these parameters:
 
@@ -199,6 +203,11 @@ names the kind of finding, and keeps its meaning once released:
 | `unresolved-reference` | a template reference that rendered with no value |
 | `format-loss` | a model that formatting leaves alone, since saving it would change what a file says |
 | `eogen-file` | an `.eogen` file that eogen can't use, such as one with no `-destination` |
+| `not-found` | a rename or removal whose target names nothing |
+| `name-taken` | a rename to a name that something already has |
+| `in-use` | a removal of something that something else uses |
+| `in-dependency` | a rename or removal in a model that isn't one of the project's |
+| `by-hand` | what a rename or removal leaves to do by hand |
 | `failure` | anything else that stops a run |
 
 The library has the same findings, as `Finding`, in
@@ -403,6 +412,47 @@ doesn't hide a misspelt key: the lint still reports it. Files that a
 model never loads, such as an entity file that `index.eomodeld`
 doesn't list, are left alone. Formatting needs the model group, and
 does nothing if it has errors.
+
+Renaming and removing
+---------------------
+A name in a model appears in many places: an attribute's, for example,
+in its entity's `attributes`, `classProperties`,
+`attributesUsedForLocking` and `primaryKeyAttributes`, in joins in other
+entities, in flattened definitions, in entity indexes, in subentities,
+and in qualifiers and sort orderings. `rename` changes them all:
+
+    mvn eogen:rename -Deogen.rename=Book.titel -Deogen.to=title
+    mvn eogen:rename -Deogen.rename=Book -Deogen.to=Volume -Deogen.renameClass
+
+It renames through Entity Modeler's model classes, which carry the
+change into subentities, flattened definitions, joins, entity indexes
+and the property lists, and it rewrites the keys that fetch
+specifications and restricting qualifiers name as text. It renames
+names only. Entity Modeler's own rename also renames the column, the
+table or the class; `rename` keeps them, so that the database needs no
+change, and an entity's class changes only with `renameClass`
+(`eogen.renameClass`). It saves the models with Entity Modeler's writer,
+and writes back only the files that the rename changes. A renamed
+entity's files are renamed too.
+
+`remove` removes an entity, attribute or relationship:
+
+    mvn eogen:remove -Deogen.remove=Book.notes
+
+It refuses while anything else uses what it would remove, and names
+each use: a join, a flattened definition, an index, a relationship to
+an entity, a subentity, or a key in a fetch specification or restricting
+qualifier. Nothing is removed by cascade, so remove those uses first.
+A column or table stays in the database.
+
+Both report what is left to do by hand, as warnings with the code
+`by-hand`: renaming a subclass, since eogen never edits one; deleting an
+orphaned superclass, which `generate` with `deleteOrphans` does; code
+that uses the old accessors, which compiling finds; and text in the
+models that still names the old name, such as custom SQL. With `dryRun`
+(`eogen.dryRun`), they change nothing and only report. The command line
+does the same with `--rename <target> --to <name>`, `--rename-class`
+and `--remove <target>`, and `--check` for a dry run.
 
 How eogen finds templates
 -------------------------

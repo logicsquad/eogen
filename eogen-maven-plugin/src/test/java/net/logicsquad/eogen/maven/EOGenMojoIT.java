@@ -264,6 +264,32 @@ public class EOGenMojoIT {
 		assertThat(book).contains("classProperties = (author, currency, price, title);");
 	}
 
+	/**
+	 * Renames Book.title to name, and the property lists' entries for it, and
+	 * reports what is left to do by hand.
+	 */
+	@MavenTest
+	void rename(MavenExecutionResult result) throws IOException {
+		assertThat(result).isSuccessful();
+		assertThat(result).out().info().contains("Changed src/main/resources/Library.eomodeld/Book.plist",
+				"Renaming Book.title to name changed 1 model file.");
+		assertThat(result).out().warn().anyMatch(line -> line.startsWith("Code that uses the attribute's accessors"));
+		String book = read(result.getMavenProjectResult().getTargetProjectDirectory().resolve("src/main/resources/Library.eomodeld/Book.plist"));
+		assertThat(book).contains("name = name;", "columnName = title;").doesNotContain("name = title;");
+	}
+
+	/**
+	 * Book.authorID is the source of the author relationship's join, so it
+	 * isn't removed.
+	 */
+	@MavenTest
+	void removeInUse(MavenExecutionResult result) throws IOException {
+		assertThat(result).isFailure();
+		assertThat(result).out().error().contains("Book.authorID is in use, so it isn't removed: authorID is referenced by the relationship author.");
+		String book = read(result.getMavenProjectResult().getTargetProjectDirectory().resolve("src/main/resources/Library.eomodeld/Book.plist"));
+		assertThat(book).contains("name = authorID;");
+	}
+
 	@MavenTest
 	void formatCheck(MavenExecutionResult result) {
 		assertThat(result).isFailure();

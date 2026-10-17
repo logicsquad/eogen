@@ -601,6 +601,21 @@ public class EOModel extends UserInfoableEOModelObject<EOModelGroup> implements 
 		}
 	}
 
+	/**
+	 * eogen: returns the names of the entities that the model records as
+	 * deleted from the object store, which Entity Modeler adds to when an
+	 * entity is renamed, so that a rename that keeps the table can take its
+	 * name out again.
+	 *
+	 * @return the live set of names
+	 */
+	public Set<String> getDeletedEntityNamesInObjectStore() {
+		if (myDeletedEntityNamesInObjectStore == null) {
+			myDeletedEntityNamesInObjectStore = new PropertyListSet<String>();
+		}
+		return myDeletedEntityNamesInObjectStore;
+	}
+
 	public void _entityNameChanged(String _originalName, String _oldName, String _newName) {
 		if (myDeletedEntityNamesInObjectStore == null) {
 			myDeletedEntityNamesInObjectStore = new PropertyListSet<String>();

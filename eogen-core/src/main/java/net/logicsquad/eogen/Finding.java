@@ -107,6 +107,33 @@ public final class Finding {
 	public static final String EOGEN_FILE = "eogen-file";
 
 	/**
+	 * A rename or a removal whose target names nothing.
+	 */
+	public static final String NOT_FOUND = "not-found";
+
+	/**
+	 * A rename to a name that something already has.
+	 */
+	public static final String NAME_TAKEN = "name-taken";
+
+	/**
+	 * A removal of something that something else uses.
+	 */
+	public static final String IN_USE = "in-use";
+
+	/**
+	 * A rename or a removal in a model that isn't one of the project's, such as
+	 * a dependency's.
+	 */
+	public static final String IN_DEPENDENCY = "in-dependency";
+
+	/**
+	 * What a rename or a removal leaves to do by hand, such as renaming a
+	 * subclass.
+	 */
+	public static final String BY_HAND = "by-hand";
+
+	/**
 	 * Anything else that stops a run, such as a file that can't be written.
 	 */
 	public static final String FAILURE = "failure";

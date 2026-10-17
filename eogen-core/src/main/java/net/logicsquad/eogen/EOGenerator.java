@@ -8,9 +8,11 @@ import java.nio.charset.MalformedInputException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
@@ -21,6 +23,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -40,6 +43,10 @@ import net.logicsquad.eogen.model.EOModel;
 import net.logicsquad.eogen.model.EOModelException;
 import net.logicsquad.eogen.model.EOModelGroup;
 import net.logicsquad.eogen.model.EOModelVerificationFailure;
+import net.logicsquad.eogen.refactor.ModelRefactorer;
+import net.logicsquad.eogen.refactor.RefactorResult;
+import net.logicsquad.eogen.model.EOEntity;
+import net.logicsquad.eogen.model.EOStoredProcedure;
 import net.logicsquad.eogen.runtime.NullProgressMonitor;
 import net.logicsquad.eogen.utils.URLUtils;
 
@@ -506,6 +513,178 @@ public class EOGenerator {
 			findings.add(finding != null ? finding : relativize(Collections.singletonList(Finding.of(failure).build())).get(0));
 		}
 		return new VerificationResult(modelNames, reported, findings);
+	}
+
+	/**
+	 * Renames an entity, or an attribute or relationship, in the project's
+	 * models, with {@link ModelRefactorer}: through Entity Modeler's model
+	 * classes, which carry the rename into subentities, flattened definitions,
+	 * joins, entity indexes and the property lists, and rewriting the keys in
+	 * fetch specifications and restricting qualifiers. It renames names only:
+	 * columns and tables stay as they are.
+	 * <p>
+	 * It saves the models with Entity Modeler's writer into a scratch folder,
+	 * before and after the rename, and writes back only the files the rename
+	 * changes. Nothing changes if the model group has errors, or if the rename
+	 * is refused.
+	 * </p>
+	 *
+	 * @param target {@code Entity}, or {@code Entity.property}
+	 * @param newName the new name
+	 * @param renameClass for an entity, whether to rename its class too, when
+	 *        the class's simple name is the entity's
+	 * @param write whether to write the changed files, or only report them
+	 * @return the files that change, and what is left to do by hand, or why it
+	 *         was refused
+	 * @throws EOGeneratorException if the model group can't be loaded, or a
+	 *         model can't be saved
+	 */
+	public RefactorResult rename(String target, String newName, boolean renameClass, boolean write) throws EOGeneratorException {
+		return refactor((modelGroup, models) -> ModelRefactorer.rename(modelGroup, models, target, newName, renameClass), write);
+	}
+
+	/**
+	 * Removes an entity, or an attribute or relationship, from the project's
+	 * models, with {@link ModelRefactorer}, unless anything else uses it: a
+	 * join, a flattened definition, an index, a relationship to an entity, a
+	 * subentity, or a key in a fetch specification or restricting qualifier.
+	 * It saves as {@link #rename(String, String, boolean, boolean)} does.
+	 *
+	 * @param target {@code Entity}, or {@code Entity.property}
+	 * @param write whether to write the changed files, or only report them
+	 * @return the files that change, and what is left to do by hand, or why it
+	 *         was refused
+	 * @throws EOGeneratorException if the model group can't be loaded, or a
+	 *         model can't be saved
+	 */
+	public RefactorResult remove(String target, boolean write) throws EOGeneratorException {
+		return refactor((modelGroup, models) -> ModelRefactorer.remove(modelGroup, models, target), write);
+	}
+
+	private RefactorResult refactor(BiFunction<EOModelGroup, Collection<EOModel>, ModelRefactorer.Change> operation, boolean write) throws EOGeneratorException {
+		Set<EOModelVerificationFailure> failures = new LinkedHashSet<>();
+		EOModelGroup modelGroup = new EOModelGroup();
+		try {
+			modelGroupFactory().loadModelGroup(null, modelGroup, failures, true, new NullProgressMonitor());
+		} catch (EOModelException e) {
+			throw new EOGeneratorException("Failed to load the model group: " + e.getMessage(), e, Finding.LOAD);
+		}
+		modelGroup.resolve(failures);
+		List<Finding> errors = new ArrayList<>();
+		for (EOModelVerificationFailure failure : failures) {
+			if (!failure.isWarning()) {
+				errors.add(Finding.of(failure).build());
+			}
+		}
+		if (!errors.isEmpty()) {
+			return new RefactorResult(Collections.<RefactorResult.ChangedFile>emptyList(), relativize(errors), false);
+		}
+		// Each project model's folder, before saving moves its URL.
+		Map<EOModel, File> folders = new LinkedHashMap<>();
+		for (File modelFolder : modelFolders) {
+			for (File model : ClasspathEOModelGroupFactory.findModelFolders(modelFolder)) {
+				String name = EOModelGroup.getModelNameForFile(model);
+				EOModel eomodel = name == null ? null : modelGroup.getModelNamed(name);
+				if (eomodel != null && isProjectModel(eomodel)) {
+					folders.put(eomodel, model);
+				}
+			}
+		}
+		Path scratch;
+		try {
+			scratch = Files.createTempDirectory("eogen-refactor");
+		} catch (IOException e) {
+			throw new EOGeneratorException("Failed to create a scratch folder: " + e.getMessage(), e);
+		}
+		try {
+			Map<EOModel, File> before = save(folders.keySet(), scratch.resolve("before").toFile());
+			ModelRefactorer.Change change = operation.apply(modelGroup, folders.keySet());
+			if (!change.getRefusals().isEmpty()) {
+				return new RefactorResult(Collections.<RefactorResult.ChangedFile>emptyList(), relativize(change.getRefusals()), false);
+			}
+			Map<EOModel, File> after = save(folders.keySet(), scratch.resolve("after").toFile());
+			List<RefactorResult.ChangedFile> files = new ArrayList<>();
+			for (Map.Entry<EOModel, File> folder : folders.entrySet()) {
+				File saved = after.get(folder.getKey());
+				for (String name : modelFiles(before.get(folder.getKey()), saved)) {
+					File old = new File(before.get(folder.getKey()), name);
+					File updated = new File(saved, name);
+					File file = new File(folder.getValue(), name);
+					if (!updated.isFile()) {
+						files.add(new RefactorResult.ChangedFile(file, RefactorResult.Status.DELETED));
+					} else if (!old.isFile()) {
+						files.add(new RefactorResult.ChangedFile(file, RefactorResult.Status.CREATED));
+					} else if (!Arrays.equals(Files.readAllBytes(old.toPath()), Files.readAllBytes(updated.toPath()))) {
+						files.add(new RefactorResult.ChangedFile(file, RefactorResult.Status.CHANGED));
+					}
+				}
+			}
+			if (write) {
+				for (RefactorResult.ChangedFile file : files) {
+					if (file.getStatus() == RefactorResult.Status.DELETED) {
+						Files.deleteIfExists(file.getFile().toPath());
+					} else {
+						EOModel model = folders.entrySet().stream().filter(entry -> entry.getValue().equals(file.getFile().getParentFile())).findFirst().get().getKey();
+						Files.copy(new File(after.get(model), file.getFile().getName()).toPath(), file.getFile().toPath(), StandardCopyOption.REPLACE_EXISTING);
+					}
+				}
+			}
+			List<Finding> findings = new ArrayList<>();
+			for (Finding finding : change.getByHand()) {
+				findings.add(finding);
+			}
+			return new RefactorResult(files, relativize(findings), write);
+		} catch (IOException e) {
+			throw new EOGeneratorException("Failed to save the models: " + e.getMessage(), e);
+		} finally {
+			delete(scratch);
+		}
+	}
+
+	/**
+	 * Saves models with Entity Modeler's writer, every entity and stored
+	 * procedure of them.
+	 *
+	 * @return each model's saved folder
+	 */
+	private static Map<EOModel, File> save(Collection<EOModel> models, File folder) throws IOException {
+		Map<EOModel, File> saved = new LinkedHashMap<>();
+		for (EOModel model : models) {
+			for (EOEntity entity : model.getEntities()) {
+				entity.setEntityDirty(true);
+				// An entity writes its .fspec only when its fetch specifications are.
+				entity.setFetchSpecsDirty(true);
+			}
+			for (EOStoredProcedure storedProcedure : model.getStoredProcedures()) {
+				storedProcedure.setStoredProcedureDirty(true);
+			}
+			try {
+				saved.put(model, model.saveToFolder(folder));
+			} catch (Exception e) {
+				throw new IOException("Failed to save " + model.getName() + ": " + e.getMessage(), e);
+			}
+		}
+		return saved;
+	}
+
+	/**
+	 * Returns the names of the model files in either of two saved folders,
+	 * sorted.
+	 */
+	private static Set<String> modelFiles(File... folders) {
+		Set<String> names = new TreeSet<>();
+		for (File folder : folders) {
+			File[] files = folder == null ? null : folder.listFiles();
+			if (files != null) {
+				for (File file : files) {
+					String name = file.getName();
+					if (file.isFile() && (name.equals("index.eomodeld") || name.endsWith(".plist") || name.endsWith(".fspec") || name.endsWith(".storedProcedure"))) {
+						names.add(name);
+					}
+				}
+			}
+		}
+		return names;
 	}
 
 	/**

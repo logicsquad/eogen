@@ -25,6 +25,7 @@ import net.logicsquad.eogen.VerificationResult;
 import net.logicsquad.eogen.format.FormatResult;
 import net.logicsquad.eogen.format.FormatResult.FormattedFile;
 import net.logicsquad.eogen.model.EOModelVerificationFailure;
+import net.logicsquad.eogen.refactor.RefactorResult;
 
 /**
  * Generates the entity classes for .eogen files, checks them, or verifies the
@@ -58,6 +59,8 @@ public final class Main {
 			"       eogen [options] --all",
 			"       eogen [options] --verify",
 			"       eogen [options] --format",
+			"       eogen [options] --rename <Entity[.property]> --to <name>",
+			"       eogen [options] --remove <Entity[.property]>",
 			"",
 			"Generates the entity classes for .eogen files as WOLips's EOGenerator does:",
 			"every superclass whose contents have changed, and every subclass that is",
@@ -89,6 +92,16 @@ public final class Main {
 			"                          saving would change is left alone, and the exit",
 			"                          status is 2. With --check, write nothing, and exit",
 			"                          with status 1 if any model needs formatting.",
+			"  --rename <target>       Rename an entity, such as Book, or an attribute or",
+			"                          relationship, such as Book.titel, to the name that",
+			"                          --to gives, through Entity Modeler's model classes,",
+			"                          and the keys that name it. Columns and tables stay as",
+			"                          they are. With --check, write nothing.",
+			"  --rename-class          With --rename, rename an entity's class too, when its",
+			"                          simple name is the entity's.",
+			"  --remove <target>       Remove an entity, attribute or relationship, unless",
+			"                          anything else uses it, when each use is reported and",
+			"                          the exit status is 2. With --check, write nothing.",
 			"  --delete-orphans        With --all, delete the orphaned superclasses. Their",
 			"                          subclasses are only reported.",
 			"  --force                 Write the classes even when the model group or a",
@@ -109,6 +122,14 @@ public final class Main {
 	private List<File> classpath = Collections.emptyList();
 
 	private List<File> templates = Collections.emptyList();
+
+	private String rename;
+
+	private String to;
+
+	private boolean renameClass;
+
+	private String remove;
 
 	private boolean all;
 
@@ -203,6 +224,8 @@ public final class Main {
 				check = true;
 			} else if ("--verify".equals(arg)) {
 				verify = true;
+			} else if ("--rename-class".equals(arg)) {
+				renameClass = true;
 			} else if ("--format".equals(arg)) {
 				format = true;
 			} else if ("--include-dependencies".equals(arg)) {
@@ -217,7 +240,8 @@ public final class Main {
 				json = true;
 			} else if ("--debug".equals(arg)) {
 				debug = true;
-			} else if ("--project".equals(arg) || "--models".equals(arg) || "--classpath".equals(arg) || "--templates".equals(arg)) {
+			} else if ("--project".equals(arg) || "--models".equals(arg) || "--classpath".equals(arg) || "--templates".equals(arg) || "--rename".equals(arg)
+					|| "--to".equals(arg) || "--remove".equals(arg)) {
 				if (i + 1 == args.length) {
 					return usage(arg + " needs a value.");
 				}
@@ -228,6 +252,12 @@ public final class Main {
 					models = files(value);
 				} else if ("--templates".equals(arg)) {
 					templates = files(value);
+				} else if ("--rename".equals(arg)) {
+					rename = value;
+				} else if ("--to".equals(arg)) {
+					to = value;
+				} else if ("--remove".equals(arg)) {
+					remove = value;
 				} else {
 					classpath = files(value);
 				}
@@ -252,7 +282,7 @@ public final class Main {
 		if (includeDependencies && !verify) {
 			return usage("--include-dependencies goes with --verify.");
 		}
-		if (!verify && !format && !all && eogenFiles.isEmpty()) {
+		if (!verify && !format && !all && rename == null && remove == null && eogenFiles.isEmpty()) {
 			return usage("Give an .eogen file.");
 		}
 		for (File eogenFile : eogenFiles) {
@@ -274,6 +304,23 @@ public final class Main {
 		generator.setForce(force);
 		generator.setStrict(strict);
 		generator.setTemplatePath(templates);
+		if (rename != null) {
+			if (to == null) {
+				return usage("--rename needs --to.");
+			}
+			try {
+				return refactor(generator.rename(rename, to, renameClass, !check), "Renaming " + rename + " to " + to);
+			} catch (EOGeneratorException e) {
+				return failed(e.getMessage(), e);
+			}
+		}
+		if (remove != null) {
+			try {
+				return refactor(generator.remove(remove, !check), "Removing " + remove);
+			} catch (EOGeneratorException e) {
+				return failed(e.getMessage(), e);
+			}
+		}
 		if (verify) {
 			return verify(generator);
 		}
@@ -469,6 +516,57 @@ public final class Main {
 		}
 		say(result.getFiles().size() + " model files checked, " + result.getFormattedFiles().size() + (check ? " to format." : " formatted."));
 		return OK;
+	}
+
+	/**
+	 * Reports a rename or a removal.
+	 *
+	 * @return exit status for it
+	 */
+	private int refactor(RefactorResult result, String what) {
+		Map<String, Object> refactorReport = new LinkedHashMap<>();
+		List<Object> files = new ArrayList<>();
+		for (RefactorResult.ChangedFile file : result.getFiles()) {
+			Map<String, Object> map = new LinkedHashMap<>();
+			map.put("file", relative(file.getFile()));
+			map.put("status", file.getStatus().name().toLowerCase(Locale.ROOT));
+			files.add(map);
+		}
+		refactorReport.put("written", result.isWritten());
+		refactorReport.put("files", files);
+		refactorReport.put("errors", findings(result.getFindings(), true));
+		refactorReport.put("warnings", findings(result.getFindings(), false));
+		report.put("refactor", refactorReport);
+		for (Finding finding : result.getFindings()) {
+			if (finding.isError()) {
+				problem(finding.getMessage());
+			}
+		}
+		if (result.isRefused()) {
+			problem(what + " was refused, so nothing changed.");
+			return FAILED;
+		}
+		for (RefactorResult.ChangedFile file : result.getFiles()) {
+			say(verb(file.getStatus()) + " " + relative(file.getFile()));
+		}
+		for (Finding finding : result.getFindings()) {
+			if (!finding.isError()) {
+				warn(finding.getMessage());
+			}
+		}
+		say(what + (check ? " would change " : " changed ") + result.getFiles().size() + (result.getFiles().size() == 1 ? " model file." : " model files."));
+		return OK;
+	}
+
+	private String verb(RefactorResult.Status status) {
+		switch (status) {
+		case CREATED:
+			return check ? "Would create" : "Created";
+		case DELETED:
+			return check ? "Would delete" : "Deleted";
+		default:
+			return check ? "Would change" : "Changed";
+		}
 	}
 
 	/**

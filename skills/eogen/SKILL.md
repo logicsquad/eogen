@@ -84,16 +84,20 @@ module's folder, so that Maven can find the framework's models.
   `{className = "..."; name = <Entity>; }` to the `entities` in
   `index.eomodeld`. The model ignores an entity file that the index
   doesn't list.
-- To rename an entity, rename its `.plist`, and its `.fspec` if it has
-  one. Change its `name` and `className` there and in `index.eomodeld`,
-  and every `destination` that names it. Then run
-  `mvn eogen:generate -Deogen.deleteOrphans` to delete its old
-  superclass, and rename its subclass by hand.
-- To remove an entity, delete its `.plist` and any `.fspec`, its entry
-  in the index, and every relationship to it, with their names in
-  `classProperties`. Then run
-  `mvn eogen:generate -Deogen.deleteOrphans`, and delete its subclass by
-  hand.
+- Don't rename or remove by hand: a name appears in many places, such
+  as joins in other entities, `classProperties`, flattened definitions
+  and fetch specifications. Use the goals, which change them all:
+  - `mvn eogen:rename -Deogen.rename=Book.titel -Deogen.to=title` for an
+    attribute or relationship, or `-Deogen.rename=Book -Deogen.to=Volume`
+    for an entity, with `-Deogen.renameClass` to rename its class too.
+    Columns and tables keep their names.
+  - `mvn eogen:remove -Deogen.remove=Book.notes`. It refuses while
+    anything else uses what it would remove, and names each use: remove
+    those first.
+  Add `-Deogen.dryRun` to see what would change. Then do what they
+  report as left to do by hand, such as renaming a subclass, and run
+  the loop. `mvn eogen:generate -Deogen.deleteOrphans` deletes an old
+  superclass.
 - The plugin looks for orphans only when it uses every `.eogen` file
   under the model folders, as it does unless `eogenFiles` names some.
   Otherwise, delete the old `_<Entity>.java` by hand.
