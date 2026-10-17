@@ -375,6 +375,39 @@ class EOGeneratorTest {
 	}
 
 	/**
+	 * Where the file system ignores case, as macOS's and Windows's do by
+	 * default, a class whose name changes only in case finds its old superclass
+	 * under its new name. The superclass is written under its new name, and its
+	 * old file is neither kept nor taken for an orphan, nor is the subclass,
+	 * renamed by hand, taken for an orphan's.
+	 */
+	@Test
+	void writesASuperclassWhoseNameChangesOnlyInCaseUnderItsNewName() throws Exception {
+		FixtureProject project = FixtureProject.copyTo(temp);
+		EOGenerator generator = project.forcedGenerator();
+		generator.generate(project.eogen("ShopWonder"));
+		Path model = project.resolve("src/main/resources/Shop.eomodeld");
+		for (String file : new String[] { "index.eomodeld", "Tag.plist" }) {
+			write(model.resolve(file), read(model.resolve(file)).replace("\"com.example.shop.Tag\"", "\"com.example.shop.TAG\""));
+		}
+		Path shop = project.resolve("src/main/java/" + PACKAGE);
+		String subclass = read(shop.resolve("Tag.java")).replace("class Tag extends _Tag", "class TAG extends _TAG");
+		Files.delete(shop.resolve("Tag.java"));
+		write(shop.resolve("TAG.java"), subclass);
+
+		GenerationResult check = generator.check(project.eogen("ShopWonder"));
+		assertThat(statuses(check)).containsEntry("_TAG.java", CREATED);
+		// Where the file system heeds case, _Tag.java is an orphan.
+		assertThat(generator.findOrphans(Collections.singletonList(check))).allMatch(file -> file.getKind() == SUPERCLASS && file.getFile().getName().equals("_Tag.java"));
+
+		GenerationResult result = generator.generate(project.eogen("ShopWonder"));
+		assertThat(statuses(result)).containsEntry("_TAG.java", CREATED);
+		EOGenerator.deleteOrphans(generator.findOrphans(Collections.singletonList(result)));
+		assertThat(names(shop)).contains("_TAG.java", "TAG.java").doesNotContain("_Tag.java", "Tag.java");
+		assertThat(read(shop.resolve("_TAG.java"))).contains("public abstract class _TAG ");
+	}
+
+	/**
 	 * Two .eogen files can write to one destination, so orphans are only those
 	 * that none of them generates.
 	 */
@@ -497,6 +530,15 @@ class EOGeneratorTest {
 			snapshot.put(key, Files.isDirectory(path) ? "folder" : Files.getLastModifiedTime(path) + " " + new String(Files.readAllBytes(path), StandardCharsets.UTF_8));
 		}
 		return snapshot;
+	}
+
+	/**
+	 * Returns the names of the files in a folder, as the file system lists them.
+	 */
+	private static List<String> names(Path folder) throws IOException {
+		try (Stream<Path> files = Files.list(folder)) {
+			return files.map(file -> file.getFileName().toString()).collect(Collectors.toList());
+		}
 	}
 
 	private static void append(Path path, String text) throws IOException {

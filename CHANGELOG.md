@@ -67,6 +67,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   names the entry that would change, such as
   `qualifiers[0].selectorName`, rather than saying that the list would
   lose an entry.
+- Where the file system ignores case, as macOS's and Windows's do by
+  default, generating writes a superclass whose name changed only in
+  case, such as `_Tag.java` to `_TAG.java`, under its new name. It was
+  written into the old file, which kept its old name and counted as an
+  orphan, so that `deleteOrphans` deleted the new superclass.
 
 ## [0.2] - 2026-10-17
 ### Changed

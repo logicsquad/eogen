@@ -15,11 +15,13 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
@@ -279,6 +281,10 @@ public class EOGenerator {
 				generated.add(absolute(file.getFile()).toPath());
 			}
 		}
+		Map<String, Path> generatedIgnoringCase = new HashMap<>();
+		for (Path path : generated) {
+			generatedIgnoringCase.put(path.toString().toLowerCase(Locale.ROOT), path);
+		}
 		Set<Path> superclasses = new TreeSet<>(BY_PATH);
 		Set<Path> subclasses = new TreeSet<>(BY_PATH);
 		for (GenerationResult result : results) {
@@ -303,7 +309,7 @@ public class EOGenerator {
 				throw new EOGeneratorException("Failed to search " + destination + ": " + e.getMessage(), e);
 			}
 			for (Path candidate : candidates) {
-				if (generated.contains(candidate) || !isMarkedAsGenerated(candidate)) {
+				if (generated.contains(candidate) || isGeneratedUnderAnotherCase(candidate, generatedIgnoringCase) || !isMarkedAsGenerated(candidate)) {
 					continue;
 				}
 				superclasses.add(candidate);
@@ -349,6 +355,21 @@ public class EOGenerator {
 			}
 		}
 		return deleted;
+	}
+
+	/**
+	 * Returns whether a file is one that generating writes under a name that
+	 * differs only in case. Where the file system ignores case, the superclass
+	 * of a class renamed that way keeps its old name until it is written, and
+	 * is the same file.
+	 */
+	private static boolean isGeneratedUnderAnotherCase(Path file, Map<String, Path> generatedIgnoringCase) throws EOGeneratorException {
+		Path generated = generatedIgnoringCase.get(file.toString().toLowerCase(Locale.ROOT));
+		try {
+			return generated != null && Files.exists(generated) && Files.isSameFile(file, generated);
+		} catch (IOException e) {
+			throw new EOGeneratorException("Failed to compare " + file + " with " + generated + ": " + e.getMessage(), e);
+		}
 	}
 
 	private Path resolve(String path) {
@@ -1046,11 +1067,17 @@ public class EOGenerator {
 		try (Stream<Path> paths = Files.walk(output)) {
 			generated = paths.filter(Files::isRegularFile).sorted(BY_PATH).collect(Collectors.toList());
 		}
+		Map<Path, Set<String>> listings = new HashMap<>();
 		for (Path file : generated) {
 			Path target = destination.resolve(output.relativize(file).toString());
 			byte[] contents = Files.readAllBytes(file);
+			// Where the file system ignores case, a file whose name differs only in
+			// case, such as the superclass of a class renamed that way, answers for
+			// the target, which is then new, and replaces it.
+			boolean found = Files.exists(target);
+			boolean exists = found && names(target.getParent(), listings).contains(target.getFileName().toString());
 			Status status;
-			if (!Files.exists(target)) {
+			if (!exists) {
 				status = Status.CREATED;
 			} else {
 				byte[] existing = Files.readAllBytes(target);
@@ -1065,11 +1092,29 @@ public class EOGenerator {
 			}
 			if (write && status != Status.UNCHANGED) {
 				Files.createDirectories(target.getParent());
+				if (found && !exists) {
+					Files.delete(target);
+				}
 				Files.write(target, contents);
 			}
 			files.add(new GeneratedFile(target.toFile(), kind, status));
 		}
 		return files;
+	}
+
+	/**
+	 * Returns the names of the files in a folder, as the file system lists
+	 * them, listing each folder once.
+	 */
+	private static Set<String> names(Path folder, Map<Path, Set<String>> listings) throws IOException {
+		Set<String> names = listings.get(folder);
+		if (names == null) {
+			try (Stream<Path> files = Files.list(folder)) {
+				names = files.map(file -> file.getFileName().toString()).collect(Collectors.toSet());
+			}
+			listings.put(folder, names);
+		}
+		return names;
 	}
 
 	/**
