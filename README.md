@@ -371,6 +371,12 @@ that `eogen:generate` recreates each one byte for byte, that
 `eogen:check` passes and then catches a stale file, and that
 `eogen:verify` passes. They never write to the projects themselves.
 
+With `-Dcoverage`, the build writes a JaCoCo report of each module's
+coverage by its unit tests to its `target/site/jacoco`. CI keeps the
+reports from its JDK 17 build on Linux as the `coverage` artifact. The
+plugin's integration tests run in a separate Maven, so its report shows
+no coverage.
+
 Building
 --------
 eogen needs Java 11 or later. The plugin is tested with Maven 3.9. CI

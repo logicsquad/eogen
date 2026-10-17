@@ -15,7 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   endings is unchanged, and an updated file keeps its line endings, so a
   Windows checkout with `core.autocrlf` doesn't look stale. #8
 - CI builds with JDKs 11, 17, 21 and 25 on Linux, and 17 on Windows and
-  macOS. #9
+  macOS. Its JDK 17 build on Linux keeps a coverage report, which
+  `-Dcoverage` writes, as an artifact. #9, #14
 
 ### Added
 - A lint for the mistakes that loading a model hides: unknown keys, with

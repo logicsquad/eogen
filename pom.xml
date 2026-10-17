@@ -75,6 +75,7 @@
     <maven-javadoc-plugin.version>3.12.0</maven-javadoc-plugin.version>
     <maven-source-plugin.version>3.3.1</maven-source-plugin.version>
     <maven-gpg-plugin.version>3.2.7</maven-gpg-plugin.version>
+    <jacoco-maven-plugin.version>0.8.15</jacoco-maven-plugin.version>
   </properties>
 
   <dependencyManagement>
@@ -235,6 +236,25 @@
             <autoPublish>true</autoPublish>
           </configuration>
         </plugin>
+        <plugin>
+          <groupId>org.jacoco</groupId>
+          <artifactId>jacoco-maven-plugin</artifactId>
+          <version>${jacoco-maven-plugin.version}</version>
+          <executions>
+            <execution>
+              <id>prepare-agent</id>
+              <goals>
+                <goal>prepare-agent</goal>
+              </goals>
+            </execution>
+            <execution>
+              <id>report</id>
+              <goals>
+                <goal>report</goal>
+              </goals>
+            </execution>
+          </executions>
+        </plugin>
       </plugins>
     </pluginManagement>
   </build>
@@ -276,6 +296,23 @@
           <plugin>
             <groupId>org.sonatype.central</groupId>
             <artifactId>central-publishing-maven-plugin</artifactId>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+    <!-- mvn verify -Dcoverage writes a coverage report to each module's target/site/jacoco -->
+    <profile>
+      <id>coverage</id>
+      <activation>
+        <property>
+          <name>coverage</name>
+        </property>
+      </activation>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.jacoco</groupId>
+            <artifactId>jacoco-maven-plugin</artifactId>
           </plugin>
         </plugins>
       </build>
