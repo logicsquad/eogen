@@ -8,6 +8,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
 
@@ -138,7 +139,7 @@ public class ClasspathEOModelGroupFactory implements IEOModelGroupFactory {
 		if (children == null) {
 			return;
 		}
-		Arrays.sort(children);
+		Arrays.sort(children, Comparator.comparing(File::getName));
 		for (File child : children) {
 			String name = child.getName();
 			if (!child.isDirectory() || child.isHidden() || name.startsWith(".")) {
@@ -163,7 +164,7 @@ public class ClasspathEOModelGroupFactory implements IEOModelGroupFactory {
 		if (children == null) {
 			return;
 		}
-		Arrays.sort(children);
+		Arrays.sort(children, Comparator.comparing(File::getName));
 		for (File child : children) {
 			if (child.isDirectory() && !child.isHidden() && child.getName().endsWith(".eomodeld")) {
 				modelGroup.loadModelFromURL(child.toURI().toURL(), failures, skipOnDuplicates, progressMonitor);

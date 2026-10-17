@@ -83,6 +83,13 @@ public class EOGenerator {
 	 */
 	private static final int MARKER_LINES = 5;
 
+	/**
+	 * Orders paths by their text, with / separators, so that files come in the
+	 * same order everywhere: {@link Path} and {@link File} ignore case on
+	 * Windows.
+	 */
+	private static final Comparator<Path> BY_PATH = Comparator.comparing(path -> path.toString().replace(File.separatorChar, '/'));
+
 	private final File projectDirectory;
 
 	private final List<File> modelFolders;
@@ -233,8 +240,8 @@ public class EOGenerator {
 				generated.add(absolute(file.getFile()).toPath());
 			}
 		}
-		Set<Path> superclasses = new TreeSet<>();
-		Set<Path> subclasses = new TreeSet<>();
+		Set<Path> superclasses = new TreeSet<>(BY_PATH);
+		Set<Path> subclasses = new TreeSet<>(BY_PATH);
 		for (GenerationResult result : results) {
 			EOGeneratorModel eogeneratorModel = readEOGenFile(result.getEOGenFile());
 			if (eogeneratorModel.getDestination() == null) {
@@ -353,7 +360,7 @@ public class EOGenerator {
 			}
 		}
 		List<File> sorted = new ArrayList<>(eogenFiles);
-		Collections.sort(sorted);
+		sorted.sort(Comparator.comparing(File::toPath, BY_PATH));
 		return sorted;
 	}
 
@@ -623,7 +630,7 @@ public class EOGenerator {
 		}
 		List<Path> generated;
 		try (Stream<Path> paths = Files.walk(output)) {
-			generated = paths.filter(Files::isRegularFile).sorted().collect(Collectors.toList());
+			generated = paths.filter(Files::isRegularFile).sorted(BY_PATH).collect(Collectors.toList());
 		}
 		for (Path file : generated) {
 			Path target = destination.resolve(output.relativize(file).toString());
