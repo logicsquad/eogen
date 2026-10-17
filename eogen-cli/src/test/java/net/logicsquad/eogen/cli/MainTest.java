@@ -26,7 +26,7 @@ import org.junit.jupiter.api.io.TempDir;
  * classpath.
  */
 class MainTest {
-	private static final String LIBRARY = "src/main/java/com/example/library/".replace('/', File.separatorChar);
+	private static final String LIBRARY = "src/main/java/com/example/library/";
 
 	@TempDir
 	Path temp;
@@ -126,7 +126,7 @@ class MainTest {
 	 */
 	@Test
 	void formatsTheModels() throws Exception {
-		String book = "src/main/resources/Library.eomodeld/Book.plist".replace('/', File.separatorChar);
+		String book = "src/main/resources/Library.eomodeld/Book.plist";
 		assertThat(run("--format", "--check", "--project", project.toString(), "--classpath", reference.toString())).isEqualTo(Main.STALE);
 		assertThat(out()).contains(book + " is not formatted as Entity Modeler writes it.");
 		out.reset();
@@ -191,7 +191,7 @@ class MainTest {
 
 		out.reset();
 		assertThat(run("--all", "--check", "--project", project.toString(), "--classpath", reference.toString())).isEqualTo(Main.STALE);
-		assertThat(out()).contains("src" + File.separator + "main" + File.separator + "resources" + File.separator + "Library.eogen: All 2 generated superclasses are up to date.",
+		assertThat(out()).contains("src/main/resources/Library.eogen: All 2 generated superclasses are up to date.",
 				LIBRARY + "_Loan.java is an orphan");
 
 		out.reset();
@@ -227,7 +227,7 @@ class MainTest {
 		assertThat(run("--json", "--check", "--project", project.toString(), "--classpath", reference.toString(), eogen())).isEqualTo(Main.STALE);
 		String json = out();
 		assertThat(json).startsWith("{\n  \"status\": \"stale\",\n  \"eogenFiles\": [\n").contains("\"written\": false", "\"kind\": \"superclass\"",
-				"\"status\": \"created\"", "\"file\": \"" + (LIBRARY + "_Book.java").replace("\\", "\\\\") + "\"").doesNotContain("is missing.");
+				"\"status\": \"created\"", "\"file\": \"" + LIBRARY + "_Book.java\"").doesNotContain("is missing.");
 		out.reset();
 		assertThat(run("--json", "--verify", "--project", project.toString())).isEqualTo(Main.FAILED);
 		assertThat(out()).startsWith("{\n  \"status\": \"failed\",\n  \"verification\": {\n").contains("\"model\": \"Library\"");
