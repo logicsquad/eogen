@@ -147,7 +147,7 @@ public abstract class ${entity.prefixClassNameWithoutPackage} extends #if ($enti
 #if (${relationship.actualDestination.genericRecord})
       EOQualifier inverseQualifier = ERXQ.equals("${relationship.inverseRelationship.name}", this);
 #else
-      EOQualifier inverseQualifier = ERXQ.equals(${relationship.actualDestination.classNameWithDefault}.${relationship.inverseRelationship.uppercaseUnderscoreName}_KEY, this);
+      EOQualifier inverseQualifier = ERXQ.equals(${relationship.destination.classNameWithDefault}.${relationship.inverseRelationship.uppercaseUnderscoreName}_KEY, this);
 #end
 
       if (qualifier == null) {

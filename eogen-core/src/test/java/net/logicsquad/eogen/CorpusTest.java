@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.io.File;
 import java.io.IOException;
 import java.net.URISyntaxException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -19,6 +20,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import net.logicsquad.eogen.generator.ClasspathEOModelGroupFactory;
 import net.logicsquad.eogen.lint.ModelLinter;
@@ -83,6 +85,31 @@ class CorpusTest {
 			assertThat(generated.resolve(superclass)).as(superclass).hasSameBinaryContentAs(expected.resolve(superclass));
 		}
 		assertThat(generator.check(project.resolve("src/main/resources/" + name + ".eogen").toFile()).isStale()).isFalse();
+	}
+
+	/**
+	 * In ERXPartialExample, Partial_EmployeePerson is a partial entity on
+	 * Person that adds the relationships department and employeeType, so only
+	 * the partial's class declares their keys. Each bundled template fetches a
+	 * to-many relationship to the partial with the partial's key, where
+	 * WOLips's name Person's, which doesn't compile.
+	 */
+	@ParameterizedTest
+	@ValueSource(strings = { "_Entity.java", "_Entity14.java", "_WonderEntity.java" })
+	void fetchesARelationshipToAPartialWithThePartialsKey(String template) throws Exception {
+		Path eogenFile = project.resolve("src/main/resources/Partial.eogen");
+		Files.write(eogenFile, String.join("\n", "-destination generated/Partial", "-extension java", "-java", "-javaTemplate " + template,
+				"-model src/main/resources/ERXPartialExample.eomodeld", "-packagedirs", "-subclassDestination generated/Partial",
+				"-subclassJavaTemplate " + template.substring(1), "-loadModelGroup", "-define-EOGenericRecord er.extensions.eof.ERXGenericRecord", "")
+				.getBytes(StandardCharsets.UTF_8));
+		GenerationResult result = generator.generate(eogenFile.toFile());
+		assertThat(result.getErrors()).isEmpty();
+
+		Path classes = project.resolve("generated/Partial/er/example/erxpartials/model");
+		assertThat(new String(Files.readAllBytes(classes.resolve("_EmployeeType.java")), StandardCharsets.UTF_8))
+				.contains("er.example.erxpartials.model.Partial_EmployeePerson.EMPLOYEE_TYPE_KEY").doesNotContain("model.Person.EMPLOYEE_TYPE_KEY");
+		assertThat(new String(Files.readAllBytes(classes.resolve("_Department.java")), StandardCharsets.UTF_8))
+				.contains("er.example.erxpartials.model.Partial_EmployeePerson.DEPARTMENT_KEY").doesNotContain("model.Person.DEPARTMENT_KEY");
 	}
 
 	@Test

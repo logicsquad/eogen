@@ -3,6 +3,13 @@
 The format here is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+### Fixed
+- A to-many relationship to a partial entity (`ERXPartial`) is fetched
+  with the inverse relationship's key from the partial's class, which
+  declares it, so the superclass compiles. eogen's templates, like
+  WOLips's, named the class of the entity that the partial extends. #18
+
 ## [0.2] - 2026-10-17
 ### Changed
 - Generating writes nothing, and fails, when loading or verifying the

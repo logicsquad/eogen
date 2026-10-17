@@ -5,7 +5,9 @@ The test corpus
 `project/src/main/resources`, and compares each superclass with the one
 that WOLips 5.0.3 generated from the same file, in `expected/<name of
 the .eogen file>`. `src/test/oracle/run.sh` produces `expected` with
-WOLips's own jars and Velocity 1.5.
+WOLips's own jars and Velocity 1.5, then applies
+`src/test/oracle/differences.patch` where eogen's bundled templates
+differ from WOLips's on purpose.
 
 The models are Project Wonder's, from
 https://github.com/wocommunity/wonder at commit bd44b6ce2 (2022-10-23),

@@ -351,6 +351,14 @@ options, with these differences:
 * A file that differs only in its line endings is unchanged, so a
   Windows checkout with Git's `core.autocrlf` is not all stale, and an
   updated file keeps the line endings it had. WOLips compares bytes.
+* The bundled templates fetch a to-many relationship to a partial
+  entity (`ERXPartial`) with the inverse relationship's key from the
+  partial's class, which declares it. WOLips's templates name the class
+  of the entity that the partial extends, so the superclass doesn't
+  compile. To fix a template of your own, change
+  `${relationship.actualDestination.classNameWithDefault}` to
+  `${relationship.destination.classNameWithDefault}` in the line that
+  sets `inverseQualifier` from the inverse relationship's `_KEY`.
 
 WOLips renders templates with Velocity 1.5, and eogen with Velocity
 2.4.1. eogen sets Velocity 2 up to behave as 1.5 does: `bc` space
@@ -399,7 +407,9 @@ Testing
   again from an Eclipse install with WOLips.
 * `eogen-core`'s corpus tests, which do the same for eleven models, ten
   of them Project Wonder's: every superclass must be byte for byte what
-  WOLips generates, with no errors and no lint findings. See
+  WOLips generates, with no errors and no lint findings, apart from
+  where eogen's templates differ on purpose, as
+  `src/test/oracle/differences.patch` records. See
   `src/test/resources/corpus/README.md`.
 * `eogen-maven-plugin`'s integration tests, which run each goal in
   Maven with [ITF](https://github.com/khmarbaise/maven-it-extension).

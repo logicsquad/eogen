@@ -101,7 +101,7 @@ public abstract class _Department extends er.extensions.eof.ERXGenericRecord {
     NSArray<er.example.erxpartials.model.Person> results;
     if (fetch) {
       EOQualifier fullQualifier;
-      EOQualifier inverseQualifier = ERXQ.equals(er.example.erxpartials.model.Person.DEPARTMENT_KEY, this);
+      EOQualifier inverseQualifier = ERXQ.equals(er.example.erxpartials.model.Partial_EmployeePerson.DEPARTMENT_KEY, this);
 
       if (qualifier == null) {
         fullQualifier = inverseQualifier;

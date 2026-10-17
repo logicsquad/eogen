@@ -65,7 +65,7 @@ public abstract class _EmployeeType extends er.extensions.eof.ERXGenericRecord {
     NSArray<er.example.erxpartials.model.Person> results;
     if (fetch) {
       EOQualifier fullQualifier;
-      EOQualifier inverseQualifier = ERXQ.equals(er.example.erxpartials.model.Person.EMPLOYEE_TYPE_KEY, this);
+      EOQualifier inverseQualifier = ERXQ.equals(er.example.erxpartials.model.Partial_EmployeePerson.EMPLOYEE_TYPE_KEY, this);
 
       if (qualifier == null) {
         fullQualifier = inverseQualifier;
