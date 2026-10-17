@@ -31,7 +31,9 @@ import net.logicsquad.eogen.model.EOModelVerificationFailure;
 
 /**
  * Generates, checks and verifies a copy of the fixture project, and compares
- * the output with what WOLips 5.0.3 generated from the same files.
+ * the output with what WOLips 5.0.3 generated from the same files. WOLips's
+ * output has unresolved references in it, which eogen reports as errors, so
+ * the comparisons use {@link FixtureProject#forcedGenerator()}.
  */
 class EOGeneratorTest {
 	private static final String PACKAGE = "com/example/shop/";
@@ -43,8 +45,8 @@ class EOGeneratorTest {
 	@CsvSource({ "ShopWonder, src/main/java", "ShopClassic, generated/classic", "ShopCustom, generated/custom" })
 	void generatesWhatWOLipsGenerates(String name, String destination) throws Exception {
 		FixtureProject project = FixtureProject.copyTo(temp);
-		GenerationResult result = project.generator().generate(project.eogen(name));
-		assertThat(result.getErrors()).isEmpty();
+		GenerationResult result = project.forcedGenerator().generate(project.eogen(name));
+		assertThat(modelErrors(result)).isEmpty();
 		assertThat(result.isWritten()).isTrue();
 		assertThat(result.count(SUPERCLASS, CREATED)).isEqualTo(7);
 		assertThat(result.count(SUBCLASS, CREATED)).isEqualTo(7);
@@ -54,7 +56,7 @@ class EOGeneratorTest {
 	@Test
 	void generatingAgainChangesNothing() throws Exception {
 		FixtureProject project = FixtureProject.copyTo(temp);
-		EOGenerator generator = project.generator();
+		EOGenerator generator = project.forcedGenerator();
 		generator.generate(project.eogen("ShopWonder"));
 		GenerationResult again = generator.generate(project.eogen("ShopWonder"));
 		assertThat(again.count(SUPERCLASS, UNCHANGED)).isEqualTo(7);
@@ -66,7 +68,7 @@ class EOGeneratorTest {
 	@Test
 	void superclassesAreAlwaysWrittenButSubclassesOnlyWhenMissing() throws Exception {
 		FixtureProject project = FixtureProject.copyTo(temp);
-		EOGenerator generator = project.generator();
+		EOGenerator generator = project.forcedGenerator();
 		generator.generate(project.eogen("ShopWonder"));
 		Path superclass = project.resolve("src/main/java/" + PACKAGE + "_Product.java");
 		Path subclass = project.resolve("src/main/java/" + PACKAGE + "Product.java");
@@ -86,7 +88,7 @@ class EOGeneratorTest {
 	@Test
 	void unchangedSuperclassesAreNotRewritten() throws Exception {
 		FixtureProject project = FixtureProject.copyTo(temp);
-		EOGenerator generator = project.generator();
+		EOGenerator generator = project.forcedGenerator();
 		generator.generate(project.eogen("ShopWonder"));
 		Path superclass = project.resolve("src/main/java/" + PACKAGE + "_Product.java");
 		FileTime old = FileTime.fromMillis(1_000_000_000_000L);
@@ -108,7 +110,7 @@ class EOGeneratorTest {
 	@Test
 	void checkFindsStaleSuperclassesAndMissingSubclasses() throws Exception {
 		FixtureProject project = FixtureProject.copyTo(temp);
-		EOGenerator generator = project.generator();
+		EOGenerator generator = project.forcedGenerator();
 		generator.generate(project.eogen("ShopWonder"));
 		assertThat(generator.check(project.eogen("ShopWonder")).isStale()).isFalse();
 
@@ -132,7 +134,7 @@ class EOGeneratorTest {
 		FixtureProject project = FixtureProject.copyTo(temp);
 		File eogen = project.eogen("ShopClassic");
 		write(eogen.toPath(), " -destination generated/one \\\n -model src/main/resources/Shop.eomodeld \\\n -packagedirs \\\n -loadModelGroup\n");
-		GenerationResult result = project.generator().generate(eogen);
+		GenerationResult result = project.forcedGenerator().generate(eogen);
 		assertThat(result.count(SUBCLASS, CREATED)).isEqualTo(7);
 		assertThat(FixtureProject.files(project.resolve("generated/one"))).contains(PACKAGE + "Product.java", PACKAGE + "_Product.java");
 	}
@@ -167,19 +169,21 @@ class EOGeneratorTest {
 		File eogen = project.eogen("ShopClassic");
 		write(eogen.toPath(), read(eogen.toPath()).replace("Shop.eomodeld \\", "Shop.eomodeld/index.eomodeld \\"));
 		assertThat(read(eogen.toPath())).contains("Shop.eomodeld/index.eomodeld");
-		GenerationResult result = project.generator().generate(eogen);
-		assertThat(result.getErrors()).isEmpty();
+		GenerationResult result = project.forcedGenerator().generate(eogen);
+		assertThat(modelErrors(result)).isEmpty();
 		assertSameFiles(FixtureProject.expected("ShopClassic"), project.resolve("generated/classic"));
 	}
 
 	@Test
 	void generatesInAFolderWhosePathHasSpaces() throws Exception {
 		FixtureProject project = FixtureProject.copyTo(temp.resolve("My Projects"));
-		GenerationResult fromJar = project.generator().generate(project.eogen("ShopWonder"));
-		assertThat(fromJar.getErrors()).isEmpty();
+		GenerationResult fromJar = project.forcedGenerator().generate(project.eogen("ShopWonder"));
+		assertThat(modelErrors(fromJar)).isEmpty();
 		assertSameFiles(FixtureProject.expected("ShopWonder"), project.resolve("src/main/java"));
-		GenerationResult fromFolder = project.generatorWithFolderOnClasspath().generate(project.eogen("ShopCustom"));
-		assertThat(fromFolder.getErrors()).isEmpty();
+		EOGenerator folderGenerator = project.generatorWithFolderOnClasspath();
+		folderGenerator.setForce(true);
+		GenerationResult fromFolder = folderGenerator.generate(project.eogen("ShopCustom"));
+		assertThat(modelErrors(fromFolder)).isEmpty();
 		assertSameFiles(FixtureProject.expected("ShopCustom"), project.resolve("generated/custom"));
 	}
 
@@ -199,9 +203,88 @@ class EOGeneratorTest {
 		FixtureProject.jar(old, oldJar);
 		EOGenerator generator = new EOGenerator(project.root.toFile(), Collections.singletonList(project.resolve("src/main/resources").toFile()),
 				java.util.Arrays.asList(oldJar.toFile(), project.referenceJar.toFile()));
+		generator.setForce(true);
 		GenerationResult result = generator.generate(project.eogen("ShopClassic"));
-		assertThat(result.getErrors()).isEmpty();
+		assertThat(modelErrors(result)).isEmpty();
 		assertSameFiles(FixtureProject.expected("ShopClassic"), project.resolve("generated/classic"));
+	}
+
+	/**
+	 * Without the Reference jar, the Shop model's prototypes and Currency are
+	 * missing. WOLips would write classes with unresolved references in them.
+	 */
+	@Test
+	void modelErrorsMeanNothingIsWritten() throws Exception {
+		FixtureProject project = FixtureProject.copyTo(temp);
+		GenerationResult result = project.generatorWithoutDependencies().generate(project.eogen("ShopWonder"));
+		assertThat(result.hasErrors()).isTrue();
+		assertThat(result.getErrors()).anyMatch(error -> error.contains("Currency")).anyMatch(error -> error.contains("prototype"));
+		assertThat(result.isWritten()).isFalse();
+		assertThat(result.getStaleFiles()).hasSize(14);
+		assertThat(FixtureProject.files(project.resolve("src/main/java"))).isEmpty();
+	}
+
+	@Test
+	void forceWritesDespiteModelErrors() throws Exception {
+		FixtureProject project = FixtureProject.copyTo(temp);
+		EOGenerator generator = project.generatorWithoutDependencies();
+		generator.setForce(true);
+		GenerationResult result = generator.generate(project.eogen("ShopWonder"));
+		assertThat(result.hasErrors()).isTrue();
+		assertThat(result.isWritten()).isTrue();
+		assertThat(FixtureProject.files(project.resolve("src/main/java"))).contains(PACKAGE + "_Order.java", PACKAGE + "Order.java");
+	}
+
+	/**
+	 * WOLips gives the flattened attribute Order.customerName no Java class,
+	 * and writes {@code $attribute.javaClassName} into Order's superclass.
+	 */
+	@Test
+	void unresolvedReferenceIsAnError() throws Exception {
+		FixtureProject project = FixtureProject.copyTo(temp);
+		GenerationResult result = project.generator().generate(project.eogen("ShopWonder"));
+		assertThat(result.getErrors()).containsExactlyInAnyOrder(
+				"com/example/shop/_Order.java: $attribute.javaClassName has no value for attribute customerName (_WonderEntity.java).",
+				"com/example/shop/_Order.java: ${attribute.javaClassName} has no value for attribute customerName (_WonderEntity.java).");
+		assertThat(result.isWritten()).isFalse();
+		assertThat(FixtureProject.files(project.resolve("src/main/java"))).isEmpty();
+	}
+
+	/**
+	 * A misspelt key in a model is ignored, which leaves an attribute with no
+	 * prototype, and so no Java class.
+	 */
+	@Test
+	void misspeltModelKeyIsAnError() throws Exception {
+		FixtureProject project = FixtureProject.copyTo(temp);
+		Path product = project.resolve("src/main/resources/Shop.eomodeld/Product.plist");
+		write(product, read(product).replace("name = price; prototypeName = amount;", "name = price; prototypeNam = amount;"));
+		GenerationResult result = project.generator().generate(project.eogen("ShopWonder"));
+		assertThat(result.getErrors()).anyMatch(error -> error.startsWith("com/example/shop/_Product.java: ") && error.contains("for attribute price"));
+		assertThat(result.isWritten()).isFalse();
+	}
+
+	/**
+	 * Only a property or method of a variable that the template has counts: a
+	 * bare reference to nothing is often not meant as one, and quiet references,
+	 * tests and #set values don't render.
+	 */
+	@Test
+	void otherUnrenderedReferencesAreNotErrors() throws Exception {
+		FixtureProject project = FixtureProject.copyTo(temp);
+		write(project.resolve("src/main/templates/_Custom.java"), String.join("\n",
+				"// $LastChangedRevision$ ${entity.name}",
+				"// Outer$Inner $!entity.noSuchProperty $!{entity.noSuchProperty}",
+				"#if ($entity.noSuchProperty)never#end",
+				"#set ($missing = $entity.noSuchProperty)",
+				"public class $entity.prefixClassNameWithoutPackage {}",
+				""));
+		write(project.resolve("src/main/templates/Custom.java"), "public class $entity.classNameWithoutPackage {}\n");
+		GenerationResult result = project.generator().generate(project.eogen("ShopCustom"));
+		assertThat(result.getErrors()).isEmpty();
+		assertThat(result.isWritten()).isTrue();
+		assertThat(read(project.resolve("generated/custom/" + PACKAGE + "_Product.java"))).contains("// $LastChangedRevision$ Product", "// Outer$Inner ", "public class _Product {}")
+				.doesNotContain("noSuchProperty", "never");
 	}
 
 	@Test
@@ -244,6 +327,14 @@ class EOGeneratorTest {
 		VerificationResult result = project.generatorWithoutDependencies().verify(false);
 		assertThat(result.hasErrors()).isTrue();
 		assertThat(result.getErrors()).extracting(EOModelVerificationFailure::getMessage).anyMatch(message -> message.contains("Currency"));
+	}
+
+	/**
+	 * Returns the errors that come from the model group rather than from
+	 * unresolved references in the templates' output.
+	 */
+	private static List<String> modelErrors(GenerationResult result) {
+		return result.getErrors().stream().filter(error -> !error.contains(" has no value")).collect(Collectors.toList());
 	}
 
 	private static Map<String, GeneratedFile.Status> statuses(GenerationResult result) {

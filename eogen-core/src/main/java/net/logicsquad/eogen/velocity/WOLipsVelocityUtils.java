@@ -93,7 +93,9 @@ public class WOLipsVelocityUtils {
 	 * lookup of properties (VelocityOneUberspector). Template files keep any
 	 * byte order mark, as Velocity 1.5 kept it. Render with a
 	 * VelocityOneContext, which with VelocityOneEventHandler restores
-	 * $velocityCount and Velocity 1's #set of null values.
+	 * $velocityCount and Velocity 1's #set of null values, and with
+	 * UnresolvedReferenceHandler collects the references that render without
+	 * a value.
 	 * 
 	 * @param templateFamilyName
 	 *            the name of the template family (the common folder name that
@@ -149,6 +151,7 @@ public class WOLipsVelocityUtils {
 			velocityEngine.setProperty(RuntimeConstants.CONVERSION_HANDLER_CLASS, "none");
 			velocityEngine.setProperty(RuntimeConstants.UBERSPECT_CLASSNAME, VelocityOneUberspector.class.getName());
 			velocityEngine.setProperty(RuntimeConstants.EVENTHANDLER_INVALIDREFERENCES, VelocityOneEventHandler.class.getName());
+			velocityEngine.setProperty(RuntimeConstants.EVENTHANDLER_REFERENCEINSERTION, UnresolvedReferenceHandler.class.getName());
 			velocityEngine.init();
 			return velocityEngine;
 		} finally {

@@ -1,0 +1,39 @@
+{
+    attributes = (
+        {allowsNull = N; columnName = "author_id"; name = authorID; prototypeName = id; }, 
+        {
+            allowsNull = N; 
+            columnName = "currency_code"; 
+            name = currencyCode; 
+            prototypeName = varchar100; 
+        }, 
+        {allowsNull = N; columnName = id; name = id; prototypeName = id; }, 
+        {allowsNull = N; columnName = price; name = price; prototypeName = amount; }, 
+        {allowsNull = N; columnName = title; name = title; prototypeName = varchar100; }
+    ); 
+    attributesUsedForLocking = (authorID, currencyCode, id, price, title); 
+    className = "com.example.library.Book"; 
+    classProperties = (author, currency, price, title); 
+    externalName = book; 
+    fetchSpecificationDictionary = {}; 
+    name = Book; 
+    primaryKeyAttributes = (id); 
+    relationships = (
+        {
+            destination = Author; 
+            isMandatory = Y; 
+            isToMany = N; 
+            joinSemantic = EOInnerJoin; 
+            joins = ({destinationAttribute = id; sourceAttribute = authorID; }); 
+            name = author; 
+        }, 
+        {
+            destination = Currency; 
+            isMandatory = Y; 
+            isToMany = N; 
+            joinSemantic = EOInnerJoin; 
+            joins = ({destinationAttribute = code; sourceAttribute = currencyCode; }); 
+            name = currency; 
+        }
+    ); 
+}

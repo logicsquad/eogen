@@ -17,6 +17,7 @@ import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.project.MavenProject;
 
 import net.logicsquad.eogen.EOGenerator;
+import net.logicsquad.eogen.GenerationResult;
 
 /**
  * What the eogen goals share: the project's model folders, its .eogen files,
@@ -56,13 +57,50 @@ public abstract class AbstractEOGenMojo extends AbstractMojo {
 	@Parameter(property = "eogen.skip", defaultValue = "false")
 	private boolean skip;
 
+	/**
+	 * Generates even when the model group or a template has errors, as WOLips
+	 * does. Without it, errors fail the build, and {@code generate} writes
+	 * nothing for an .eogen file that has them.
+	 */
+	@Parameter(property = "eogen.force", defaultValue = "false")
+	private boolean force;
+
 	@Override
 	public final void execute() throws MojoExecutionException, MojoFailureException {
 		if (skip) {
 			getLog().info("Skipping eogen.");
 			return;
 		}
-		execute(new EOGenerator(project.getBasedir(), modelDirectories(), classpath()));
+		EOGenerator generator = new EOGenerator(project.getBasedir(), modelDirectories(), classpath());
+		generator.setForce(force);
+		execute(generator);
+	}
+
+	/**
+	 * Returns whether the goal generates despite errors.
+	 *
+	 * @return {@code true} if forced
+	 */
+	protected boolean isForce() {
+		return force;
+	}
+
+	/**
+	 * Logs an .eogen file's errors: as errors, or as warnings when forced.
+	 *
+	 * @param eogenFile the .eogen file
+	 * @param result what generating or checking it found
+	 * @return the number of errors
+	 */
+	protected int logErrors(File eogenFile, GenerationResult result) {
+		for (String error : result.getErrors()) {
+			if (force) {
+				getLog().warn(relative(eogenFile) + ": " + error);
+			} else {
+				getLog().error(relative(eogenFile) + ": " + error);
+			}
+		}
+		return result.getErrors().size();
 	}
 
 	/**

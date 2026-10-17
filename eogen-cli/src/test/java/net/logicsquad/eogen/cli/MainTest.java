@@ -77,10 +77,30 @@ class MainTest {
 		assertThat(project.resolve(LIBRARY + "_Author.java")).exists();
 	}
 
+	/**
+	 * Without the Reference model, the prototypes and Currency are missing, so
+	 * the classes would have unresolved references in them.
+	 */
 	@Test
-	void reportsModelsMissingFromTheClasspath() throws Exception {
-		assertThat(run("--project", project.toString(), eogen())).isEqualTo(Main.OK);
+	void modelErrorsMeanNothingIsWritten() throws Exception {
+		assertThat(run("--project", project.toString(), eogen())).isEqualTo(Main.FAILED);
+		assertThat(err()).contains("Currency", "$attribute.javaClassName has no value for attribute price",
+				"errors, so nothing was written. Fix them, or use --force to write anyway.");
+		assertThat(project.resolve("src/main/java")).doesNotExist();
+	}
+
+	@Test
+	void checkFailsOnModelErrors() throws Exception {
+		assertThat(run("--check", "--project", project.toString(), eogen())).isEqualTo(Main.FAILED);
 		assertThat(err()).contains("Currency");
+		assertThat(out()).doesNotContain("is missing.");
+	}
+
+	@Test
+	void forceWritesDespiteModelErrors() throws Exception {
+		assertThat(run("--force", "--project", project.toString(), eogen())).isEqualTo(Main.OK);
+		assertThat(err()).contains("Currency");
+		assertThat(project.resolve(LIBRARY + "_Book.java")).exists();
 	}
 
 	@Test

@@ -23,7 +23,7 @@ public final class GenerationResult {
 	 * @param eogenFile the .eogen file
 	 * @param written whether the stale files were written to the project
 	 * @param files the files generated
-	 * @param errors the model errors the generator reported
+	 * @param errors the model and template errors the generator reported
 	 */
 	public GenerationResult(File eogenFile, boolean written, List<GeneratedFile> files, List<String> errors) {
 		this.eogenFile = eogenFile;
@@ -44,7 +44,8 @@ public final class GenerationResult {
 	/**
 	 * Returns whether the stale files were written to the project, as
 	 * {@link EOGenerator#generate(File)} does, rather than only compared, as
-	 * {@link EOGenerator#check(File)} does.
+	 * {@link EOGenerator#check(File)} does. Generating writes nothing when there
+	 * are errors, unless the generator is forced.
 	 *
 	 * @return {@code true} if the project was changed
 	 */
@@ -105,12 +106,23 @@ public final class GenerationResult {
 	}
 
 	/**
-	 * Returns the errors that loading and verifying the model group reported.
-	 * WOLips shows these after generating, and generates anyway.
+	 * Returns the errors that loading and verifying the model group reported,
+	 * and the references that a template rendered without a value. WOLips shows
+	 * these after generating, and generates anyway; eogen writes nothing unless
+	 * forced.
 	 *
 	 * @return error messages
 	 */
 	public List<String> getErrors() {
 		return errors;
+	}
+
+	/**
+	 * Returns whether there are any errors.
+	 *
+	 * @return {@code true} if {@link #getErrors()} is not empty
+	 */
+	public boolean hasErrors() {
+		return !errors.isEmpty();
 	}
 }

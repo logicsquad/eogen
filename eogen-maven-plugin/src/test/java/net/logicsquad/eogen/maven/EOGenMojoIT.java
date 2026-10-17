@@ -106,6 +106,30 @@ public class EOGenMojoIT {
 		assertThat(result).out().error().anyMatch(line -> line.startsWith("Library: ") && line.contains("Currency"));
 	}
 
+	/**
+	 * Without the jar, the Library model's prototypes and Currency entity are
+	 * missing, so generate fails and writes nothing.
+	 */
+	@MavenTest
+	void generateWithModelErrors(MavenExecutionResult result) {
+		assertThat(result).isFailure();
+		assertThat(result).out().error().anyMatch(line -> line.startsWith("src/main/resources/Library.eogen: ") && line.contains("Currency"))
+				.contains("src/main/resources/Library.eogen: nothing written.")
+				.anyMatch(line -> line.contains("so the classes for the .eogen files that have them were not written. Fix them, or set eogen.force to write them anyway."));
+		assertThat(result.getMavenProjectResult().getTargetProjectDirectory().resolve("src/main/java")).doesNotExist();
+	}
+
+	/**
+	 * With force, generate writes the classes despite the errors, as WOLips
+	 * does, and reports the errors as warnings.
+	 */
+	@MavenTest
+	void generateForced(MavenExecutionResult result) {
+		assertThat(result).isSuccessful();
+		assertThat(result).out().warn().anyMatch(line -> line.startsWith("src/main/resources/Library.eogen: ") && line.contains("Currency"));
+		assertThat(result.getMavenProjectResult().getTargetProjectDirectory().resolve(LIBRARY + "_Book.java")).exists();
+	}
+
 	@MavenTest
 	void skip(MavenExecutionResult result) {
 		assertThat(result).isSuccessful();

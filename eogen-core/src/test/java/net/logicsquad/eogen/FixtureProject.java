@@ -66,6 +66,21 @@ final class FixtureProject {
 	}
 
 	/**
+	 * Returns a forced generator for the copy, with the Reference jar on its
+	 * classpath. WOLips gives the Shop model's flattened attribute,
+	 * {@code Order.customerName}, no Java class, so Order's superclass, as WOLips
+	 * generates it, has an unresolved {@code $attribute.javaClassName} in it.
+	 * eogen reports that as an error, and only a forced generator writes it.
+	 *
+	 * @return forced generator
+	 */
+	EOGenerator forcedGenerator() {
+		EOGenerator generator = generator();
+		generator.setForce(true);
+		return generator;
+	}
+
+	/**
 	 * Returns a generator for the copy, with the Reference model's folder on
 	 * its classpath, as a reactor build passes a sibling module's classes.
 	 *

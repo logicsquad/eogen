@@ -1,5 +1,11 @@
 package net.logicsquad.eogen.velocity;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Set;
+
 import org.apache.velocity.VelocityContext;
 import org.apache.velocity.runtime.directive.ForeachScope;
 
@@ -13,6 +19,11 @@ import org.apache.velocity.runtime.directive.ForeachScope;
  * Velocity 2 sets it to null. This needs {@link VelocityOneEventHandler},
  * which tells the context when a {@code #set} has a null value.</li>
  * </ul>
+ * <p>
+ * It also collects the references that render without a value, which
+ * {@link UnresolvedReferenceHandler} reports, so that the generator can treat
+ * output with an unresolved reference in it as an error.
+ * </p>
  */
 public class VelocityOneContext extends VelocityContext {
 	/**
@@ -31,6 +42,12 @@ public class VelocityOneContext extends VelocityContext {
 	private boolean nullSet;
 
 	/**
+	 * Descriptions of the references rendered without a value since the last
+	 * {@link #takeUnresolvedReferences()}.
+	 */
+	private final Set<String> unresolvedReferences = new LinkedHashSet<>();
+
+	/**
 	 * Notes that a {@code #set} is about to set a reference to null, so that the
 	 * {@link #internalPut(String, Object)} that follows leaves it as it is.
 	 * Velocity puts the value straight after it raises the event, without
@@ -39,6 +56,30 @@ public class VelocityOneContext extends VelocityContext {
 	 */
 	void nullSet() {
 		nullSet = true;
+	}
+
+	/**
+	 * Notes a reference that rendered without a value.
+	 *
+	 * @param description what the reference was and where
+	 */
+	void unresolved(String description) {
+		unresolvedReferences.add(description);
+	}
+
+	/**
+	 * Returns the references that rendered without a value since the last call,
+	 * once each, and forgets them.
+	 *
+	 * @return descriptions of unresolved references
+	 */
+	public List<String> takeUnresolvedReferences() {
+		if (unresolvedReferences.isEmpty()) {
+			return Collections.emptyList();
+		}
+		List<String> references = new ArrayList<>(unresolvedReferences);
+		unresolvedReferences.clear();
+		return references;
 	}
 
 	@Override

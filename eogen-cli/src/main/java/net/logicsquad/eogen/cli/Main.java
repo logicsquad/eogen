@@ -18,7 +18,7 @@ import net.logicsquad.eogen.GenerationResult;
  * Generates the entity classes for one .eogen file.
  *
  * <pre>
- * eogen [--project folder] [--models folders] [--classpath path] [--check] file.eogen
+ * eogen [--project folder] [--models folders] [--classpath path] [--check] [--force] file.eogen
  * </pre>
  */
 public final class Main {
@@ -34,7 +34,8 @@ public final class Main {
 	static final int STALE = 1;
 
 	/**
-	 * Exit status for bad arguments, or when generating fails.
+	 * Exit status for bad arguments, when generating fails, or when the model
+	 * group or a template has errors and {@code --force} is not given.
 	 */
 	static final int FAILED = 2;
 
@@ -54,6 +55,9 @@ public final class Main {
 			"                        to the model group, separated by '" + File.pathSeparator + "'.",
 			"  --check               Write nothing. List the files that generating would",
 			"                        change, and exit with status 1 if there are any.",
+			"  --force               Write the classes even when the model group or a",
+			"                        template has errors, as WOLips does. Without it, errors",
+			"                        mean nothing is written, and the exit status is 2.",
 			"  --help                Show this help.",
 			"  --version             Show eogen's version.");
 
@@ -83,6 +87,7 @@ public final class Main {
 		List<File> models = null;
 		List<File> classpath = Collections.emptyList();
 		boolean check = false;
+		boolean force = false;
 		File eogenFile = null;
 		for (int i = 0; i < args.length; i++) {
 			String arg = args[i];
@@ -95,6 +100,8 @@ public final class Main {
 				return OK;
 			} else if ("--check".equals(arg)) {
 				check = true;
+			} else if ("--force".equals(arg)) {
+				force = true;
 			} else if ("--project".equals(arg) || "--models".equals(arg) || "--classpath".equals(arg)) {
 				if (i + 1 == args.length) {
 					return usage(err, arg + " needs a value.");
@@ -131,6 +138,7 @@ public final class Main {
 		}
 
 		EOGenerator generator = new EOGenerator(project, models, classpath);
+		generator.setForce(force);
 		GenerationResult result;
 		try {
 			result = check ? generator.check(eogenFile) : generator.generate(eogenFile);
@@ -140,6 +148,11 @@ public final class Main {
 		}
 		for (String error : result.getErrors()) {
 			err.println("eogen: " + error);
+		}
+		if (result.hasErrors() && !force) {
+			int errors = result.getErrors().size();
+			err.println("eogen: " + errors + (errors == 1 ? " error" : " errors") + (check ? "." : ", so nothing was written. Fix them, or use --force to write anyway."));
+			return FAILED;
 		}
 		if (check) {
 			for (GeneratedFile file : result.getStaleFiles()) {

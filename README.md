@@ -54,11 +54,13 @@ The goals are:
   project's `.eogen` files. Like WOLips, it writes every superclass
   whose contents have changed, and every subclass that is missing, and
   never touches a subclass that exists. It reports each file it
-  writes.
+  writes. Unlike WOLips, it writes nothing for an `.eogen` file with
+  errors, and fails the build (see [Errors](#errors)).
 * `check` (default phase `verify`): generates into a scratch folder,
   and fails the build if `generate` would change anything: a
   superclass that differs, or a missing superclass or subclass. It
-  names each stale file, and changes nothing in the project.
+  names each stale file, and changes nothing in the project. Errors
+  fail it too.
 * `verify` (default phase `verify`): loads the project's model group,
   resolves and verifies it as Entity Modeler does, reports errors and
   warnings, and fails the build on errors.
@@ -73,6 +75,7 @@ They take these parameters:
   from. The default is every `.eogen` file under the model
   directories.
 * `skip` (`eogen.skip`): skips the goal.
+* `force` (`eogen.force`): generates despite errors, as WOLips does.
 * For `verify`, `includeDependencies` (`eogen.verify.includeDependencies`)
   also reports failures in models from dependencies, and
   `failOnWarning` (`eogen.verify.failOnWarning`) fails the build on
@@ -100,6 +103,9 @@ Using the command line
     --check               Write nothing. List the files that generating
                           would change, and exit with status 1 if there
                           are any.
+    --force               Write the classes even when there are errors,
+                          as WOLips does. Without it, errors mean
+                          nothing is written, and the exit status is 2.
 
 To give it a Maven project's dependencies, run it from the project's
 folder with the classpath that Maven resolves:
@@ -120,6 +126,9 @@ Using the library
 
 `check(eogenFile)` returns the same result without writing anything,
 and `verify(includeDependencies)` returns the model group's failures.
+`getErrors()` lists a result's errors; when there are any, `generate`
+writes nothing, and `isWritten()` is false, unless
+`setForce(true)` was called.
 Below `EOGenerator`, the extracted WOLips classes are available as
 they were: `EOModelGroup`, `EOModel`, `EOEntity` and the rest in
 `net.logicsquad.eogen.model`, and `EOGeneratorModel` and
@@ -145,6 +154,31 @@ survives a dependency's model that shares one of its entities. The
 Maven plugin's classpath is the project's resolved compile, provided
 and system dependencies, in Maven's order. Without `-loadModelGroup`,
 eogen loads the `-model` and `-refmodel` models, as WOLips does.
+
+Errors
+------
+WOLips reports the errors that loading and verifying the model group
+finds, such as a missing prototype or entity, and then generates
+anyway. The classes it writes then have unresolved template references
+in them, such as `$attribute.javaClassName`, and don't compile.
+
+eogen treats these as errors, along with any reference that a template
+renders without a value, such as an attribute's Java class when a
+misspelt key in the model left it without a prototype. It names each
+reference, the object it belongs to and the template:
+
+    com/example/shop/_Product.java: $attribute.javaClassName has no value for attribute price (_WonderEntity.java).
+
+When there are errors, `generate` writes nothing for that `.eogen`
+file and fails, and so does `check`. `force` writes the classes
+anyway, as WOLips does.
+
+A reference counts only if it is a property or method of a variable
+that the template has. A bare reference to a variable that doesn't
+exist is often not meant as one, such as the Subversion keyword
+`$LastChangedRevision$` in WOLips's own `_Entity.java`, or the Java
+class name `Outer$Inner`. Quiet references, such as `$!entity.parent`,
+and references that only a `#if` or `#set` reads, don't count either.
 
 How eogen finds templates
 -------------------------
@@ -178,6 +212,8 @@ options, with these differences:
   that does not exist, is an error. WOLips failed with a
   `NullPointerException`, or generated nothing.
 * `-filenameTemplate` is read but ignored, as it is in WOLips.
+* Errors mean nothing is written, unless forced. WOLips writes classes
+  that don't compile; see [Errors](#errors).
 
 WOLips renders templates with Velocity 1.5, and eogen with Velocity
 2.4.1. eogen sets Velocity 2 up to behave as 1.5 does: `bc` space

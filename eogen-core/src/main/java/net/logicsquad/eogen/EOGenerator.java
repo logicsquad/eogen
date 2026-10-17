@@ -43,6 +43,12 @@ import net.logicsquad.eogen.utils.URLUtils;
  * writes every superclass, and only those subclasses that are missing, so that
  * subclasses can be edited by hand.
  * </p>
+ * <p>
+ * Unlike WOLips, it writes nothing when loading or verifying the model group
+ * finds errors, or when a template renders a reference that has no value,
+ * because the classes it would write are broken. {@link #setForce(boolean)}
+ * writes them anyway, as WOLips does.
+ * </p>
  */
 public class EOGenerator {
 	/**
@@ -55,6 +61,8 @@ public class EOGenerator {
 	private final List<File> modelFolders;
 
 	private final List<File> classpath;
+
+	private boolean force;
 
 	/**
 	 * Constructor for a Maven project with no dependencies: models come from
@@ -108,6 +116,28 @@ public class EOGenerator {
 	}
 
 	/**
+	 * Returns whether {@link #generate(File)} writes the files even when there
+	 * are errors.
+	 *
+	 * @return {@code true} if forced
+	 */
+	public boolean isForce() {
+		return force;
+	}
+
+	/**
+	 * Sets whether {@link #generate(File)} writes the files even when loading
+	 * or verifying the model group finds errors, or a template renders a
+	 * reference that has no value, as WOLips does. The default is
+	 * {@code false}: errors mean nothing is written.
+	 *
+	 * @param force whether to write despite errors
+	 */
+	public void setForce(boolean force) {
+		this.force = force;
+	}
+
+	/**
 	 * Returns the .eogen files under some folders, at any depth.
 	 *
 	 * @param folders folders to search
@@ -149,10 +179,12 @@ public class EOGenerator {
 
 	/**
 	 * Generates the classes for an .eogen file: writes every superclass whose
-	 * contents have changed, and every missing subclass.
+	 * contents have changed, and every missing subclass. If there are errors,
+	 * it writes nothing unless forced, and {@link GenerationResult#isWritten()}
+	 * is {@code false}.
 	 *
 	 * @param eogenFile an .eogen file
-	 * @return the files generated
+	 * @return the files generated, and any errors
 	 * @throws EOGeneratorException if the file or its models can't be loaded, or
 	 *         a template fails
 	 */
@@ -255,12 +287,14 @@ public class EOGenerator {
 			} catch (Exception e) {
 				throw new EOGeneratorException("Failed to generate from " + eogenFile + ": " + e.getMessage(), e);
 			}
+			List<String> errors = errors(results);
+			boolean written = write && (errors.isEmpty() || force);
 			List<GeneratedFile> files = new ArrayList<>();
 			for (Map.Entry<String, File> output : outputs.entrySet()) {
 				Kind kind = EOGeneratorModel.SUBCLASS_DESTINATION.equals(output.getKey()) ? Kind.SUBCLASS : Kind.SUPERCLASS;
-				files.addAll(compare(output.getValue().toPath(), destinations.get(output.getKey()).toPath(), kind, write));
+				files.addAll(compare(output.getValue().toPath(), destinations.get(output.getKey()).toPath(), kind, written));
 			}
-			return new GenerationResult(eogenFile, write, files, errors(results));
+			return new GenerationResult(eogenFile, written, files, errors);
 		} catch (IOException e) {
 			throw new EOGeneratorException("Failed to write the files for " + eogenFile + ": " + e.getMessage(), e);
 		} finally {

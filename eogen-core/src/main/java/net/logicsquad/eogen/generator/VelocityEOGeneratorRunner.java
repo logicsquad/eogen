@@ -374,15 +374,20 @@ public class VelocityEOGeneratorRunner {
 
 						if (_useStdout) {
 							WOLipsVelocityUtils.writeTemplate(velocityEngine, context, superclassTemplateName, System.out);
+							showResults |= reportUnresolvedReferences(context, superclassTemplateName, results);
 							WOLipsVelocityUtils.writeTemplate(velocityEngine, context, subclassTemplateName, System.out);
+							showResults |= reportUnresolvedReferences(context, subclassTemplateName, results);
 							if (superclassTemplate2Name != null) {
 								WOLipsVelocityUtils.writeTemplate(velocityEngine, context, superclassTemplate2Name, System.out);
+								showResults |= reportUnresolvedReferences(context, superclassTemplate2Name, results);
 							}
 							if (superclassTemplate3Name != null) {
 								WOLipsVelocityUtils.writeTemplate(velocityEngine, context, superclassTemplate3Name, System.out);
+								showResults |= reportUnresolvedReferences(context, superclassTemplate3Name, results);
 							}
 							if (superclassTemplate4Name != null) {
 								WOLipsVelocityUtils.writeTemplate(velocityEngine, context, superclassTemplate4Name, System.out);
+								showResults |= reportUnresolvedReferences(context, superclassTemplate4Name, results);
 							}
 						}
 						else {
@@ -408,6 +413,7 @@ public class VelocityEOGeneratorRunner {
 							}
 							
 							WOLipsVelocityUtils.writeTemplate(velocityEngine, context, superclassTemplateName, superclassFile);
+							showResults |= reportUnresolvedReferences(context, superclassFilePath, results);
 
 							String subclassFileTemplate;
 							// StringWriter subclassFilePathWriter = new
@@ -431,6 +437,7 @@ public class VelocityEOGeneratorRunner {
 							}
 							if (!subclassFile.exists() && !subclassOutputFile.exists()) {
 								WOLipsVelocityUtils.writeTemplate(velocityEngine, context, subclassTemplateName, subclassOutputFile);
+								showResults |= reportUnresolvedReferences(context, subclassFilePath, results);
 							}
 							
 							if (superclass2Destination != null) {
@@ -443,6 +450,7 @@ public class VelocityEOGeneratorRunner {
 								}
 								
 								WOLipsVelocityUtils.writeTemplateToDirectory(velocityEngine, context, superclassTemplate2Name, superclass2Folder);
+								showResults |= reportUnresolvedReferences(context, "-destination2 for " + entity.getName(), results);
 							}
 							
 							if (superclass3Destination != null) {
@@ -455,6 +463,7 @@ public class VelocityEOGeneratorRunner {
 								}
 								
 								WOLipsVelocityUtils.writeTemplateToDirectory(velocityEngine, context, superclassTemplate3Name, superclass3Folder);
+								showResults |= reportUnresolvedReferences(context, "-destination3 for " + entity.getName(), results);
 							}
 							
 							if (superclass4Destination != null) {
@@ -467,6 +476,7 @@ public class VelocityEOGeneratorRunner {
 								}
 								
 								WOLipsVelocityUtils.writeTemplateToDirectory(velocityEngine, context, superclassTemplate4Name, superclass4Folder);
+								showResults |= reportUnresolvedReferences(context, "-destination4 for " + entity.getName(), results);
 							}
 						}
 					}
@@ -476,6 +486,31 @@ public class VelocityEOGeneratorRunner {
 			EOModelRenderContext.clearRenderContext();
 		}
 		return showResults;
+	}
+
+	/**
+	 * Reports, as errors, the references that a template has just rendered
+	 * without a value. Velocity writes such a reference into the output as it
+	 * stands, so the generated file would not compile.
+	 * 
+	 * @param context
+	 *            the context the template rendered with
+	 * @param output
+	 *            what the template rendered: a file's path relative to its
+	 *            destination, or a template's name
+	 * @param results
+	 *            where to report them
+	 * @return whether there were any
+	 */
+	private static boolean reportUnresolvedReferences(VelocityContext context, String output, StringBuffer results) {
+		boolean reported = false;
+		if (context instanceof VelocityOneContext) {
+			for (String reference : ((VelocityOneContext) context).takeUnresolvedReferences()) {
+				results.append("Error: " + output + ": " + reference + "\n");
+				reported = true;
+			}
+		}
+		return reported;
 	}
 
 	public URL getModelURL(EOGeneratorModel eogeneratorModel, EOModelReference modelRef) throws MalformedURLException {
