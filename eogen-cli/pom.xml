@@ -4,7 +4,7 @@
   <parent>
     <groupId>net.logicsquad</groupId>
     <artifactId>eogen-parent</artifactId>
-    <version>0.2-SNAPSHOT</version>
+    <version>0.2</version>
   </parent>
   <artifactId>eogen-cli</artifactId>
   <name>eogen command line</name>
