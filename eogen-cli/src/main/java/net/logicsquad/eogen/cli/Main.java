@@ -486,13 +486,13 @@ public final class Main {
 	}
 
 	/**
-	 * Returns a file's path relative to the project, or its absolute path if it
-	 * is outside the project.
+	 * Returns a file's path relative to the project, with / separators on every
+	 * platform, or its absolute path if it is outside the project.
 	 */
 	private String relative(File file) {
 		Path projectPath = project.getAbsoluteFile().toPath().normalize();
 		Path filePath = file.getAbsoluteFile().toPath().normalize();
-		return filePath.startsWith(projectPath) ? projectPath.relativize(filePath).toString() : filePath.toString();
+		return filePath.startsWith(projectPath) ? projectPath.relativize(filePath).toString().replace(File.separatorChar, '/') : filePath.toString();
 	}
 
 	private void say(String message) {

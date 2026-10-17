@@ -211,7 +211,8 @@ public abstract class AbstractEOGenMojo extends AbstractMojo {
 	}
 
 	/**
-	 * Returns a file's path relative to the project, for messages.
+	 * Returns a file's path relative to the project, for messages, with /
+	 * separators on every platform.
 	 *
 	 * @param file a file
 	 * @return relative path, or the absolute path of a file outside the project
@@ -219,7 +220,7 @@ public abstract class AbstractEOGenMojo extends AbstractMojo {
 	protected String relative(File file) {
 		File basedir = project.getBasedir().getAbsoluteFile();
 		if (file.getAbsolutePath().startsWith(basedir.getPath() + File.separator)) {
-			return basedir.toPath().relativize(file.getAbsoluteFile().toPath()).toString();
+			return basedir.toPath().relativize(file.getAbsoluteFile().toPath()).toString().replace(File.separatorChar, '/');
 		}
 		return file.getPath();
 	}
