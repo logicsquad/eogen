@@ -108,6 +108,33 @@ public class EOGenMojoIT {
 		assertThat(project.resolve(LIBRARY + "Book.java")).doesNotExist();
 	}
 
+	/**
+	 * The project has a superclass and a subclass for Loan, an entity the model
+	 * no longer has, so check fails on both.
+	 */
+	@MavenTest
+	void checkOrphan(MavenExecutionResult result) {
+		assertThat(result).isFailure();
+		assertThat(result).out().error().contains(LIBRARY + "_Loan.java is an orphan: no .eogen file generates it any more.",
+				LIBRARY + "Loan.java is the subclass of an orphaned superclass.")
+				.anyMatch(line -> line.contains("2 orphans. Run mvn eogen:generate -Deogen.deleteOrphans to delete the superclasses"));
+	}
+
+	/**
+	 * With deleteOrphans, generate deletes Loan's superclass, and leaves its
+	 * subclass, which was edited by hand.
+	 */
+	@MavenTest
+	void generateDeletesOrphans(MavenExecutionResult result) {
+		assertThat(result).isSuccessful();
+		assertThat(result).out().info().contains("Deleted " + LIBRARY + "_Loan.java, which no .eogen file generates any more.");
+		assertThat(result).out().warn().contains(LIBRARY + "Loan.java is the subclass of an orphaned superclass. Delete it by hand if its entity is gone.");
+		Path project = result.getMavenProjectResult().getTargetProjectDirectory();
+		assertThat(project.resolve(LIBRARY + "_Loan.java")).doesNotExist();
+		assertThat(project.resolve(LIBRARY + "Loan.java")).exists();
+		assertThat(project.resolve(LIBRARY + "_Book.java")).exists();
+	}
+
 	@MavenTest
 	void verify(MavenExecutionResult result) {
 		assertThat(result).isSuccessful();

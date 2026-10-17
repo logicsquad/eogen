@@ -55,12 +55,14 @@ The goals are:
   whose contents have changed, and every subclass that is missing, and
   never touches a subclass that exists. It reports each file it
   writes. Unlike WOLips, it writes nothing for an `.eogen` file with
-  errors, and fails the build (see [Errors](#errors)).
+  errors, and fails the build (see [Errors](#errors)). It reports
+  orphans (see [Orphans](#orphans)), and with `deleteOrphans` deletes
+  their superclasses.
 * `check` (default phase `verify`): generates into a scratch folder,
   and fails the build if `generate` would change anything: a
   superclass that differs, or a missing superclass or subclass. It
   names each stale file, and changes nothing in the project. Errors
-  fail it too.
+  and orphans fail it too.
 * `verify` (default phase `verify`): loads the project's model group,
   resolves and verifies it as Entity Modeler does, reports errors and
   warnings, and fails the build on errors.
@@ -78,6 +80,10 @@ They take these parameters:
 * `force` (`eogen.force`): generates despite errors, as WOLips does.
 * `strict` (`eogen.strict`): makes the lint's findings errors (see
   [Lint](#lint)).
+* For `generate`, `deleteOrphans` (`eogen.deleteOrphans`) deletes
+  orphaned superclasses.
+* `generatedMarker` (`eogen.generatedMarker`): the text that marks a
+  superclass as generated. The default is `DO NOT EDIT`.
 * For `verify`, `includeDependencies` (`eogen.verify.includeDependencies`)
   also reports failures in models from dependencies, and
   `failOnWarning` (`eogen.verify.failOnWarning`) fails the build on
@@ -210,6 +216,24 @@ doesn't look inside `userInfo`, `internalInfo` or qualifiers.
 Its findings are warnings. `strict` (`eogen.strict`, `--strict`) makes
 them errors, which stop `generate` as other errors do. Use `strict`
 when a script or a coding agent edits the models.
+
+Orphans
+-------
+When an entity is deleted or renamed, WOLips leaves its superclass
+behind, and the superclass's hand-edited subclass, and nothing notices.
+eogen calls a superclass an orphan if it is in an `.eogen` file's
+destination, has that file's prefix and extension, has the generated
+marker (`DO NOT EDIT`) in its first five lines, and no `.eogen` file
+in the project generates it.
+
+`check` fails on orphans and on their subclasses. `generate` reports
+them, and with `deleteOrphans` deletes the orphaned superclasses. It
+never deletes a subclass, since a subclass is edited by hand, so it
+leaves those to you.
+
+Several `.eogen` files often share a destination, so the goals only
+look for orphans when they use every `.eogen` file in the model
+directories, and not when `eogenFiles` names some of them.
 
 How eogen finds templates
 -------------------------

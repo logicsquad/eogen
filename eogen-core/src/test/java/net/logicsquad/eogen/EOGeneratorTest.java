@@ -3,11 +3,13 @@ package net.logicsquad.eogen;
 import static net.logicsquad.eogen.GeneratedFile.Kind.SUBCLASS;
 import static net.logicsquad.eogen.GeneratedFile.Kind.SUPERCLASS;
 import static net.logicsquad.eogen.GeneratedFile.Status.CREATED;
+import static net.logicsquad.eogen.GeneratedFile.Status.ORPHANED;
 import static net.logicsquad.eogen.GeneratedFile.Status.UNCHANGED;
 import static net.logicsquad.eogen.GeneratedFile.Status.UPDATED;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.entry;
+import static org.assertj.core.api.Assertions.tuple;
 
 import java.io.File;
 import java.io.IOException;
@@ -15,6 +17,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.FileTime;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -314,6 +317,59 @@ class EOGeneratorTest {
 		assertThat(verification.getErrors().get(0).getModel().getName()).isEqualTo("Shop");
 	}
 
+	/**
+	 * A deleted or renamed entity leaves its superclass behind, and its
+	 * hand-edited subclass. Only a superclass with the generated marker counts.
+	 */
+	@Test
+	void findsOrphansAndTheirSubclasses() throws Exception {
+		FixtureProject project = FixtureProject.copyTo(temp);
+		EOGenerator generator = project.forcedGenerator();
+		GenerationResult result = generator.generate(project.eogen("ShopWonder"));
+		Path shop = project.resolve("src/main/java/" + PACKAGE);
+		write(shop.resolve("_Coupon.java"), "// DO NOT EDIT.  Make changes to com.example.shop.Coupon.java instead.\nclass _Coupon {}\n");
+		write(shop.resolve("Coupon.java"), "class Coupon extends _Coupon {}\n");
+		write(shop.resolve("_Handwritten.java"), "class _Handwritten {}\n");
+		write(project.resolve("src/main/java/_Old.java"), "/*\n * DO NOT EDIT.\n */\nclass _Old {}\n");
+
+		List<GeneratedFile> orphans = generator.findOrphans(Collections.singletonList(result));
+
+		assertThat(orphans).extracting(file -> relative(project, file), GeneratedFile::getKind).containsExactly(tuple("src/main/java/_Old.java", SUPERCLASS),
+				tuple("src/main/java/" + PACKAGE + "_Coupon.java", SUPERCLASS), tuple("src/main/java/" + PACKAGE + "Coupon.java", SUBCLASS));
+		assertThat(orphans).allMatch(file -> file.getStatus() == ORPHANED && file.isStale());
+
+		assertThat(EOGenerator.deleteOrphans(orphans)).extracting(file -> relative(project, file)).containsExactly("src/main/java/_Old.java",
+				"src/main/java/" + PACKAGE + "_Coupon.java");
+		assertThat(shop.resolve("_Coupon.java")).doesNotExist();
+		assertThat(shop.resolve("Coupon.java")).exists();
+		assertThat(shop.resolve("_Handwritten.java")).exists();
+		assertThat(generator.findOrphans(Collections.singletonList(result))).isEmpty();
+	}
+
+	/**
+	 * Two .eogen files can write to one destination, so orphans are only those
+	 * that none of them generates.
+	 */
+	@Test
+	void anotherEOGenFilesSuperclassesAreNotOrphans() throws Exception {
+		FixtureProject project = FixtureProject.copyTo(temp);
+		Path extra = Files.createDirectories(project.resolve("src/main/resources/Extra.eomodeld"));
+		write(extra.resolve("index.eomodeld"), "{\n    EOModelVersion = \"2.1\"; \n    adaptorName = JDBC; \n    entities = ({className = \"com.example.shop.Coupon\"; name = Coupon; }); \n}\n");
+		write(extra.resolve("Coupon.plist"), "{\n    attributes = ({allowsNull = N; columnName = id; name = id; prototypeName = id; }); \n    attributesUsedForLocking = (id); \n"
+				+ "    className = \"com.example.shop.Coupon\"; \n    classProperties = (); \n    externalName = coupon; \n    name = Coupon; \n    primaryKeyAttributes = (id); \n}\n");
+		File extraEOGen = project.resolve("src/main/resources/Extra.eogen").toFile();
+		write(extraEOGen.toPath(), " -destination src/main/java \\\n -javaTemplate _WonderEntity.java \\\n -model src/main/resources/Extra.eomodeld \\\n -packagedirs \\\n"
+				+ " -subclassJavaTemplate WonderEntity.java \\\n -loadModelGroup\n");
+		EOGenerator generator = project.forcedGenerator();
+		GenerationResult shop = generator.generate(project.eogen("ShopWonder"));
+		GenerationResult coupon = generator.generate(extraEOGen);
+		assertThat(coupon.getErrors()).isEmpty();
+
+		assertThat(generator.findOrphans(Collections.singletonList(shop))).extracting(file -> relative(project, file))
+				.containsExactly("src/main/java/" + PACKAGE + "_Coupon.java", "src/main/java/" + PACKAGE + "Coupon.java");
+		assertThat(generator.findOrphans(Arrays.asList(shop, coupon))).isEmpty();
+	}
+
 	@Test
 	void modelThatFailsToLoadIsAnError() throws Exception {
 		FixtureProject project = FixtureProject.copyTo(temp);
@@ -362,6 +418,10 @@ class EOGeneratorTest {
 	 */
 	private static List<String> modelErrors(GenerationResult result) {
 		return result.getErrors().stream().filter(error -> !error.contains(" has no value")).collect(Collectors.toList());
+	}
+
+	private static String relative(FixtureProject project, GeneratedFile file) {
+		return project.root.relativize(file.getFile().toPath()).toString().replace(File.separatorChar, '/');
 	}
 
 	private static Map<String, GeneratedFile.Status> statuses(GenerationResult result) {

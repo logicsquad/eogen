@@ -75,6 +75,15 @@ public abstract class AbstractEOGenMojo extends AbstractMojo {
 	@Parameter(property = "eogen.strict", defaultValue = "false")
 	private boolean strict;
 
+	/**
+	 * The text that marks a superclass as generated, in its first lines, so that
+	 * one no .eogen file generates any more counts as an orphan. WOLips's and
+	 * Project Wonder's templates start every superclass with
+	 * {@code // DO NOT EDIT.}
+	 */
+	@Parameter(property = "eogen.generatedMarker", defaultValue = EOGenerator.DEFAULT_GENERATED_MARKER)
+	private String generatedMarker;
+
 	@Override
 	public final void execute() throws MojoExecutionException, MojoFailureException {
 		if (skip) {
@@ -84,6 +93,7 @@ public abstract class AbstractEOGenMojo extends AbstractMojo {
 		EOGenerator generator = new EOGenerator(project.getBasedir(), modelDirectories(), classpath());
 		generator.setForce(force);
 		generator.setStrict(strict);
+		generator.setGeneratedMarker(generatedMarker);
 		execute(generator);
 	}
 
@@ -141,6 +151,17 @@ public abstract class AbstractEOGenMojo extends AbstractMojo {
 			folders.add(resolve(folder));
 		}
 		return folders;
+	}
+
+	/**
+	 * Returns whether the goal looks for orphans: only when it generates from
+	 * every .eogen file in the model directories, since a superclass that an
+	 * .eogen file left out generates would otherwise look orphaned.
+	 *
+	 * @return {@code true} if the .eogen files are the default ones
+	 */
+	protected boolean findsOrphans() {
+		return eogenFiles == null || eogenFiles.isEmpty();
 	}
 
 	/**

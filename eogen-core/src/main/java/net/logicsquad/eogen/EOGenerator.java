@@ -1,7 +1,10 @@
 package net.logicsquad.eogen;
 
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.MalformedInputException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.text.ParseException;
@@ -15,6 +18,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -63,6 +67,19 @@ public class EOGenerator {
 	 */
 	public static final String DEFAULT_MODEL_FOLDER = "src/main/resources";
 
+	/**
+	 * The text that marks a file as generated: WOLips's and Project Wonder's
+	 * templates put {@code // DO NOT EDIT.} on the first line of every
+	 * superclass.
+	 */
+	public static final String DEFAULT_GENERATED_MARKER = "DO NOT EDIT";
+
+	/**
+	 * How many lines at the start of a file {@link #findOrphans(List)} looks in
+	 * for the generated marker.
+	 */
+	private static final int MARKER_LINES = 5;
+
 	private final File projectDirectory;
 
 	private final List<File> modelFolders;
@@ -72,6 +89,8 @@ public class EOGenerator {
 	private boolean force;
 
 	private boolean strict;
+
+	private String generatedMarker = DEFAULT_GENERATED_MARKER;
 
 	/**
 	 * Constructor for a Maven project with no dependencies: models come from
@@ -164,6 +183,150 @@ public class EOGenerator {
 	 */
 	public void setStrict(boolean strict) {
 		this.strict = strict;
+	}
+
+	/**
+	 * Returns the text that marks a superclass as generated.
+	 *
+	 * @return marker
+	 */
+	public String getGeneratedMarker() {
+		return generatedMarker;
+	}
+
+	/**
+	 * Sets the text that marks a superclass as generated, which
+	 * {@link #findOrphans(List)} looks for in a file's first lines. The default
+	 * is {@link #DEFAULT_GENERATED_MARKER}.
+	 *
+	 * @param generatedMarker marker
+	 */
+	public void setGeneratedMarker(String generatedMarker) {
+		this.generatedMarker = generatedMarker;
+	}
+
+	/**
+	 * Returns the orphans in the destinations of some .eogen files: the
+	 * superclasses that none of them generates any more, such as those of
+	 * entities since deleted or renamed, and the subclasses of those
+	 * superclasses, which were edited by hand. A superclass counts only if it is
+	 * in a superclass destination with the .eogen file's prefix and extension,
+	 * and has the generated marker in its first lines.
+	 * <p>
+	 * Give it the results for every .eogen file that writes to those
+	 * destinations: a superclass that another .eogen file generates would
+	 * otherwise look orphaned.
+	 * </p>
+	 *
+	 * @param results the results of generating or checking each .eogen file
+	 * @return orphans: superclasses, then subclasses, each sorted by path
+	 * @throws EOGeneratorException if an .eogen file can't be read, or a
+	 *         destination can't be searched
+	 */
+	public List<GeneratedFile> findOrphans(List<GenerationResult> results) throws EOGeneratorException {
+		Set<Path> generated = new HashSet<>();
+		for (GenerationResult result : results) {
+			for (GeneratedFile file : result.getFiles()) {
+				generated.add(absolute(file.getFile()).toPath());
+			}
+		}
+		Set<Path> superclasses = new TreeSet<>();
+		Set<Path> subclasses = new TreeSet<>();
+		for (GenerationResult result : results) {
+			EOGeneratorModel eogeneratorModel = readEOGenFile(result.getEOGenFile());
+			if (eogeneratorModel.getDestination() == null) {
+				continue;
+			}
+			String prefix = eogeneratorModel.getPrefix() == null ? "_" : eogeneratorModel.getPrefix();
+			String extension = "." + (eogeneratorModel.getExtension() == null ? "java" : eogeneratorModel.getExtension());
+			Path destination = resolve(eogeneratorModel.getDestination());
+			Path subclassDestination = eogeneratorModel.getSubclassDestination() == null ? destination : resolve(eogeneratorModel.getSubclassDestination());
+			if (!Files.isDirectory(destination) || prefix.isEmpty()) {
+				continue;
+			}
+			List<Path> candidates;
+			try (Stream<Path> paths = Files.walk(destination)) {
+				candidates = paths.filter(Files::isRegularFile).filter(path -> {
+					String name = path.getFileName().toString();
+					return name.startsWith(prefix) && name.endsWith(extension) && name.length() > prefix.length() + extension.length();
+				}).map(path -> path.toAbsolutePath().normalize()).collect(Collectors.toList());
+			} catch (IOException e) {
+				throw new EOGeneratorException("Failed to search " + destination + ": " + e.getMessage(), e);
+			}
+			for (Path candidate : candidates) {
+				if (generated.contains(candidate) || !isMarkedAsGenerated(candidate)) {
+					continue;
+				}
+				superclasses.add(candidate);
+				if (eogeneratorModel.getSuperclassPackage() == null) {
+					Path relative = destination.relativize(candidate);
+					String subclassName = relative.getFileName().toString().substring(prefix.length());
+					Path parent = relative.getParent();
+					Path subclass = subclassDestination.resolve(parent == null ? subclassName : parent.resolve(subclassName).toString()).normalize();
+					if (Files.isRegularFile(subclass) && !generated.contains(subclass)) {
+						subclasses.add(subclass);
+					}
+				}
+			}
+		}
+		List<GeneratedFile> orphans = new ArrayList<>();
+		for (Path superclass : superclasses) {
+			orphans.add(new GeneratedFile(superclass.toFile(), Kind.SUPERCLASS, Status.ORPHANED));
+		}
+		for (Path subclass : subclasses) {
+			orphans.add(new GeneratedFile(subclass.toFile(), Kind.SUBCLASS, Status.ORPHANED));
+		}
+		return orphans;
+	}
+
+	/**
+	 * Deletes the orphaned superclasses that {@link #findOrphans(List)} found.
+	 * Subclasses were edited by hand, so it leaves them alone.
+	 *
+	 * @param orphans orphans
+	 * @return the superclasses it deleted
+	 * @throws EOGeneratorException if a superclass can't be deleted
+	 */
+	public static List<GeneratedFile> deleteOrphans(List<GeneratedFile> orphans) throws EOGeneratorException {
+		List<GeneratedFile> deleted = new ArrayList<>();
+		for (GeneratedFile orphan : orphans) {
+			if (orphan.getKind() == Kind.SUPERCLASS && orphan.getStatus() == Status.ORPHANED) {
+				try {
+					Files.deleteIfExists(orphan.getFile().toPath());
+				} catch (IOException e) {
+					throw new EOGeneratorException("Failed to delete " + orphan.getFile() + ": " + e.getMessage(), e);
+				}
+				deleted.add(orphan);
+			}
+		}
+		return deleted;
+	}
+
+	private Path resolve(String path) {
+		File file = new File(path);
+		return absolute(file.isAbsolute() ? file : new File(projectDirectory, path)).toPath();
+	}
+
+	/**
+	 * Returns whether a file has the generated marker in its first lines.
+	 */
+	private boolean isMarkedAsGenerated(Path file) throws EOGeneratorException {
+		try (BufferedReader reader = Files.newBufferedReader(file, StandardCharsets.UTF_8)) {
+			for (int i = 0; i < MARKER_LINES; i++) {
+				String line = reader.readLine();
+				if (line == null) {
+					return false;
+				}
+				if (line.contains(generatedMarker)) {
+					return true;
+				}
+			}
+			return false;
+		} catch (MalformedInputException e) {
+			return false;
+		} catch (IOException e) {
+			throw new EOGeneratorException("Failed to read " + file + ": " + e.getMessage(), e);
+		}
 	}
 
 	/**

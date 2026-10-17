@@ -40,7 +40,15 @@ public final class GeneratedFile {
 		/**
 		 * The project's file already has these contents.
 		 */
-		UNCHANGED
+		UNCHANGED,
+
+		/**
+		 * No .eogen file generates the project's file any more, though it is in a
+		 * destination and marked as generated: the superclass of an entity since
+		 * deleted or renamed, or that superclass's subclass. See
+		 * {@link EOGenerator#findOrphans(java.util.List)}.
+		 */
+		ORPHANED
 	}
 
 	private final File file;
