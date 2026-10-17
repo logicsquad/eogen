@@ -279,6 +279,22 @@ public class EOGenMojoIT {
 	}
 
 	/**
+	 * Writes the Library model's next migration, after the one written by
+	 * hand, for two new columns, compared with the model in a folder: one of
+	 * them doesn't allow null, so it needs a value for the rows a table has.
+	 */
+	@MavenTest
+	void migration(MavenExecutionResult result) throws IOException {
+		String migration = "src/main/java/com/example/library/migrations/Library1.java";
+		assertThat(result).isSuccessful();
+		assertThat(result).out().info().contains("Created " + migration + ", with 1 gap to fill in.", "Wrote 1 migration for the changes since the models in earlier.");
+		assertThat(result).out().warn().anyMatch(line -> line.startsWith(migration + ":") && line.endsWith(": book may have rows, which need a value for edition, a new column that doesn't allow null."));
+		String source = read(result.getMavenProjectResult().getTargetProjectDirectory().resolve(migration));
+		assertThat(source).contains("public class Library1 extends ERXMigrationDatabase.Migration {", "bookTable.newIntegerColumn(\"edition\", NOT_NULL, EOGEN_GAP);",
+				"bookTable.newStringColumn(\"isbn\", 100, ALLOWS_NULL);");
+	}
+
+	/**
 	 * Book.authorID is the source of the author relationship's join, so it
 	 * isn't removed.
 	 */

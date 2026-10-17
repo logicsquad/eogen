@@ -24,6 +24,10 @@ under the NetStruxr Public Software License in `LICENSE.NPL`:
 | ERTaggable | ERTaggable | a model of one entity |
 | erprototypes (in `framework`) | ERPrototypes | the prototypes, as a dependency |
 
+`MigrationTest` writes each model's first migration, which creates its
+tables, and compares it with the one in `migrations`, which is eogen's
+own output.
+
 `project/src/main/templates/wonder` holds Project Wonder's own
 `_WonderEntity.java` and `WonderEntity.java`, from its `EOTemplates`
 folders.

@@ -42,6 +42,9 @@ import net.logicsquad.eogen.generator.VelocityEOGeneratorRunner;
 import net.logicsquad.eogen.lint.KeyLinter;
 import net.logicsquad.eogen.lint.LintFinding;
 import net.logicsquad.eogen.lint.ModelLinter;
+import net.logicsquad.eogen.migration.MigrationGenerator;
+import net.logicsquad.eogen.migration.MigrationOptions;
+import net.logicsquad.eogen.migration.MigrationResult;
 import net.logicsquad.eogen.model.EOModel;
 import net.logicsquad.eogen.model.EOModelException;
 import net.logicsquad.eogen.model.EOModelGroup;
@@ -881,6 +884,32 @@ public class EOGenerator {
 		} finally {
 			delete(scratch);
 		}
+	}
+
+	/**
+	 * Generates the next Project Wonder migration for each of the project's
+	 * models whose tables changed since an earlier version of the models, by
+	 * default the last commit, with {@link MigrationGenerator}. A model's first
+	 * migration creates its tables. Where it can't decide, such as on the value
+	 * that a new column that doesn't allow null needs in the rows a table
+	 * already has, a migration has a gap that doesn't compile, which a warning
+	 * reports. Nothing changes an existing migration, and nothing is written if
+	 * there are errors.
+	 *
+	 * @param options what to compare, and where to write
+	 * @param write whether to write the migrations, or only report them
+	 * @return what was generated
+	 * @throws EOGeneratorException if a model group can't be loaded, the
+	 *         template fails, or a file can't be written
+	 */
+	public MigrationResult generateMigrations(MigrationOptions options, boolean write) throws EOGeneratorException {
+		MigrationOptions resolved = new MigrationOptions();
+		resolved.setFrom(options.getFrom());
+		resolved.setPackageName(options.getPackageName());
+		resolved.setTemplate(options.getTemplate());
+		resolved.setModels(options.getModels());
+		resolved.setSourceFolders(options.getSourceFolders().stream().map(folder -> folder.isAbsolute() ? folder : new File(projectDirectory, folder.getPath())).collect(Collectors.toList()));
+		return new MigrationGenerator(projectDirectory, modelFolders, classpath, templatePath).generate(resolved, write);
 	}
 
 	private ClasspathEOModelGroupFactory modelGroupFactory() {

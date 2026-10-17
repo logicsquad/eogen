@@ -23,7 +23,7 @@ There are three modules:
 
 * `eogen-core`: the library.
 * `eogen-maven-plugin`: the `generate`, `check`, `verify`, `format`,
-  `rename` and `remove` goals.
+  `rename`, `remove` and `migration` goals.
 * `eogen-cli`: a command line that does what the plugin does.
 
 Using the Maven plugin
@@ -74,6 +74,9 @@ The goals are:
 * `rename` and `remove` (no default phase): rename or remove an entity,
   attribute or relationship in the project's models (see
   [Renaming and removing](#renaming-and-removing)).
+* `migration` (no default phase): writes the next Project Wonder
+  migration for each model whose tables changed (see
+  [Writing migrations](#writing-migrations)).
 
 They take these parameters:
 
@@ -111,6 +114,7 @@ Using the command line
     java -jar eogen-cli-0.3.jar [options] <file.eogen>...
     java -jar eogen-cli-0.3.jar [options] --all
     java -jar eogen-cli-0.3.jar [options] --verify
+    java -jar eogen-cli-0.3.jar [options] --migration
 
     --project <folder>      The folder that the .eogen files' paths are
                             relative to. Default: the current folder.
@@ -138,6 +142,20 @@ Using the command line
                             Modeler saves them. With --check, write
                             nothing, and exit with status 1 if any
                             model needs formatting.
+    --migration             Write the next Project Wonder migration for
+                            each model whose tables changed since an
+                            earlier version of the models. With
+                            --check, write nothing.
+    --from <commit|folder>  With --migration, the earlier version: a git
+                            commit, or a folder of models. Default: HEAD.
+    --sources <folders>     With --migration, the folders of the Java
+                            sources. Default: <project>/src/main/java.
+    --package <name>        With --migration, the package for new
+                            migrations.
+    --template <name>       With --migration, the migration template.
+    --migration-models <names>
+                            With --migration, the models to write
+                            migrations for, separated by ','.
     --delete-orphans        With --all, delete the orphaned superclasses.
     --force                 Write the classes even when there are
                             errors, as WOLips does. Without it, errors
@@ -163,8 +181,13 @@ script or a coding agent can read instead of the text. `status` is
 `errors`, `warnings`, whether it was `written`, and its `files`, each
 with a `kind` (`superclass` or `subclass`) and a `status` (`created`,
 `updated`, `unchanged` or `orphaned`); `orphans` and `verification` are
-there when `--all` and `--verify` are; and `problems` has any failure
-that stopped it. Problems still go to standard error, as text.
+there when `--all` and `--verify` are; `migration`, with `--migration`,
+has the earlier version it compared with, as `since`, whether it was
+`written`, its `errors` and `warnings`, and `migrations`, each with its
+`model` and a `status` (`created`, `unchanged` or `skipped`), and for a
+created one its `file`, `class`, `number`, whether it is the `first`,
+and how many `gaps` it has, or else the `reason`; and `problems` has any
+failure that stopped it. Problems still go to standard error, as text.
 
 Each error, warning and problem is a finding, the same object wherever
 it appears:
@@ -208,11 +231,15 @@ names the kind of finding, and keeps its meaning once released:
 | `in-use` | a removal of something that something else uses |
 | `in-dependency` | a rename or removal in a model that isn't one of the project's |
 | `by-hand` | what a rename or removal leaves to do by hand |
+| `migration-gap` | what a generated migration leaves to decide, at a gap that doesn't compile |
+| `earlier-version` | an earlier version of the models that can't be read, such as a commit that doesn't exist |
+| `not-compared` | a model with migrations that the earlier version lacks, so that it gets none |
 | `failure` | anything else that stops a run |
 
 The library has the same findings, as `Finding`, in
 `GenerationResult.getFindings()`, `VerificationResult.getFindings()`,
-`FormatResult.getFindings()` and `EOGeneratorException.getFindings()`.
+`FormatResult.getFindings()`, `RefactorResult.getFindings()`,
+`MigrationResult.getFindings()` and `EOGeneratorException.getFindings()`.
 
 Using eogen with a coding agent
 -------------------------------
@@ -279,6 +306,8 @@ and `verify(includeDependencies)` returns the model group's failures.
 writes nothing, and `isWritten()` is false, unless
 `setForce(true)` was called. `getWarnings()` lists the lint's
 findings, which `setStrict(true)` makes errors instead.
+`format`, `rename` and `remove` do what the goals of those names do,
+and `generateMigrations` what `migration` does.
 Below `EOGenerator`, the extracted WOLips classes are available as
 they were: `EOModelGroup`, `EOModel`, `EOEntity` and the rest in
 `net.logicsquad.eogen.model`, and `EOGeneratorModel` and
@@ -480,6 +509,120 @@ by default. With `dryRun`
 does the same with `--rename <target> --to <name>`, `--rename-class`
 and `--remove <target>`, and `--check` for a dry run.
 
+Writing migrations
+------------------
+Project Wonder's `ERXMigrator` brings a database up to date with its
+models by running migrations, which are written by hand: for each
+model, classes numbered from 0, each of which changes the model's
+tables. Most of what one says, the model change committed with it says
+already. `migration` writes it:
+
+    mvn eogen:migration
+
+It compares the project's models with an earlier version of them, by
+default the last commit, so that a migration is for the changes not yet
+committed, and writes the next migration for each model whose tables
+changed. After `Library2.java`, it writes `Library3.java` beside it:
+
+    public class Library3 extends ERXMigrationDatabase.Migration {
+        ...
+        @Override
+        public void upgrade(EOEditingContext editingContext, ERXMigrationDatabase database) throws Throwable {
+            ERXMigrationTable bookTable = database.existingTableNamed("book");
+            bookTable.newStringColumn("isbn", 13, ALLOWS_NULL);
+            bookTable.existingColumnNamed("title").setWidthType(Types.VARCHAR, 200, null);
+        }
+    }
+
+It covers tables created, with their primary keys, and dropped;
+columns added, dropped and renamed, with their types, widths, precision
+and scale, and whether they allow null; the foreign keys of to-one
+relationships, which come once every table they need exists; and
+entity indexes. A table has the columns of every entity that maps it, so
+that a subentity's columns are in its parent's table in single-table
+inheritance, where they allow null, and a partial entity's are in its
+base entity's. A flattened or derived attribute has no column. A
+foreign key comes from a to-one whose joins end at its destination's
+primary key, and not from one that propagates its primary key, whose
+destination has the key back. Column types follow Entity Modeler's own
+migrations, from an attribute's prototype, value class and value type,
+with their mismatches with Wonder's API fixed. As for a migration
+written by hand, the SQL comes from the database's EOF plugin when the
+migration runs.
+
+Where a model change doesn't say what to do, the migration has a gap: a
+`// TODO eogen:` comment that says what to decide, and `EOGEN_GAP`,
+which doesn't compile, so that the migration can't run until someone
+fills it in. The goal reports each gap, with its line, as a warning
+with the code `migration-gap`. There is a gap for:
+
+* the value that a new column that doesn't allow null needs in the rows
+  its table already has, unless the attribute has a `default` in its
+  `userInfo`, which Wonder gives new objects too;
+* the rows where a column is null, when it stops allowing null;
+* a column dropped while another is added to its table, and a table
+  dropped while another is created, either of which may be a rename. An
+  attribute that keeps its name while its column's changes renames the
+  column, and an entity that keeps its name while its table's changes
+  renames the table;
+* a column whose type changes, whose values may need converting;
+* a primary key that changes;
+* a foreign key or an index that goes, since Wonder has no call to drop
+  one.
+
+A migration is named as `ERXMigrator` looks for it: the model's
+`MigrationClassPrefix`, which is its name unless the project's
+`Properties`, in its model folder, say otherwise, then the number after
+the highest of the model's migrations in the project's sources,
+vendor-specific ones such as `LibraryPostgreSQL2` included. It goes in
+the package that the prefix names, if it names one, or else in the one
+that `package` gives, or else in that of the model's latest migration.
+A model with no migrations yet gets its first, which creates its
+tables, numbered after its `InitialMigrationVersion`, beside most of the
+other models' latest migrations, or else in the package of most of its
+entity classes. A model that `models` names gets its first
+even if its tables didn't change, and a model that Wonder's
+`er.migration.skipModelNames` names gets none. Nothing changes an
+existing migration, and nothing is written if there are errors. To
+write a migration again, after changing the model, delete it first:
+while it is there, the next run writes the one after it.
+
+The parameters are:
+
+* `from` (`eogen.migration.from`): the earlier version, a git commit,
+  such as `HEAD~1`, a branch or a tag, or a folder of models, relative
+  to the project. The default is `HEAD`.
+* `packageName` (`eogen.migration.package`): the package for new
+  migrations.
+* `template` (`eogen.migration.template`): the migration template. The
+  default, `Migration.java`, extends `ERXMigrationDatabase.Migration`,
+  and its `downgrade` throws `ERXMigrationFailedException`, as Wonder
+  asks of a migration that can't be undone.
+* `models` (`eogen.migration.models`): the models to write migrations
+  for. The default is every model whose tables changed.
+* `dryRun` (`eogen.dryRun`): writes nothing, and only reports.
+
+A project changes what its migrations extend, and their comments and
+imports, with its own template, which eogen finds as it finds the
+entity templates (see [How eogen finds templates](#how-eogen-finds-templates)),
+so that a team can share one in a jar. A template sees `$migration`,
+with its `className`, `packageName`, `modelName` and `number`, whether
+it is the `first`, `since`, the earlier version, such as
+`commit 1a2b3c4`, `changes`, a sentence for each change, `upgradeLines`,
+the body of `upgrade`, which uses its `database` argument, and
+`importLines`, the imports that the body needs, or with
+`importLines(["com.example.Base"])`, those and others; and `$model`, the
+model. A reference with no value is an error, as it is for the classes.
+The command line does the same with `--migration`, `--from`,
+`--sources`, `--package`, `--template`, `--migration-models`, and
+`--check` for a dry run.
+
+In a real project's recent history, 42 migrations came with a model
+change. Regenerated from that change, eogen wrote 28 of them whole, 4
+of them with gaps where the person had filled in a value, and most of 5
+more. Of the rest, some have gaps that ask what the person decided, such
+as whether a column was renamed, and some move data with SQL.
+
 How eogen finds templates
 -------------------------
 eogen looks for each template in:
@@ -496,7 +639,8 @@ eogen looks for each template in:
    WOLips searches;
 5. the templates bundled with WOLips: `_Entity.java` and `Entity.java`,
    which are the defaults, `_WonderEntity.java` and `WonderEntity.java`,
-   and the Java 1.4 versions.
+   and the Java 1.4 versions; and eogen's own, `Migration.java`, for
+   migrations.
 
 ### Sharing templates
 

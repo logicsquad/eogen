@@ -3,6 +3,22 @@
 The format here is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+### Added
+- `migration` (the goal, `--migration`, and
+  `EOGenerator.generateMigrations`) writes the next Project Wonder
+  migration for each model whose tables changed since an earlier version
+  of the models: the last commit by default, or another, or a folder. It
+  creates and drops tables, with their primary keys; adds, drops and
+  renames columns, with their types, widths, precision and scale, and
+  whether they allow null; and adds foreign keys and entity indexes,
+  with single-table inheritance and partial entities. Where a change
+  doesn't say what to do, such as the value that a new column that
+  doesn't allow null needs in the rows a table has, the migration has a
+  gap that doesn't compile, which a warning reports. A migration is
+  named and placed as `ERXMigrator` looks for it, and rendered from a
+  template, which a project can replace. #24
+
 ## [0.3] - 2026-10-18
 ### Changed
 - In `--json`, every error, warning and problem is an object with its

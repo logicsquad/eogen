@@ -135,6 +135,25 @@ public final class Finding {
 	public static final String BY_HAND = "by-hand";
 
 	/**
+	 * What a generated migration leaves to decide, at a gap that doesn't
+	 * compile until someone fills it in, such as the value that a new column
+	 * that doesn't allow null needs in the rows a table already has.
+	 */
+	public static final String MIGRATION_GAP = "migration-gap";
+
+	/**
+	 * An earlier version of the models that can't be read, such as a commit
+	 * that doesn't exist.
+	 */
+	public static final String EARLIER_VERSION = "earlier-version";
+
+	/**
+	 * A model that has migrations, but no earlier version to compare with, so
+	 * that it gets no migration.
+	 */
+	public static final String NOT_COMPARED = "not-compared";
+
+	/**
 	 * Anything else that stops a run, such as a file that can't be written.
 	 */
 	public static final String FAILURE = "failure";
@@ -443,6 +462,17 @@ public final class Finding {
 		 */
 		public Builder severity(Severity severity) {
 			this.severity = severity;
+			return this;
+		}
+
+		/**
+		 * Sets the message.
+		 *
+		 * @param message the text eogen prints
+		 * @return this
+		 */
+		public Builder message(String message) {
+			this.message = message;
 			return this;
 		}
 

@@ -284,6 +284,43 @@ class MainTest {
 	}
 
 	@Test
+	void writesMigrations() throws Exception {
+		Path earlier = copy("library/src/main/resources", temp.resolve("earlier"));
+		Path book = project.resolve("src/main/resources/Library.eomodeld/Book.plist");
+		String isbn = "        {allowsNull = Y; columnName = isbn; name = isbn; prototypeName = varchar100; }, \n";
+		Files.write(book, new String(Files.readAllBytes(book), StandardCharsets.UTF_8).replace("    attributes = (\n", "    attributes = (\n" + isbn).getBytes(StandardCharsets.UTF_8));
+		// The Library model has no migrations, so its first creates its tables.
+		assertThat(run("--json", "--check", "--project", project.toString(), "--classpath", reference.toString(), "--migration", "--from", earlier.toString())).isEqualTo(Main.OK);
+		assertThat(out()).contains("\"migration\": {", "\"written\": false,", "\"model\": \"Library\",", "\"status\": \"created\",", "\"class\": \"com.example.library.Library0\",",
+				"\"first\": true,", "\"gaps\": 0");
+		Path migrations = project.resolve("src/main/java/com/example/library/migrations");
+		assertThat(migrations.resolve("Library0.java")).doesNotExist();
+
+		out.reset();
+		assertThat(run("--project", project.toString(), "--classpath", reference.toString(), "--migration", "--from", earlier.toString(), "--package", "com.example.library.migrations"))
+				.isEqualTo(Main.OK);
+		assertThat(out()).contains("Created src/main/java/com/example/library/migrations/Library0.java.",
+				"Wrote 1 migration for the changes since the models in " + earlier.toString().replace(File.separatorChar, '/') + ".");
+		assertThat(new String(Files.readAllBytes(migrations.resolve("Library0.java")), StandardCharsets.UTF_8)).contains("bookTable.newStringColumn(\"isbn\", 100, ALLOWS_NULL);");
+
+		// The next one goes beside it, and has a gap for a new column that
+		// doesn't allow null.
+		String edition = "        {allowsNull = N; columnName = edition; name = edition; prototypeName = intNumber; }, \n";
+		Files.write(book, new String(Files.readAllBytes(book), StandardCharsets.UTF_8).replace(isbn, isbn + edition).getBytes(StandardCharsets.UTF_8));
+		out.reset();
+		assertThat(run("--project", project.toString(), "--classpath", reference.toString(), "--migration", "--from", earlier.toString())).isEqualTo(Main.OK);
+		assertThat(out()).contains("Created src/main/java/com/example/library/migrations/Library1.java, with 1 gap to fill in.");
+		assertThat(err()).contains("eogen: warning: src/main/java/com/example/library/migrations/Library1.java:", "book may have rows, which need a value for edition");
+
+		err.reset();
+		assertThat(run("--from", "HEAD", eogen())).isEqualTo(Main.FAILED);
+		assertThat(err()).contains("--from, --sources, --package, --template and --migration-models go with --migration.");
+		err.reset();
+		assertThat(run("--migration", eogen())).isEqualTo(Main.FAILED);
+		assertThat(err()).contains("--migration takes no .eogen files");
+	}
+
+	@Test
 	void renamesAndRemovesModelProperties() throws Exception {
 		Path book = project.resolve("src/main/resources/Library.eomodeld/Book.plist");
 		assertThat(run("--json", "--check", "--project", project.toString(), "--classpath", reference.toString(), "--rename", "Book.title", "--to", "name"))

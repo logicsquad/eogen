@@ -24,12 +24,16 @@ import net.logicsquad.eogen.GenerationResult;
 import net.logicsquad.eogen.VerificationResult;
 import net.logicsquad.eogen.format.FormatResult;
 import net.logicsquad.eogen.format.FormatResult.FormattedFile;
+import net.logicsquad.eogen.migration.MigrationOptions;
+import net.logicsquad.eogen.migration.MigrationResult;
+import net.logicsquad.eogen.migration.MigrationResult.ModelMigration;
 import net.logicsquad.eogen.model.EOModelVerificationFailure;
 import net.logicsquad.eogen.refactor.RefactorResult;
 
 /**
  * Generates the entity classes for .eogen files, checks them, or verifies the
- * model group.
+ * model group; or formats, renames or removes in the models, or writes their
+ * migrations.
  *
  * <pre>
  * eogen [options] [file.eogen...]
@@ -61,6 +65,7 @@ public final class Main {
 			"       eogen [options] --format",
 			"       eogen [options] --rename <Entity[.property]> --to <name>",
 			"       eogen [options] --remove <Entity[.property]>",
+			"       eogen [options] --migration",
 			"",
 			"Generates the entity classes for .eogen files as WOLips's EOGenerator does:",
 			"every superclass whose contents have changed, and every subclass that is",
@@ -102,6 +107,25 @@ public final class Main {
 			"  --remove <target>       Remove an entity, attribute or relationship, unless",
 			"                          anything else uses it, when each use is reported and",
 			"                          the exit status is 2. With --check, write nothing.",
+			"  --migration             Write the next Project Wonder migration for each model",
+			"                          whose tables changed since an earlier version of the",
+			"                          models, beside its latest migration. A model's first",
+			"                          migration creates its tables. Where eogen can't decide,",
+			"                          it leaves a gap that doesn't compile, and warns. With",
+			"                          --check, write nothing.",
+			"  --from <commit|folder>  With --migration, the earlier version: a git commit,",
+			"                          or a folder of models. Default: HEAD.",
+			"  --sources <folders>     With --migration, the folders of the Java sources,",
+			"                          separated by '" + File.pathSeparator + "'. Default: <project>/src/main/java.",
+			"  --package <name>        With --migration, the package for new migrations.",
+			"                          Default: that of the model's latest migration, or of",
+			"                          the other models' migrations, or of its entities.",
+			"  --template <name>       With --migration, the template: a path relative to the",
+			"                          project, or a template's name. Default: Migration.java.",
+			"  --migration-models <names>",
+			"                          With --migration, the models to write migrations for,",
+			"                          separated by ','. A model named here with no migrations",
+			"                          gets its first, even if it didn't change.",
 			"  --delete-orphans        With --all, delete the orphaned superclasses. Their",
 			"                          subclasses are only reported.",
 			"  --force                 Write the classes even when the model group or a",
@@ -130,6 +154,18 @@ public final class Main {
 	private boolean renameClass;
 
 	private String remove;
+
+	private boolean migration;
+
+	private String from;
+
+	private List<File> sources;
+
+	private String packageName;
+
+	private String template;
+
+	private List<String> migrationModels = Collections.emptyList();
 
 	private boolean all;
 
@@ -228,6 +264,8 @@ public final class Main {
 				renameClass = true;
 			} else if ("--format".equals(arg)) {
 				format = true;
+			} else if ("--migration".equals(arg)) {
+				migration = true;
 			} else if ("--include-dependencies".equals(arg)) {
 				includeDependencies = true;
 			} else if ("--delete-orphans".equals(arg)) {
@@ -241,7 +279,8 @@ public final class Main {
 			} else if ("--debug".equals(arg)) {
 				debug = true;
 			} else if ("--project".equals(arg) || "--models".equals(arg) || "--classpath".equals(arg) || "--templates".equals(arg) || "--rename".equals(arg)
-					|| "--to".equals(arg) || "--remove".equals(arg)) {
+					|| "--to".equals(arg) || "--remove".equals(arg) || "--from".equals(arg) || "--sources".equals(arg) || "--package".equals(arg) || "--template".equals(arg)
+					|| "--migration-models".equals(arg)) {
 				if (i + 1 == args.length) {
 					return usage(arg + " needs a value.");
 				}
@@ -258,6 +297,21 @@ public final class Main {
 					to = value;
 				} else if ("--remove".equals(arg)) {
 					remove = value;
+				} else if ("--from".equals(arg)) {
+					from = value;
+				} else if ("--sources".equals(arg)) {
+					sources = files(value);
+				} else if ("--package".equals(arg)) {
+					packageName = value;
+				} else if ("--template".equals(arg)) {
+					template = value;
+				} else if ("--migration-models".equals(arg)) {
+					migrationModels = new ArrayList<>();
+					for (String name : value.split(",")) {
+						if (!name.trim().isEmpty()) {
+							migrationModels.add(name.trim());
+						}
+					}
 				} else {
 					classpath = files(value);
 				}
@@ -266,6 +320,12 @@ public final class Main {
 			} else {
 				eogenFiles.add(new File(arg));
 			}
+		}
+		if (migration && (verify || format || all || deleteOrphans || rename != null || remove != null || !eogenFiles.isEmpty())) {
+			return usage("--migration takes no .eogen files, and goes only with --check and its own options.");
+		}
+		if (!migration && (from != null || sources != null || packageName != null || template != null || !migrationModels.isEmpty())) {
+			return usage("--from, --sources, --package, --template and --migration-models go with --migration.");
 		}
 		if (format && (verify || all || deleteOrphans || !eogenFiles.isEmpty())) {
 			return usage("--format takes no .eogen files, and goes only with --check.");
@@ -282,7 +342,7 @@ public final class Main {
 		if (includeDependencies && !verify) {
 			return usage("--include-dependencies goes with --verify.");
 		}
-		if (!verify && !format && !all && rename == null && remove == null && eogenFiles.isEmpty()) {
+		if (!verify && !format && !migration && !all && rename == null && remove == null && eogenFiles.isEmpty()) {
 			return usage("Give an .eogen file.");
 		}
 		for (File eogenFile : eogenFiles) {
@@ -323,6 +383,9 @@ public final class Main {
 		}
 		if (verify) {
 			return verify(generator);
+		}
+		if (migration) {
+			return migration(generator);
 		}
 		if (format) {
 			return format(generator);
@@ -515,6 +578,74 @@ public final class Main {
 			return STALE;
 		}
 		say(result.getFiles().size() + " model files checked, " + result.getFormattedFiles().size() + (check ? " to format." : " formatted."));
+		return OK;
+	}
+
+	/**
+	 * Writes the migrations, and reports them.
+	 *
+	 * @return exit status for them
+	 */
+	private int migration(EOGenerator generator) {
+		MigrationOptions options = new MigrationOptions();
+		options.setFrom(from);
+		options.setPackageName(packageName);
+		options.setTemplate(template);
+		options.setModels(migrationModels);
+		options.setSourceFolders(sources == null ? Collections.singletonList(new File(project, MigrationOptions.DEFAULT_SOURCE_FOLDER)) : sources);
+		MigrationResult result;
+		try {
+			result = generator.generateMigrations(options, !check);
+		} catch (EOGeneratorException e) {
+			return failed(e.getMessage(), e);
+		}
+		Map<String, Object> migrationReport = new LinkedHashMap<>();
+		migrationReport.put("since", result.getSince());
+		migrationReport.put("written", result.isWritten());
+		List<Object> migrations = new ArrayList<>();
+		for (ModelMigration model : result.getMigrations()) {
+			Map<String, Object> map = new LinkedHashMap<>();
+			map.put("model", model.getModel());
+			map.put("status", model.getStatus().name().toLowerCase(Locale.ROOT));
+			if (model.getFile() != null) {
+				map.put("file", relative(model.getFile()));
+				map.put("class", model.getClassName());
+				map.put("number", model.getNumber());
+				map.put("first", model.isFirst());
+				map.put("gaps", model.getGaps());
+			}
+			put(map, "reason", model.getReason());
+			migrations.add(map);
+		}
+		migrationReport.put("migrations", migrations);
+		migrationReport.put("errors", findings(result.getFindings(), true));
+		migrationReport.put("warnings", findings(result.getFindings(), false));
+		report.put("migration", migrationReport);
+		for (Finding finding : result.getFindings()) {
+			if (finding.isError()) {
+				problem(finding.getMessage());
+			}
+		}
+		if (result.hasErrors()) {
+			problem("there are errors, so no migration was written.");
+			return FAILED;
+		}
+		int created = 0;
+		for (ModelMigration model : result.getMigrations()) {
+			if (model.getStatus() == MigrationResult.Status.CREATED) {
+				created++;
+				int gaps = model.getGaps();
+				say((check ? "Would create " : "Created ") + relative(model.getFile()) + (gaps == 0 ? "." : ", with " + gaps + (gaps == 1 ? " gap" : " gaps") + " to fill in."));
+			} else {
+				say(model.getModel() + ": " + model.getReason());
+			}
+		}
+		for (Finding finding : result.getFindings()) {
+			if (!finding.isError()) {
+				warn(finding.getMessage());
+			}
+		}
+		say((check ? "Would write " : "Wrote ") + created + (created == 1 ? " migration" : " migrations") + " for the changes since " + result.getSince() + ".");
 		return OK;
 	}
 

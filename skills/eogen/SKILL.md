@@ -105,6 +105,24 @@ module's folder, so that Maven can find the framework's models.
   under the model folders, as it does unless `eogenFiles` names some.
   Otherwise, delete the old `_<Entity>.java` by hand.
 
+## Migrations
+
+If the project has Project Wonder migrations, classes such as
+`Library3.java` that extend `ERXMigrationDatabase.Migration`, a change
+to a model's tables needs one too. After the loop, before committing:
+
+    mvn eogen:migration
+
+It writes the next migration for each model whose tables changed since
+the last commit, beside its latest one; `-Deogen.migration.from=<commit>`
+compares with another. Where it can't decide, it leaves a gap, a
+`// TODO eogen:` comment and `EOGEN_GAP`, which doesn't compile, and
+reports each one. Fill each in as its comment says, and ask the user
+when the answer depends on their data, such as the value that existing
+rows get in a new column that doesn't allow null. Then run
+`mvn compile`. Never edit a migration that is already committed: a
+database may have run it.
+
 ## Reading what eogen reports
 
 - `$attribute.javaClassName has no value for attribute price
@@ -132,3 +150,9 @@ module's folder, so that Maven can find the framework's models.
   `mvn eogen:generate -Deogen.deleteOrphans` deletes it.
 - `_Book.java is out of date.`, from `check`: run `generate`, and commit
   the result.
+- `src/main/java/com/example/Library3.java:27: book may have rows, which
+  need a value for isbn, a new column that doesn't allow null.`: a gap in
+  a new migration, at that line. Replace `EOGEN_GAP` with the value. Or
+  delete the migration, give the attribute a `default` in its
+  `userInfo`, and run `mvn eogen:migration` again: while the migration
+  is there, the next run writes the one after it.
