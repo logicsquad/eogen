@@ -18,6 +18,7 @@ import java.util.stream.Stream;
 
 import org.junit.jupiter.api.BeforeAll;
 
+import com.soebes.itf.jupiter.extension.MavenGoal;
 import com.soebes.itf.jupiter.extension.MavenJupiterExtension;
 import com.soebes.itf.jupiter.extension.MavenTest;
 import com.soebes.itf.jupiter.maven.MavenExecutionResult;
@@ -85,6 +86,45 @@ public class EOGenMojoIT {
 		assertThat(result).isSuccessful();
 		String book = read(result.getMavenProjectResult().getTargetProjectDirectory().resolve(LIBRARY + "_Book.java"));
 		assertThat(book).contains("public java.math.BigDecimal price()", "public com.example.reference.Currency currency()");
+	}
+
+	/**
+	 * In a reactor, the app's prototypes and Currency come from a sibling
+	 * framework, which Maven resolves to its target/classes, with its models in
+	 * Resources, until it is packaged.
+	 */
+	@MavenTest
+	@MavenGoal("compile")
+	void generateInReactor(MavenExecutionResult result) throws IOException {
+		assertThat(result).isSuccessful();
+		assertThat(result).out().info().anyMatch(line -> line.equals("src/main/resources/Library.eogen: 2 superclasses created, 0 updated, 0 unchanged; 2 subclasses created."));
+		String book = read(result.getMavenProjectResult().getTargetProjectDirectory().resolve("app/" + LIBRARY + "_Book.java"));
+		assertThat(book).contains("public java.math.BigDecimal price()", "public com.example.reference.Currency currency()");
+	}
+
+	/**
+	 * With modelDirectories, the models are in models, and the broken model in
+	 * src/main/resources is not part of the model group.
+	 */
+	@MavenTest
+	void generateWithModelDirectories(MavenExecutionResult result) {
+		assertThat(result).isSuccessful();
+		assertThat(result).out().info().contains("Created " + LIBRARY + "_Book.java")
+				.anyMatch(line -> line.equals("models/Library.eogen: 2 superclasses created, 0 updated, 0 unchanged; 2 subclasses created."));
+		assertThat(result).out().plain().noneMatch(line -> line.contains("Broken"));
+	}
+
+	/**
+	 * With eogenFiles naming Library.eogen alone, generate leaves Missing.eogen
+	 * alone, and doesn't look for orphans, so Loan's classes go unreported.
+	 */
+	@MavenTest
+	void generateNamedEogenFiles(MavenExecutionResult result) {
+		assertThat(result).isSuccessful();
+		assertThat(result).out().info()
+				.anyMatch(line -> line.equals("src/main/resources/Library.eogen: 2 superclasses created, 0 updated, 0 unchanged; 2 subclasses created."));
+		assertThat(result).out().plain().noneMatch(line -> line.contains("Missing") || line.contains("orphan"));
+		assertThat(result).out().warn().noneMatch(line -> line.contains("orphan"));
 	}
 
 	@MavenTest

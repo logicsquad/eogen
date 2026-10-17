@@ -1,0 +1,8 @@
+ -destination src/main/java \
+ -extension java \
+ -java \
+ -model src/main/resources/Missing.eomodeld \
+ -packagedirs \
+ -subclassDestination src/main/java \
+ -verbose \
+ -loadModelGroup

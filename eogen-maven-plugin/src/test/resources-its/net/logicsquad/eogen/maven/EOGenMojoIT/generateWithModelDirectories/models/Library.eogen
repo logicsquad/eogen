@@ -1,0 +1,8 @@
+ -destination src/main/java \
+ -extension java \
+ -java \
+ -model models/Library.eomodeld \
+ -packagedirs \
+ -subclassDestination src/main/java \
+ -verbose \
+ -loadModelGroup
