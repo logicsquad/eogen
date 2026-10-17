@@ -1,6 +1,7 @@
 package net.logicsquad.eogen.lint;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.tuple;
 
 import java.io.File;
 import java.io.IOException;
@@ -23,8 +24,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import net.logicsquad.eogen.Finding;
 import net.logicsquad.eogen.generator.ClasspathEOModelGroupFactory;
-import net.logicsquad.eogen.model.EOModel;
 import net.logicsquad.eogen.model.EOModelGroup;
 import net.logicsquad.eogen.model.EOModelVerificationFailure;
 import net.logicsquad.eogen.runtime.NullProgressMonitor;
@@ -77,6 +78,14 @@ class KeyLinterTest {
 	}
 
 	@Test
+	void namesTheKeyAndTheKeyPathMostLikelyMeant() throws Exception {
+		edit(models.resolve("Rentals.eomodeld/Unit.fspec"), "\"video.movie\"", "\"video.movie.stuido\"", 1);
+		assertThat(findings()).extracting(LintFinding::getCode, LintFinding::getPath, LintFinding::getEntity, LintFinding::getObject, LintFinding::getKey,
+				LintFinding::getSuggestion).containsExactly(tuple(Finding.UNMATCHED_KEY, "Rentals.eomodeld/Unit.fspec", "Unit", "fetch specification prefetchVideoMovie",
+						"video.movie.stuido", "video.movie.studio"));
+	}
+
+	@Test
 	void findsRestrictingQualifierKeys() throws Exception {
 		edit(models.resolve("ERAttachment.eomodeld/ERDatabaseAttachment.plist"), "restrictingQualifier = \"storageType = \\\"db\\\"\";",
 				"restrictingQualifier = \"storagetype = \\\"db\\\"\";", 1);
@@ -89,21 +98,26 @@ class KeyLinterTest {
 	 * copied models.
 	 */
 	private List<String> messages() throws Exception {
+		List<String> messages = new ArrayList<>();
+		for (LintFinding finding : findings()) {
+			messages.add(finding.toString());
+		}
+		return messages;
+	}
+
+	private List<LintFinding> findings() throws Exception {
 		EOModelGroup group = new EOModelGroup();
 		Set<EOModelVerificationFailure> failures = new LinkedHashSet<>();
 		new ClasspathEOModelGroupFactory(Arrays.asList(models.toFile(), temp.resolve("framework").toFile()), new ArrayList<>()).loadModelGroup(null, group,
 				failures, true, new NullProgressMonitor());
 		group.resolve(failures);
-		List<String> messages = new ArrayList<>();
+		List<LintFinding> findings = new ArrayList<>();
 		File[] folders = models.toFile().listFiles(file -> file.getName().endsWith(".eomodeld"));
 		Arrays.sort(folders);
 		for (File folder : folders) {
-			EOModel model = group.getModelNamed(EOModelGroup.getModelNameForFile(folder));
-			for (LintFinding finding : KeyLinter.lint(model, folder)) {
-				messages.add(finding.toString());
-			}
+			findings.addAll(KeyLinter.lint(group.getModelNamed(EOModelGroup.getModelNameForFile(folder)), folder));
 		}
-		return messages;
+		return findings;
 	}
 
 	private static void edit(Path file, String regex, String replacement, int times) throws IOException {

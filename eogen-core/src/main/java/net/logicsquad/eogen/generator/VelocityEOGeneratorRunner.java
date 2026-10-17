@@ -69,8 +69,10 @@ import org.apache.velocity.app.VelocityEngine;
 import org.apache.velocity.runtime.resource.loader.ResourceLoader;
 import net.logicsquad.eogen.velocity.ListTool;
 import net.logicsquad.eogen.velocity.SetTool;
+import net.logicsquad.eogen.velocity.UnresolvedReference;
 import net.logicsquad.eogen.velocity.VelocityOneContext;
 import net.logicsquad.eogen.generator.EOGeneratorModel.Define;
+import net.logicsquad.eogen.Finding;
 import net.logicsquad.eogen.model.EOEntity;
 import net.logicsquad.eogen.model.EOModel;
 import net.logicsquad.eogen.model.EOModelException;
@@ -90,6 +92,9 @@ public class VelocityEOGeneratorRunner {
 
 	private DestinationMapper _destinationMapper = (name, destination) -> destination;
 
+	// eogen: what the run reported as errors, as findings.
+	private final List<Finding> _findings = new ArrayList<Finding>();
+
 	public VelocityEOGeneratorRunner() {
 	}
 
@@ -107,6 +112,16 @@ public class VelocityEOGeneratorRunner {
 
 	public List<IEOModelGroupFactory> getModelGroupFactories() {
 		return _modelGroupFactories;
+	}
+
+	/**
+	 * Returns what the last run reported as errors, as findings, with absolute
+	 * file paths.
+	 *
+	 * @return the findings
+	 */
+	public List<Finding> getFindings() {
+		return Collections.unmodifiableList(_findings);
 	}
 
 	/**
@@ -149,6 +164,7 @@ public class VelocityEOGeneratorRunner {
 	}
 
 	public boolean generate(EOGeneratorModel eogeneratorModel, StringBuffer results, EOModelGroup preloadedModelGroup, List<String> entityList, Class<? extends ResourceLoader> resourceLoaderClass, IProgressMonitor monitor) throws Exception {
+		_findings.clear();
 		boolean showResults = false;
 
 		String superclassTemplateName = eogeneratorModel.getJavaTemplate();
@@ -212,8 +228,8 @@ public class VelocityEOGeneratorRunner {
 							// URL is only for when there are none.
 							Set<String> errors = new LinkedHashSet<String>();
 							for (EOModelVerificationFailure failure : failures) {
-								if (!failure.isWarning()) {
-									errors.add(failure.getMessage());
+								if (!failure.isWarning() && errors.add(failure.getMessage())) {
+									_findings.add(Finding.of(failure).build());
 								}
 							}
 							throw new EOModelException(errors.isEmpty() ? "Failed to load the model " + modelURL + "." : String.join(" ", errors));
@@ -237,6 +253,7 @@ public class VelocityEOGeneratorRunner {
 				for (EOModelVerificationFailure failure : failures) {
 					if (!failure.isWarning()) {
 						results.append("Error: " + failure.getMessage() + "\n");
+						_findings.add(Finding.of(failure).build());
 						showResults = true;
 					}
 				}
@@ -259,6 +276,7 @@ public class VelocityEOGeneratorRunner {
 					superclassDestination = new File(projectPath.toFile(), eogeneratorModel.getDestination());
 				}
 			}
+			File realSuperclassDestination = superclassDestination;
 			superclassDestination = _destinationMapper.map(EOGeneratorModel.DESTINATION, superclassDestination);
 			if (!superclassDestination.exists()) {
 				if (!superclassDestination.mkdirs()) {
@@ -383,20 +401,20 @@ public class VelocityEOGeneratorRunner {
 
 						if (_useStdout) {
 							WOLipsVelocityUtils.writeTemplate(velocityEngine, context, superclassTemplateName, System.out);
-							showResults |= reportUnresolvedReferences(context, superclassTemplateName, results);
+							showResults |= reportUnresolvedReferences(context, superclassTemplateName, null, results);
 							WOLipsVelocityUtils.writeTemplate(velocityEngine, context, subclassTemplateName, System.out);
-							showResults |= reportUnresolvedReferences(context, subclassTemplateName, results);
+							showResults |= reportUnresolvedReferences(context, subclassTemplateName, null, results);
 							if (superclassTemplate2Name != null) {
 								WOLipsVelocityUtils.writeTemplate(velocityEngine, context, superclassTemplate2Name, System.out);
-								showResults |= reportUnresolvedReferences(context, superclassTemplate2Name, results);
+								showResults |= reportUnresolvedReferences(context, superclassTemplate2Name, null, results);
 							}
 							if (superclassTemplate3Name != null) {
 								WOLipsVelocityUtils.writeTemplate(velocityEngine, context, superclassTemplate3Name, System.out);
-								showResults |= reportUnresolvedReferences(context, superclassTemplate3Name, results);
+								showResults |= reportUnresolvedReferences(context, superclassTemplate3Name, null, results);
 							}
 							if (superclassTemplate4Name != null) {
 								WOLipsVelocityUtils.writeTemplate(velocityEngine, context, superclassTemplate4Name, System.out);
-								showResults |= reportUnresolvedReferences(context, superclassTemplate4Name, results);
+								showResults |= reportUnresolvedReferences(context, superclassTemplate4Name, null, results);
 							}
 						}
 						else {
@@ -422,7 +440,7 @@ public class VelocityEOGeneratorRunner {
 							}
 							
 							WOLipsVelocityUtils.writeTemplate(velocityEngine, context, superclassTemplateName, superclassFile);
-							showResults |= reportUnresolvedReferences(context, superclassFilePath, results);
+							showResults |= reportUnresolvedReferences(context, superclassFilePath, new File(realSuperclassDestination, superclassFilePath), results);
 
 							String subclassFileTemplate;
 							// StringWriter subclassFilePathWriter = new
@@ -446,7 +464,7 @@ public class VelocityEOGeneratorRunner {
 							}
 							if (!subclassFile.exists() && !subclassOutputFile.exists()) {
 								WOLipsVelocityUtils.writeTemplate(velocityEngine, context, subclassTemplateName, subclassOutputFile);
-								showResults |= reportUnresolvedReferences(context, subclassFilePath, results);
+								showResults |= reportUnresolvedReferences(context, subclassFilePath, subclassFile, results);
 							}
 							
 							if (superclass2Destination != null) {
@@ -459,7 +477,7 @@ public class VelocityEOGeneratorRunner {
 								}
 								
 								WOLipsVelocityUtils.writeTemplateToDirectory(velocityEngine, context, superclassTemplate2Name, superclass2Folder);
-								showResults |= reportUnresolvedReferences(context, "-destination2 for " + entity.getName(), results);
+								showResults |= reportUnresolvedReferences(context, "-destination2 for " + entity.getName(), null, results);
 							}
 							
 							if (superclass3Destination != null) {
@@ -472,7 +490,7 @@ public class VelocityEOGeneratorRunner {
 								}
 								
 								WOLipsVelocityUtils.writeTemplateToDirectory(velocityEngine, context, superclassTemplate3Name, superclass3Folder);
-								showResults |= reportUnresolvedReferences(context, "-destination3 for " + entity.getName(), results);
+								showResults |= reportUnresolvedReferences(context, "-destination3 for " + entity.getName(), null, results);
 							}
 							
 							if (superclass4Destination != null) {
@@ -485,7 +503,7 @@ public class VelocityEOGeneratorRunner {
 								}
 								
 								WOLipsVelocityUtils.writeTemplateToDirectory(velocityEngine, context, superclassTemplate4Name, superclass4Folder);
-								showResults |= reportUnresolvedReferences(context, "-destination4 for " + entity.getName(), results);
+								showResults |= reportUnresolvedReferences(context, "-destination4 for " + entity.getName(), null, results);
 							}
 						}
 					}
@@ -507,15 +525,22 @@ public class VelocityEOGeneratorRunner {
 	 * @param output
 	 *            what the template rendered: a file's path relative to its
 	 *            destination, or a template's name
+	 * @param outputFile
+	 *            the file in its destination, or null if it isn't one
 	 * @param results
 	 *            where to report them
 	 * @return whether there were any
 	 */
-	private static boolean reportUnresolvedReferences(VelocityContext context, String output, StringBuffer results) {
+	private boolean reportUnresolvedReferences(VelocityContext context, String output, File outputFile, StringBuffer results) {
 		boolean reported = false;
 		if (context instanceof VelocityOneContext) {
-			for (String reference : ((VelocityOneContext) context).takeUnresolvedReferences()) {
-				results.append("Error: " + output + ": " + reference + "\n");
+			Object entity = context.get("entity");
+			for (UnresolvedReference reference : ((VelocityOneContext) context).takeUnresolvedReferences()) {
+				String message = output + ": " + reference.getDescription();
+				results.append("Error: " + message + "\n");
+				_findings.add(Finding.error(Finding.UNRESOLVED_REFERENCE, message).file(outputFile == null ? null : outputFile.getAbsolutePath())
+						.entity(entity instanceof EOEntity ? ((EOEntity) entity).getName() : null).object(reference.getObject()).key(reference.getReference())
+						.template(reference.getTemplate()).build());
 				reported = true;
 			}
 		}

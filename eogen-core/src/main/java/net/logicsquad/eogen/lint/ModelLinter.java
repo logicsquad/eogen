@@ -14,6 +14,8 @@ import java.util.TreeSet;
 
 import org.objectstyle.woenvironment.plist.WOLPropertyListSerialization;
 
+import net.logicsquad.eogen.Finding;
+
 /**
  * Finds the mistakes in a model that loading it hides, because the model
  * classes ignore what they don't expect: a misspelt key, such as
@@ -100,7 +102,7 @@ public final class ModelLinter {
 		if (indexMap == null) {
 			return;
 		}
-		unknownKeys(index, "the model", indexMap, INDEX_KEYS);
+		unknownKeys(index, null, "the model", indexMap, INDEX_KEYS);
 		Set<String> entityNames = new LinkedHashSet<>();
 		for (Object entityObject : list(indexMap.get("entities"))) {
 			Map<?, ?> entity = map(entityObject);
@@ -108,11 +110,11 @@ public final class ModelLinter {
 				continue;
 			}
 			String name = string(entity.get("name"));
-			unknownKeys(index, "entity " + name, entity, INDEX_ENTITY_KEYS);
+			unknownKeys(index, name, "entity " + name, entity, INDEX_ENTITY_KEYS);
 			if (name != null) {
 				entityNames.add(name);
 				if (!new File(modelFolder, name + ".plist").isFile()) {
-					finding(index, "entity " + name + ": there is no " + name + ".plist.");
+					finding(index, Finding.MISSING_FILE, name, "entity " + name, null, null, "entity " + name + ": there is no " + name + ".plist.");
 				}
 			}
 		}
@@ -137,21 +139,21 @@ public final class ModelLinter {
 			if (fileName.endsWith(".plist")) {
 				String name = fileName.substring(0, fileName.length() - ".plist".length());
 				if (!entityNames.contains(name)) {
-					finding(file, "entity " + name + ": index.eomodeld doesn't list it, so the model ignores it.");
+					finding(file, Finding.UNLISTED_FILE, name, "entity " + name, null, null, "entity " + name + ": index.eomodeld doesn't list it, so the model ignores it.");
 				} else {
 					lintEntity(file, name);
 				}
 			} else if (fileName.endsWith(".fspec")) {
 				String name = fileName.substring(0, fileName.length() - ".fspec".length());
 				if (!entityNames.contains(name)) {
-					finding(file, "there is no entity " + name + " for these fetch specifications, so the model ignores them.");
+					finding(file, Finding.UNLISTED_FILE, name, null, null, null, "there is no entity " + name + " for these fetch specifications, so the model ignores them.");
 				} else {
-					lintFetchSpecifications(file, map(read(file)));
+					lintFetchSpecifications(file, name, map(read(file)));
 				}
 			} else if (fileName.endsWith(".storedProcedure")) {
 				String name = fileName.substring(0, fileName.length() - ".storedProcedure".length());
 				if (!procedureNames.contains(name)) {
-					finding(file, "stored procedure " + name + ": index.eomodeld doesn't list it, so the model ignores it.");
+					finding(file, Finding.UNLISTED_FILE, null, "stored procedure " + name, null, null, "stored procedure " + name + ": index.eomodeld doesn't list it, so the model ignores it.");
 				} else {
 					lintStoredProcedure(file, name);
 				}
@@ -165,18 +167,19 @@ public final class ModelLinter {
 			return;
 		}
 		String name = string(entity.get("name"));
-		String object = "entity " + (name == null ? fileEntityName : name);
+		String entityName = name == null ? fileEntityName : name;
+		String object = "entity " + entityName;
 		if (name != null && !name.equals(fileEntityName)) {
-			finding(file, object + ": index.eomodeld lists it as " + fileEntityName + ".");
+			finding(file, Finding.MISNAMED_ENTITY, name, object, null, null, object + ": index.eomodeld lists it as " + fileEntityName + ".");
 		}
-		unknownKeys(file, object, entity, ENTITY_KEYS);
+		unknownKeys(file, entityName, object, entity, ENTITY_KEYS);
 
 		Set<String> attributes = new LinkedHashSet<>();
 		for (Object attributeObject : list(entity.get("attributes"))) {
 			Map<?, ?> attribute = map(attributeObject);
 			if (attribute != null) {
 				String attributeName = string(attribute.get("name"));
-				unknownKeys(file, "attribute " + attributeName, attribute, ATTRIBUTE_KEYS);
+				unknownKeys(file, entityName, "attribute " + attributeName, attribute, ATTRIBUTE_KEYS);
 				if (attributeName != null) {
 					attributes.add(attributeName);
 				}
@@ -187,11 +190,11 @@ public final class ModelLinter {
 			Map<?, ?> relationship = map(relationshipObject);
 			if (relationship != null) {
 				String relationshipName = string(relationship.get("name"));
-				unknownKeys(file, "relationship " + relationshipName, relationship, RELATIONSHIP_KEYS);
+				unknownKeys(file, entityName, "relationship " + relationshipName, relationship, RELATIONSHIP_KEYS);
 				for (Object join : list(relationship.get("joins"))) {
 					Map<?, ?> joinMap = map(join);
 					if (joinMap != null) {
-						unknownKeys(file, "a join of relationship " + relationshipName, joinMap, JOIN_KEYS);
+						unknownKeys(file, entityName, "a join of relationship " + relationshipName, joinMap, JOIN_KEYS);
 					}
 				}
 				if (relationshipName != null) {
@@ -202,21 +205,21 @@ public final class ModelLinter {
 		for (Object indexObject : list(entity.get("entityIndexes"))) {
 			Map<?, ?> index = map(indexObject);
 			if (index != null) {
-				unknownKeys(file, "index " + string(index.get("name")), index, ENTITY_INDEX_KEYS);
+				unknownKeys(file, entityName, "index " + string(index.get("name")), index, ENTITY_INDEX_KEYS);
 			}
 		}
-		lintFetchSpecifications(file, map(entity.get("fetchSpecificationDictionary")));
+		lintFetchSpecifications(file, entityName, map(entity.get("fetchSpecificationDictionary")));
 
 		Set<String> properties = new LinkedHashSet<>(attributes);
 		properties.addAll(relationships);
-		danglingNames(file, object, entity, "classProperties", properties, "an attribute or relationship");
-		danglingNames(file, object, entity, "_clientClassPropertyNames", properties, "an attribute or relationship");
-		danglingNames(file, object, entity, "_commonClassPropertyNames", properties, "an attribute or relationship");
-		danglingNames(file, object, entity, "primaryKeyAttributes", attributes, "an attribute");
-		danglingNames(file, object, entity, "attributesUsedForLocking", attributes, "an attribute");
+		danglingNames(file, entityName, object, entity, "classProperties", properties, "an attribute or relationship");
+		danglingNames(file, entityName, object, entity, "_clientClassPropertyNames", properties, "an attribute or relationship");
+		danglingNames(file, entityName, object, entity, "_commonClassPropertyNames", properties, "an attribute or relationship");
+		danglingNames(file, entityName, object, entity, "primaryKeyAttributes", attributes, "an attribute");
+		danglingNames(file, entityName, object, entity, "attributesUsedForLocking", attributes, "an attribute");
 	}
 
-	private void lintFetchSpecifications(File file, Map<?, ?> fetchSpecifications) {
+	private void lintFetchSpecifications(File file, String entityName, Map<?, ?> fetchSpecifications) {
 		if (fetchSpecifications == null) {
 			return;
 		}
@@ -226,11 +229,11 @@ public final class ModelLinter {
 				continue;
 			}
 			String object = "fetch specification " + entry.getKey();
-			unknownKeys(file, object, fetchSpecification, FETCH_SPECIFICATION_KEYS);
+			unknownKeys(file, entityName, object, fetchSpecification, FETCH_SPECIFICATION_KEYS);
 			for (Object ordering : list(fetchSpecification.get("sortOrderings"))) {
 				Map<?, ?> orderingMap = map(ordering);
 				if (orderingMap != null) {
-					unknownKeys(file, "a sort ordering of " + object, orderingMap, SORT_ORDERING_KEYS);
+					unknownKeys(file, entityName, "a sort ordering of " + object, orderingMap, SORT_ORDERING_KEYS);
 				}
 			}
 		}
@@ -242,38 +245,38 @@ public final class ModelLinter {
 			return;
 		}
 		String name = string(procedure.get("name"));
-		unknownKeys(file, "stored procedure " + (name == null ? fileName : name), procedure, STORED_PROCEDURE_KEYS);
+		unknownKeys(file, null, "stored procedure " + (name == null ? fileName : name), procedure, STORED_PROCEDURE_KEYS);
 		for (Object argumentObject : list(procedure.get("arguments"))) {
 			Map<?, ?> argument = map(argumentObject);
 			if (argument != null) {
-				unknownKeys(file, "argument " + string(argument.get("name")), argument, STORED_PROCEDURE_ARGUMENT_KEYS);
+				unknownKeys(file, null, "argument " + string(argument.get("name")), argument, STORED_PROCEDURE_ARGUMENT_KEYS);
 			}
 		}
 	}
 
-	private void unknownKeys(File file, String object, Map<?, ?> map, Set<String> known) {
+	private void unknownKeys(File file, String entity, String object, Map<?, ?> map, Set<String> known) {
 		for (Object keyObject : map.keySet()) {
 			String key = String.valueOf(keyObject);
 			if (!known.contains(key)) {
 				String suggestion = suggest(key, known);
-				finding(file, object + ": unknown key " + key + (suggestion == null ? "." : " (did you mean " + suggestion + "?)."));
+				finding(file, Finding.UNKNOWN_KEY, entity, object, key, suggestion, object + ": unknown key " + key + (suggestion == null ? "." : " (did you mean " + suggestion + "?)."));
 			}
 		}
 	}
 
-	private void danglingNames(File file, String object, Map<?, ?> entity, String listKey, Set<String> names, String what) {
+	private void danglingNames(File file, String entityName, String object, Map<?, ?> entity, String listKey, Set<String> names, String what) {
 		for (Object nameObject : list(entity.get(listKey))) {
 			String name = string(nameObject);
 			if (name != null && !names.contains(name)) {
 				String suggestion = suggest(name, names);
-				finding(file, object + ": " + listKey + " names " + name + ", which is not " + what + (suggestion == null ? "." : " (did you mean " + suggestion + "?)."));
+				finding(file, Finding.UNMATCHED_NAME, entityName, object, name, suggestion, object + ": " + listKey + " names " + name + ", which is not " + what + (suggestion == null ? "." : " (did you mean " + suggestion + "?)."));
 			}
 		}
 	}
 
-	private void finding(File file, String message) {
+	private void finding(File file, String code, String entity, String object, String key, String suggestion, String message) {
 		String path = file.equals(modelFolder) ? modelPath : modelPath + "/" + file.getName();
-		findings.add(new LintFinding(file, path, message));
+		findings.add(new LintFinding(file, path, code, entity, object, key, suggestion, message));
 	}
 
 	/**

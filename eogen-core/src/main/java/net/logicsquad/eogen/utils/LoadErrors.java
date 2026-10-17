@@ -46,6 +46,19 @@ public final class LoadErrors {
 	 * @return description
 	 */
 	public static String describe(Throwable failure, File modelFolder) {
+		return locate(failure, modelFolder).getDescription();
+	}
+
+	/**
+	 * Works out where a model failed to load, and why.
+	 *
+	 * @param failure what the model classes threw
+	 * @param modelFolder the model's folder, whose parent the description gives
+	 *        file paths relative to, or null
+	 * @return the file, line and column, as far as the exceptions say, and the
+	 *         description
+	 */
+	public static Location locate(Throwable failure, File modelFolder) {
 		String file = null;
 		String detail = null;
 		String line = null;
@@ -73,18 +86,28 @@ public final class LoadErrors {
 		if (detail == null) {
 			detail = failure.getMessage() == null ? failure.getClass().getName() : failure.getMessage();
 		}
+		Integer lineNumber = line == null || line.startsWith("-") ? null : Integer.valueOf(line);
+		Integer columnNumber = lineNumber == null || column == null || column.startsWith("-") ? null : Integer.valueOf(column);
 		StringBuilder description = new StringBuilder();
 		if (file != null) {
 			description.append(relative(file, modelFolder));
-			if (line != null && !line.startsWith("-")) {
-				description.append(':').append(line);
-				if (column != null && !column.startsWith("-")) {
-					description.append(':').append(column);
+			if (lineNumber != null) {
+				description.append(':').append(lineNumber);
+				if (columnNumber != null) {
+					description.append(':').append(columnNumber);
 				}
 			}
 			description.append(": ");
 		}
-		return description.append(detail).toString();
+		return new Location(file == null ? null : absolute(file), lineNumber, columnNumber, description.append(detail).toString());
+	}
+
+	private static File absolute(String file) {
+		try {
+			return toPath(file).toAbsolutePath().normalize().toFile();
+		} catch (InvalidPathException e) {
+			return new File(file).getAbsoluteFile();
+		}
 	}
 
 	private static String relative(String file, File modelFolder) {
@@ -113,5 +136,62 @@ public final class LoadErrors {
 			}
 		}
 		return Paths.get(file);
+	}
+
+	/**
+	 * Where a model failed to load, and why.
+	 */
+	public static final class Location {
+		private final File file;
+
+		private final Integer line;
+
+		private final Integer column;
+
+		private final String description;
+
+		private Location(File file, Integer line, Integer column, String description) {
+			this.file = file;
+			this.line = line;
+			this.column = column;
+			this.description = description;
+		}
+
+		/**
+		 * Returns the file that failed to load.
+		 *
+		 * @return absolute file, or null if the exceptions don't name one
+		 */
+		public File getFile() {
+			return file;
+		}
+
+		/**
+		 * Returns the line the parser stopped at.
+		 *
+		 * @return line, from 1, or null
+		 */
+		public Integer getLine() {
+			return line;
+		}
+
+		/**
+		 * Returns the column the parser stopped at.
+		 *
+		 * @return column, from 1, or null
+		 */
+		public Integer getColumn() {
+			return column;
+		}
+
+		/**
+		 * Returns the description, such as {@code Library.eomodeld/Book.plist:12:58:
+		 * ...}.
+		 *
+		 * @return description
+		 */
+		public String getDescription() {
+			return description;
+		}
 	}
 }

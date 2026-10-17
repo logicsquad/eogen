@@ -15,24 +15,15 @@ public final class GenerationResult {
 
 	private final List<GeneratedFile> files;
 
+	private final List<Finding> findings;
+
 	private final List<String> errors;
 
 	private final List<String> warnings;
 
 	/**
-	 * Constructor, for a result without warnings.
-	 *
-	 * @param eogenFile the .eogen file
-	 * @param written whether the stale files were written to the project
-	 * @param files the files generated
-	 * @param errors the model and template errors the generator reported
-	 */
-	public GenerationResult(File eogenFile, boolean written, List<GeneratedFile> files, List<String> errors) {
-		this(eogenFile, written, files, errors, Collections.<String>emptyList());
-	}
-
-	/**
-	 * Constructor.
+	 * Constructor, for errors and warnings that are only text, which have the
+	 * code {@link Finding#FAILURE}.
 	 *
 	 * @param eogenFile the .eogen file
 	 * @param written whether the stale files were written to the project
@@ -41,11 +32,40 @@ public final class GenerationResult {
 	 * @param warnings the problems that don't stop it writing
 	 */
 	public GenerationResult(File eogenFile, boolean written, List<GeneratedFile> files, List<String> errors, List<String> warnings) {
+		this(eogenFile, written, files, findings(errors, warnings));
+	}
+
+	/**
+	 * Constructor.
+	 *
+	 * @param eogenFile the .eogen file
+	 * @param written whether the stale files were written to the project
+	 * @param files the files generated
+	 * @param findings the errors, which stop it writing, and the warnings
+	 */
+	public GenerationResult(File eogenFile, boolean written, List<GeneratedFile> files, List<Finding> findings) {
 		this.eogenFile = eogenFile;
 		this.written = written;
 		this.files = Collections.unmodifiableList(new ArrayList<>(files));
-		this.errors = Collections.unmodifiableList(new ArrayList<>(errors));
-		this.warnings = Collections.unmodifiableList(new ArrayList<>(warnings));
+		this.findings = Collections.unmodifiableList(new ArrayList<>(findings));
+		List<String> errorMessages = new ArrayList<>();
+		List<String> warningMessages = new ArrayList<>();
+		for (Finding finding : findings) {
+			(finding.isError() ? errorMessages : warningMessages).add(finding.getMessage());
+		}
+		this.errors = Collections.unmodifiableList(errorMessages);
+		this.warnings = Collections.unmodifiableList(warningMessages);
+	}
+
+	private static List<Finding> findings(List<String> errors, List<String> warnings) {
+		List<Finding> findings = new ArrayList<>();
+		for (String error : errors) {
+			findings.add(Finding.error(Finding.FAILURE, error).build());
+		}
+		for (String warning : warnings) {
+			findings.add(Finding.builder(Finding.Severity.WARNING, Finding.FAILURE, warning).build());
+		}
+		return findings;
 	}
 
 	/**
@@ -150,5 +170,15 @@ public final class GenerationResult {
 	 */
 	public List<String> getWarnings() {
 		return warnings;
+	}
+
+	/**
+	 * Returns the errors and the warnings, errors first, each with its code
+	 * and what eogen knows of where it is.
+	 *
+	 * @return findings
+	 */
+	public List<Finding> getFindings() {
+		return findings;
 	}
 }

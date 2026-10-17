@@ -14,15 +14,37 @@ public final class VerificationResult {
 
 	private final List<EOModelVerificationFailure> failures;
 
+	private final List<Finding> findings;
+
 	/**
-	 * Constructor.
+	 * Constructor, with the findings worked out from the failures.
 	 *
 	 * @param modelNames the names of the models verified
 	 * @param failures the failures found
 	 */
 	public VerificationResult(List<String> modelNames, List<EOModelVerificationFailure> failures) {
+		this(modelNames, failures, findings(failures));
+	}
+
+	/**
+	 * Constructor.
+	 *
+	 * @param modelNames the names of the models verified
+	 * @param failures the failures found
+	 * @param findings the failures as findings, in the same order
+	 */
+	public VerificationResult(List<String> modelNames, List<EOModelVerificationFailure> failures, List<Finding> findings) {
 		this.modelNames = Collections.unmodifiableList(new ArrayList<>(modelNames));
 		this.failures = Collections.unmodifiableList(new ArrayList<>(failures));
+		this.findings = Collections.unmodifiableList(new ArrayList<>(findings));
+	}
+
+	private static List<Finding> findings(List<EOModelVerificationFailure> failures) {
+		List<Finding> findings = new ArrayList<>();
+		for (EOModelVerificationFailure failure : failures) {
+			findings.add(Finding.of(failure).build());
+		}
+		return findings;
 	}
 
 	/**
@@ -80,5 +102,15 @@ public final class VerificationResult {
 	 */
 	public boolean hasErrors() {
 		return !getErrors().isEmpty();
+	}
+
+	/**
+	 * Returns every failure as a finding, with its code and what eogen knows of
+	 * where it is, in the order of {@link #getFailures()}.
+	 *
+	 * @return findings
+	 */
+	public List<Finding> getFindings() {
+		return findings;
 	}
 }

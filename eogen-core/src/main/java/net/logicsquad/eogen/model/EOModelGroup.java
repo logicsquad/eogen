@@ -519,7 +519,9 @@ public class EOModelGroup extends EOModelObject<Object> {
 						// failure has no root cause, whose messages getMessage() would append.
 						LOG.debug(model.getName() + " failed to load.", e);
 						File modelFolder = "file".equals(modelURL.getProtocol()) ? URLUtils.cheatAndTurnIntoFile(modelURL) : null;
-						failures.add(new EOModelVerificationFailure(model, model, model.getName() + " failed to load: " + LoadErrors.describe(e, modelFolder), false, null));
+						LoadErrors.Location location = LoadErrors.locate(e, modelFolder);
+						failures.add(new ModelLoadFailure(model, model.getName() + " failed to load: " + location.getDescription(), location.getFile(), location.getLine(),
+								location.getColumn()));
 						reloadModel = false;
 					}
 				}

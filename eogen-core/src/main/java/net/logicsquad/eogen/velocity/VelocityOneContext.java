@@ -42,10 +42,10 @@ public class VelocityOneContext extends VelocityContext {
 	private boolean nullSet;
 
 	/**
-	 * Descriptions of the references rendered without a value since the last
+	 * The references rendered without a value since the last
 	 * {@link #takeUnresolvedReferences()}.
 	 */
-	private final Set<String> unresolvedReferences = new LinkedHashSet<>();
+	private final Set<UnresolvedReference> unresolvedReferences = new LinkedHashSet<>();
 
 	/**
 	 * Notes that a {@code #set} is about to set a reference to null, so that the
@@ -61,23 +61,23 @@ public class VelocityOneContext extends VelocityContext {
 	/**
 	 * Notes a reference that rendered without a value.
 	 *
-	 * @param description what the reference was and where
+	 * @param reference what the reference was and where
 	 */
-	void unresolved(String description) {
-		unresolvedReferences.add(description);
+	void unresolved(UnresolvedReference reference) {
+		unresolvedReferences.add(reference);
 	}
 
 	/**
 	 * Returns the references that rendered without a value since the last call,
 	 * once each, and forgets them.
 	 *
-	 * @return descriptions of unresolved references
+	 * @return the unresolved references
 	 */
-	public List<String> takeUnresolvedReferences() {
+	public List<UnresolvedReference> takeUnresolvedReferences() {
 		if (unresolvedReferences.isEmpty()) {
 			return Collections.emptyList();
 		}
-		List<String> references = new ArrayList<>(unresolvedReferences);
+		List<UnresolvedReference> references = new ArrayList<>(unresolvedReferences);
 		unresolvedReferences.clear();
 		return references;
 	}

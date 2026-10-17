@@ -14,6 +14,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -379,8 +380,12 @@ public class EOGenerator {
 		try {
 			return EOGeneratorModel.createModelFromFile(eogenFile, projectDirectory.toPath());
 		} catch (IOException | ParseException e) {
-			throw new EOGeneratorException("Failed to read " + eogenFile + ": " + e.getMessage(), e);
+			throw eogenFileException("Failed to read " + eogenFile + ": " + e.getMessage(), e, eogenFile);
 		}
+	}
+
+	private EOGeneratorException eogenFileException(String message, Throwable cause, File eogenFile) {
+		return new EOGeneratorException(message, cause, Collections.singletonList(Finding.error(Finding.EOGEN_FILE, message).file(relative(eogenFile.getPath())).build()));
 	}
 
 	/**
@@ -426,21 +431,24 @@ public class EOGenerator {
 		try {
 			modelGroupFactory().loadModelGroup(null, modelGroup, failures, true, new NullProgressMonitor());
 		} catch (EOModelException e) {
-			throw new EOGeneratorException("Failed to load the model group: " + e.getMessage(), e);
+			throw new EOGeneratorException("Failed to load the model group: " + e.getMessage(), e, Finding.LOAD);
 		}
 		modelGroup.resolve(failures);
 		modelGroup.verify(failures);
+		Map<EOModelVerificationFailure, Finding> lintFindings = new IdentityHashMap<>();
 		for (File modelFolder : modelFolders) {
 			for (File model : ClasspathEOModelGroupFactory.findModelFolders(modelFolder)) {
 				String name = EOModelGroup.getModelNameForFile(model);
 				EOModel eomodel = name == null ? null : modelGroup.getModelNamed(name);
-				for (LintFinding finding : ModelLinter.lint(model)) {
-					failures.add(new EOModelVerificationFailure(eomodel, finding.toString(), !strict));
-				}
+				List<LintFinding> found = new ArrayList<>(ModelLinter.lint(model));
 				if (eomodel != null) {
-					for (LintFinding finding : KeyLinter.lint(eomodel, model)) {
-						failures.add(new EOModelVerificationFailure(eomodel, finding.toString(), !strict));
-					}
+					found.addAll(KeyLinter.lint(eomodel, model));
+				}
+				for (LintFinding finding : found) {
+					EOModelVerificationFailure failure = new EOModelVerificationFailure(eomodel, finding.toString(), !strict);
+					failures.add(failure);
+					Finding.Builder builder = finding(finding, name).toBuilder().severity(strict ? Finding.Severity.ERROR : Finding.Severity.WARNING);
+					lintFindings.put(failure, builder.build());
 				}
 			}
 		}
@@ -466,7 +474,12 @@ public class EOGenerator {
 				.thenComparing(EOModelVerificationFailure::isWarning)
 				.thenComparing(EOModelVerificationFailure::getMessage));
 		List<String> modelNames = reportedModels.stream().map(EOModel::getName).sorted().collect(Collectors.toList());
-		return new VerificationResult(modelNames, reported);
+		List<Finding> findings = new ArrayList<>();
+		for (EOModelVerificationFailure failure : reported) {
+			Finding finding = lintFindings.get(failure);
+			findings.add(finding != null ? finding : relativize(Collections.singletonList(Finding.of(failure).build())).get(0));
+		}
+		return new VerificationResult(modelNames, reported, findings);
 	}
 
 	/**
@@ -486,17 +499,19 @@ public class EOGenerator {
 		try {
 			modelGroupFactory().loadModelGroup(null, modelGroup, failures, true, new NullProgressMonitor());
 		} catch (EOModelException e) {
-			throw new EOGeneratorException("Failed to load the model group: " + e.getMessage(), e);
+			throw new EOGeneratorException("Failed to load the model group: " + e.getMessage(), e, Finding.LOAD);
 		}
 		modelGroup.resolve(failures);
 		List<String> errors = new ArrayList<>();
+		List<Finding> findings = new ArrayList<>();
 		for (EOModelVerificationFailure failure : failures) {
 			if (!failure.isWarning()) {
 				errors.add((failure.getModel() == null ? "" : failure.getModel().getName() + ": ") + failure.getMessage());
+				findings.add(Finding.of(failure).build());
 			}
 		}
 		if (!errors.isEmpty()) {
-			return new FormatResult(Collections.<FormatResult.FormattedFile>emptyList(), errors, false);
+			return new FormatResult(Collections.<FormatResult.FormattedFile>emptyList(), errors, relativize(findings), false);
 		}
 		Path scratch;
 		try {
@@ -517,7 +532,14 @@ public class EOGenerator {
 					files.addAll(ModelFormatter.format(eomodel, model, modelScratch, write));
 				}
 			}
-			return new FormatResult(files, errors, write);
+			for (FormatResult.FormattedFile file : files) {
+				if (file.getStatus() == FormatResult.Status.REFUSED) {
+					String path = relative(file.getFile().getPath());
+					findings.add(Finding.error(Finding.FORMAT_LOSS, path + ": its model is left alone, since saving it would change what it says: " + file.getReason() + ".").file(path)
+							.model(EOModelGroup.getModelNameForFile(file.getFile().getParentFile())).build());
+				}
+			}
+			return new FormatResult(files, errors, findings, write);
 		} catch (IOException e) {
 			throw new EOGeneratorException("Failed to format the models: " + e.getMessage(), e);
 		} finally {
@@ -545,13 +567,13 @@ public class EOGenerator {
 	private GenerationResult run(File eogenFile, boolean write) throws EOGeneratorException {
 		EOGeneratorModel eogeneratorModel = readEOGenFile(eogenFile);
 		List<File> models = validate(eogenFile, eogeneratorModel);
-		List<String> findings = new ArrayList<>();
+		List<Finding> lintFindings = new ArrayList<>();
 		for (File model : models) {
 			for (LintFinding finding : ModelLinter.lint(model)) {
-				findings.add(finding.toString());
+				lintFindings.add(finding(finding, EOModelGroup.getModelNameForFile(model)));
 			}
 		}
-		findings.addAll(keyFindings(models));
+		lintFindings.addAll(keyFindings(models));
 		Path scratch;
 		try {
 			scratch = Files.createTempDirectory("eogen");
@@ -573,24 +595,29 @@ public class EOGenerator {
 			try {
 				runner.generate(eogeneratorModel, results, null, null, EOGeneratorResourceLoader.class, new NullProgressMonitor());
 			} catch (Exception e) {
-				throw new EOGeneratorException("Failed to generate from " + eogenFile + ": " + e.getMessage(), e);
+				String message = "Failed to generate from " + eogenFile + ": " + e.getMessage();
+				List<Finding> found = relativize(runner.getFindings());
+				throw new EOGeneratorException(message, e, found.isEmpty() ? Collections.singletonList(Finding.error(Finding.FAILURE, message).build()) : found);
 			}
-			List<String> errors = errors(results);
-			List<String> warnings = new ArrayList<>();
+			List<Finding> findings = new ArrayList<>();
 			if (strict) {
-				// A finding, such as a key that matches nothing, can be the cause of
-				// a template's error, so it comes first.
-				errors.addAll(0, findings);
+				// A lint finding, such as a key that matches nothing, can be the cause
+				// of a template's error, so it comes first.
+				for (Finding finding : lintFindings) {
+					findings.add(finding.toBuilder().severity(Finding.Severity.ERROR).build());
+				}
+				findings.addAll(relativize(runner.getFindings()));
 			} else {
-				warnings.addAll(findings);
+				findings.addAll(relativize(runner.getFindings()));
+				findings.addAll(lintFindings);
 			}
-			boolean written = write && (errors.isEmpty() || force);
+			boolean written = write && (findings.stream().noneMatch(Finding::isError) || force);
 			List<GeneratedFile> files = new ArrayList<>();
 			for (Map.Entry<String, File> output : outputs.entrySet()) {
 				Kind kind = EOGeneratorModel.SUBCLASS_DESTINATION.equals(output.getKey()) ? Kind.SUBCLASS : Kind.SUPERCLASS;
 				files.addAll(compare(output.getValue().toPath(), destinations.get(output.getKey()).toPath(), kind, written));
 			}
-			return new GenerationResult(eogenFile, written, files, errors, warnings);
+			return new GenerationResult(eogenFile, written, files, findings);
 		} catch (IOException e) {
 			throw new EOGeneratorException("Failed to write the files for " + eogenFile + ": " + e.getMessage(), e);
 		} finally {
@@ -602,9 +629,9 @@ public class EOGenerator {
 	 * Lints the keys of the models that an .eogen file names, with
 	 * {@link KeyLinter}, which needs the model group loaded and resolved.
 	 *
-	 * @return the findings, as eogen reports them
+	 * @return the findings, as warnings
 	 */
-	private List<String> keyFindings(List<File> models) {
+	private List<Finding> keyFindings(List<File> models) {
 		EOModelGroup modelGroup = new EOModelGroup();
 		Set<EOModelVerificationFailure> failures = new LinkedHashSet<>();
 		try {
@@ -614,17 +641,47 @@ public class EOGenerator {
 			// Generating reports why the model group doesn't load.
 			return Collections.emptyList();
 		}
-		List<String> findings = new ArrayList<>();
+		List<Finding> findings = new ArrayList<>();
 		for (File model : models) {
 			String name = EOModelGroup.getModelNameForFile(model);
 			EOModel eomodel = name == null ? null : modelGroup.getModelNamed(name);
 			if (eomodel != null) {
 				for (LintFinding finding : KeyLinter.lint(eomodel, model)) {
-					findings.add(finding.toString());
+					findings.add(finding(finding, name));
 				}
 			}
 		}
 		return findings;
+	}
+
+	/**
+	 * Returns a lint finding as a warning, with its file relative to the
+	 * project.
+	 */
+	private Finding finding(LintFinding finding, String model) {
+		return Finding.builder(Finding.Severity.WARNING, finding.getCode(), finding.toString()).file(relative(finding.getFile().getPath())).model(model)
+				.entity(finding.getEntity()).object(finding.getObject()).key(finding.getKey()).suggestion(finding.getSuggestion()).build();
+	}
+
+	/**
+	 * Returns findings with their files relative to the project.
+	 */
+	private List<Finding> relativize(List<Finding> findings) {
+		List<Finding> relative = new ArrayList<>();
+		for (Finding finding : findings) {
+			relative.add(finding.getFile() == null ? finding : finding.toBuilder().file(relative(finding.getFile())).build());
+		}
+		return relative;
+	}
+
+	/**
+	 * Returns a path relative to the project, with / on every platform, or the
+	 * path as it is if it is outside the project.
+	 */
+	private String relative(String path) {
+		Path projectPath = absolute(projectDirectory).toPath();
+		Path filePath = absolute(new File(path)).toPath();
+		return filePath.startsWith(projectPath) ? projectPath.relativize(filePath).toString().replace(File.separatorChar, '/') : path;
 	}
 
 	/**
@@ -635,13 +692,13 @@ public class EOGenerator {
 	 */
 	private List<File> validate(File eogenFile, EOGeneratorModel eogeneratorModel) throws EOGeneratorException {
 		if (eogeneratorModel.getDestination() == null) {
-			throw new EOGeneratorException(eogenFile + " has no -destination.");
+			throw eogenFileException(eogenFile + " has no -destination.", null, eogenFile);
 		}
 		if (eogeneratorModel.getSubclassDestination() == null) {
 			eogeneratorModel.setSubclassDestination(eogeneratorModel.getDestination());
 		}
 		if (eogeneratorModel.getModels().isEmpty()) {
-			throw new EOGeneratorException(eogenFile + " names no -model.");
+			throw eogenFileException(eogenFile + " names no -model.", null, eogenFile);
 		}
 		List<File> models = new ArrayList<>();
 		for (EOModelReference modelReference : eogeneratorModel.getModels()) {
@@ -651,7 +708,7 @@ public class EOGenerator {
 			}
 			boolean indexFile = modelFolder.getName().equals("index.eomodeld") && modelFolder.isFile();
 			if (!indexFile && !new File(modelFolder, "index.eomodeld").isFile()) {
-				throw new EOGeneratorException(eogenFile + " names the model " + modelFolder + ", which does not exist.");
+				throw eogenFileException(eogenFile + " names the model " + modelFolder + ", which does not exist.", null, eogenFile);
 			}
 			models.add(indexFile ? modelFolder.getParentFile() : modelFolder);
 		}
@@ -737,23 +794,6 @@ public class EOGenerator {
 			}
 		}
 		return false;
-	}
-
-	/**
-	 * Returns the errors the runner reported, one per "Error: " line.
-	 */
-	private static List<String> errors(StringBuffer results) {
-		List<String> errors = new ArrayList<>();
-		String prefix = "Error: ";
-		for (String line : results.toString().split("\n")) {
-			if (line.startsWith(prefix)) {
-				errors.add(line.substring(prefix.length()));
-			} else if (!line.isEmpty() && !errors.isEmpty()) {
-				int last = errors.size() - 1;
-				errors.set(last, errors.get(last) + "\n" + line);
-			}
-		}
-		return errors;
 	}
 
 	private static boolean isHidden(Path relativePath) {

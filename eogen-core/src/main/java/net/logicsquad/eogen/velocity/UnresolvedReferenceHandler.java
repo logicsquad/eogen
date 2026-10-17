@@ -31,7 +31,7 @@ public class UnresolvedReferenceHandler implements ReferenceInsertionEventHandle
 			Context userContext = context instanceof InternalWrapperContext ? ((InternalWrapperContext) context).getInternalUserContext() : context;
 			if (rootValue != null && userContext instanceof VelocityOneContext) {
 				String template = context instanceof InternalContextAdapter ? ((InternalContextAdapter) context).getCurrentTemplateName() : null;
-				((VelocityOneContext) userContext).unresolved(describe(reference, root, rootValue, template));
+				((VelocityOneContext) userContext).unresolved(new UnresolvedReference(reference, root, name(rootValue), template));
 			}
 		}
 		return value;
@@ -49,15 +49,7 @@ public class UnresolvedReferenceHandler implements ReferenceInsertionEventHandle
 	 * @return description
 	 */
 	static String describe(String reference, String root, Object rootValue, String template) {
-		StringBuilder description = new StringBuilder(reference).append(" has no value");
-		String name = name(rootValue);
-		if (name != null) {
-			description.append(" for ").append(root).append(' ').append(name);
-		}
-		if (template != null) {
-			description.append(" (").append(template).append(')');
-		}
-		return description.append('.').toString();
+		return new UnresolvedReference(reference, root, name(rootValue), template).getDescription();
 	}
 
 	private static boolean isQuiet(String reference) {

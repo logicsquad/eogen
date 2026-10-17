@@ -54,7 +54,10 @@ Maven stops at the first goal that fails.
 Without the plugin in the POM, give the goal in full:
 `mvn net.logicsquad:eogen-maven-plugin:<version>:<goal>`. The command
 line, `eogen-cli`, does the same with `--format`, `--verify`, `--all`,
-`--check` and `--strict`, and `--json` reports in JSON.
+`--check` and `--strict`, and `--json` reports in JSON. There, each
+finding has a `code` for its kind, such as `unknown-key`, and, where
+eogen knows them, the `file`, `line`, `object`, `key` and the
+`suggestion` it most likely meant.
 
 In a multi-module build, run `mvn install` in the folder of any
 framework whose models a module uses before running the loop in the

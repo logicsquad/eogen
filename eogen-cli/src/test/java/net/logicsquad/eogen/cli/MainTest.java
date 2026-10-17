@@ -234,6 +234,31 @@ class MainTest {
 	}
 
 	@Test
+	void jsonGivesEachFindingItsCodeAndWhereItIs() throws Exception {
+		Path book = project.resolve("src/main/resources/Library.eomodeld/Book.plist");
+		String text = new String(Files.readAllBytes(book), StandardCharsets.UTF_8);
+		assertThat(text).containsPattern("name = currencyCode;\\s+prototypeName = varchar100;");
+		Files.write(book, text.replaceFirst("(name = currencyCode;\\s+)prototypeName", "$1prototypeNam").getBytes(StandardCharsets.UTF_8));
+		assertThat(run("--json", "--check", "--project", project.toString(), "--classpath", reference.toString(), eogen())).isEqualTo(Main.STALE);
+		assertThat(out()).contains("\"warnings\": [\n        {\n          \"severity\": \"warning\",\n          \"code\": \"unknown-key\",\n"
+				+ "          \"message\": \"Library.eomodeld/Book.plist: attribute currencyCode: unknown key prototypeNam (did you mean prototypeName?).\",\n"
+				+ "          \"file\": \"src/main/resources/Library.eomodeld/Book.plist\",\n          \"model\": \"Library\",\n          \"entity\": \"Book\",\n"
+				+ "          \"object\": \"attribute currencyCode\",\n          \"key\": \"prototypeNam\",\n          \"suggestion\": \"prototypeName\"\n        }");
+
+		out.reset();
+		Files.write(book, text.replace("name = price;", "name = price").getBytes(StandardCharsets.UTF_8));
+		assertThat(run("--json", "--verify", "--project", project.toString(), "--classpath", reference.toString())).isEqualTo(Main.FAILED);
+		assertThat(out()).containsPattern("\"code\": \"syntax\",\n.*\n\\s*\"file\": \"src/main/resources/Library.eomodeld/Book.plist\",\n\\s*\"line\": \\d+,\n\\s*\"column\": \\d+,\n"
+				+ "\\s*\"model\": \"Library\"");
+
+		out.reset();
+		Files.write(project.resolve("src/main/resources/Library.eogen"), " -model src/main/resources/Library.eomodeld\n".getBytes(StandardCharsets.UTF_8));
+		assertThat(run("--json", "--project", project.toString(), eogen())).isEqualTo(Main.FAILED);
+		assertThat(out()).contains("\"problems\": [\n    {\n      \"severity\": \"error\",\n      \"code\": \"eogen-file\",\n",
+				"\"file\": \"src/main/resources/Library.eogen\"");
+	}
+
+	@Test
 	void aModelThatFailsToParseIsReportedInOneLine() throws Exception {
 		Path book = project.resolve("src/main/resources/Library.eomodeld/Book.plist");
 		String text = new String(Files.readAllBytes(book), StandardCharsets.UTF_8);

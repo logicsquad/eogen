@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
 
+import net.logicsquad.eogen.Finding;
 import net.logicsquad.eogen.model.EOAttribute;
 import net.logicsquad.eogen.model.EOEntity;
 import net.logicsquad.eogen.model.EOFetchSpecification;
@@ -67,29 +68,29 @@ public final class KeyLinter {
 			File entityFile = new File(modelFolder, entity.getName() + ".plist");
 			String restrictingQualifier = entity.getRestrictingQualifier();
 			if (restrictingQualifier != null && !restrictingQualifier.trim().isEmpty()) {
-				check(entityFile, "entity " + entity.getName() + ": restrictingQualifier key", entity, keys(restrictingQualifier));
+				check(entityFile, "entity " + entity.getName(), "restrictingQualifier key", entity, keys(restrictingQualifier));
 			}
 			File fetchSpecificationFile = new File(modelFolder, entity.getName() + ".fspec");
 			File file = fetchSpecificationFile.isFile() ? fetchSpecificationFile : entityFile;
 			List<EOFetchSpecification> fetchSpecifications = new ArrayList<>(entity.getFetchSpecs());
 			fetchSpecifications.sort(Comparator.comparing(EOFetchSpecification::getName));
 			for (EOFetchSpecification fetchSpecification : fetchSpecifications) {
-				String object = "fetch specification " + fetchSpecification.getName() + ": ";
-				check(file, object + "qualifier key", entity, keys(fetchSpecification.getQualifier()));
+				String object = "fetch specification " + fetchSpecification.getName();
+				check(file, object, "qualifier key", entity, keys(fetchSpecification.getQualifier()));
 				List<String> sortKeys = new ArrayList<>();
 				if (fetchSpecification.getSortOrderings() != null) {
 					for (EOSortOrdering ordering : fetchSpecification.getSortOrderings()) {
 						sortKeys.add(ordering.getKey());
 					}
 				}
-				check(file, object + "sort key", entity, sortKeys);
-				check(file, object + "prefetching key path", entity, fetchSpecification.getPrefetchingRelationshipKeyPaths());
-				check(file, object + "raw-row key path", entity, fetchSpecification.getRawRowKeyPaths());
+				check(file, object, "sort key", entity, sortKeys);
+				check(file, object, "prefetching key path", entity, fetchSpecification.getPrefetchingRelationshipKeyPaths());
+				check(file, object, "raw-row key path", entity, fetchSpecification.getRawRowKeyPaths());
 			}
 		}
 	}
 
-	private void check(File file, String what, EOEntity entity, Collection<String> keys) {
+	private void check(File file, String object, String kind, EOEntity entity, Collection<String> keys) {
 		if (keys == null) {
 			return;
 		}
@@ -98,10 +99,11 @@ public final class KeyLinter {
 			if (key == null || key.isEmpty() || key.indexOf('@') >= 0) {
 				continue;
 			}
-			String problem = problem(entity, key);
+			Problem problem = problem(entity, key);
 			if (problem != null) {
 				String path = file.equals(modelFolder) ? modelFolder.getName() : modelFolder.getName() + "/" + file.getName();
-				findings.add(new LintFinding(file, path, what + " " + key + problem));
+				findings.add(new LintFinding(file, path, Finding.UNMATCHED_KEY, entity.getName(), object, key, problem.suggestion,
+						object + ": " + kind + " " + key + problem.text));
 			}
 		}
 	}
@@ -109,10 +111,10 @@ public final class KeyLinter {
 	/**
 	 * Follows a key path from an entity, through its relationships.
 	 *
-	 * @return what is wrong with the key path, to follow it in a message, or
-	 *         null if it leads to an attribute or a relationship
+	 * @return what is wrong with the key path, or null if it leads to an
+	 *         attribute or a relationship
 	 */
-	private static String problem(EOEntity entity, String keyPath) {
+	private static Problem problem(EOEntity entity, String keyPath) {
 		String[] names = keyPath.split("\\.", -1);
 		EOEntity current = entity;
 		for (int i = 0; i < names.length; i++) {
@@ -129,14 +131,15 @@ public final class KeyLinter {
 				String where = names.length == 1 ? " matches nothing in " + current.getName() : " matches nothing: " + current.getName() + " has no " + name;
 				String suggestion = name.isEmpty() ? null : ModelLinter.suggest(name, candidates);
 				if (suggestion == null) {
-					return where + ".";
+					return new Problem(where + ".", null);
 				}
 				names[i] = suggestion;
-				return where + " (did you mean " + String.join(".", names) + "?).";
+				String suggested = String.join(".", names);
+				return new Problem(where + " (did you mean " + suggested + "?).", suggested);
 			}
 			if (i < names.length - 1) {
 				if (!(property instanceof EORelationship)) {
-					return " matches nothing: " + name + " is an attribute of " + current.getName() + ", not a relationship.";
+					return new Problem(" matches nothing: " + name + " is an attribute of " + current.getName() + ", not a relationship.", null);
 				}
 				EOEntity destination = ((EORelationship) property).getDestination();
 				if (destination == null) {
@@ -167,6 +170,21 @@ public final class KeyLinter {
 		} catch (RuntimeException e) {
 			// The verifier reports a qualifier that doesn't parse.
 			return Collections.emptySet();
+		}
+	}
+
+	/**
+	 * What is wrong with a key path: the text that follows it in a message, and
+	 * the key path most likely meant, or null.
+	 */
+	private static final class Problem {
+		private final String text;
+
+		private final String suggestion;
+
+		private Problem(String text, String suggestion) {
+			this.text = text;
+			this.suggestion = suggestion;
 		}
 	}
 }

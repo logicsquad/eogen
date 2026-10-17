@@ -7,6 +7,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import net.logicsquad.eogen.Finding;
+
 /**
  * What formatting a project's models did, or would do.
  */
@@ -92,6 +94,8 @@ public final class FormatResult {
 
 	private final List<String> errors;
 
+	private final List<Finding> findings;
+
 	private final boolean written;
 
 	/**
@@ -103,9 +107,30 @@ public final class FormatResult {
 	 * @param written whether the formatted files were written to the project
 	 */
 	public FormatResult(List<FormattedFile> files, List<String> errors, boolean written) {
+		this(files, errors, findings(errors), written);
+	}
+
+	/**
+	 * Constructor.
+	 *
+	 * @param files the project's model files, and what formatting does to each
+	 * @param errors the model group's errors, which stop formatting
+	 * @param findings the errors, and the files left alone, as findings
+	 * @param written whether the formatted files were written
+	 */
+	public FormatResult(List<FormattedFile> files, List<String> errors, List<Finding> findings, boolean written) {
 		this.files = Collections.unmodifiableList(new ArrayList<>(files));
 		this.errors = Collections.unmodifiableList(new ArrayList<>(errors));
+		this.findings = Collections.unmodifiableList(new ArrayList<>(findings));
 		this.written = written;
+	}
+
+	private static List<Finding> findings(List<String> errors) {
+		List<Finding> findings = new ArrayList<>();
+		for (String error : errors) {
+			findings.add(Finding.error(Finding.FAILURE, error).build());
+		}
+		return findings;
 	}
 
 	/**
@@ -176,5 +201,15 @@ public final class FormatResult {
 			}
 		}
 		return matching;
+	}
+
+	/**
+	 * Returns the model group's errors, and a {@link Finding#FORMAT_LOSS} for
+	 * each file left alone, as findings.
+	 *
+	 * @return findings
+	 */
+	public List<Finding> getFindings() {
+		return findings;
 	}
 }

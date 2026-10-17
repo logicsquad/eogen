@@ -4,6 +4,16 @@ The format here is based on [Keep a Changelog](https://keepachangelog.com/en/1.0
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Changed
+- In `--json`, every error, warning and problem is an object with its
+  `severity`, its `message`, and a `code` for its kind, such as
+  `unknown-key` or `syntax`, that keeps its meaning once released. Where
+  eogen knows them, it also has the `file`, `line` and `column`, the
+  `model`, `entity` and `object`, the `key` that is wrong and the
+  `suggestion`, and the `template`. They were strings, or objects with
+  only a `model` and a `message`. The text output is the same. The
+  library has the same findings, as `Finding`. #20
+
 ### Added
 - The lint reports keys that match nothing in a fetch specification's
   qualifier, sort orderings, prefetching or raw-row key paths, or in an

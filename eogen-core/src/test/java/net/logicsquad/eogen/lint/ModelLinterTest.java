@@ -1,6 +1,7 @@
 package net.logicsquad.eogen.lint;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.tuple;
 
 import java.io.IOException;
 import java.net.URISyntaxException;
@@ -16,6 +17,8 @@ import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+
+import net.logicsquad.eogen.Finding;
 
 /**
  * Lints copies of the fixture's Shop model, with mistakes made in them.
@@ -90,6 +93,23 @@ class ModelLinterTest {
 				"Shop.eomodeld/Invoice.fspec: there is no entity Invoice for these fetch specifications, so the model ignores them.",
 				"Shop.eomodeld/Label.plist: entity Label: index.eomodeld doesn't list it, so the model ignores it.",
 				"Shop.eomodeld/Tag.plist: entity Tags: index.eomodeld lists it as Tag.");
+	}
+
+	@Test
+	void givesEachKindOfFindingItsCode() throws IOException {
+		replace("Product.plist", "name = price; prototypeName = amount;", "name = price; prototypeNam = amount;");
+		replace("Product.plist", "primaryKeyAttributes = (id);", "primaryKeyAttributes = (ID);");
+		Files.copy(shop.resolve("Tag.plist"), shop.resolve("Label.plist"));
+		replace("Label.plist", "name = Tag;", "name = Label;");
+		Files.delete(shop.resolve("Company.plist"));
+		replace("Tag.plist", "name = Tag;", "name = Tags;");
+		assertThat(ModelLinter.lint(shop.toFile())).extracting(LintFinding::getCode, LintFinding::getEntity, LintFinding::getObject, LintFinding::getKey,
+				LintFinding::getSuggestion).containsExactly(
+						tuple(Finding.MISSING_FILE, "Company", "entity Company", null, null),
+						tuple(Finding.UNLISTED_FILE, "Label", "entity Label", null, null),
+						tuple(Finding.UNKNOWN_KEY, "Product", "attribute price", "prototypeNam", "prototypeName"),
+						tuple(Finding.UNMATCHED_NAME, "Product", "entity Product", "ID", "id"),
+						tuple(Finding.MISNAMED_ENTITY, "Tags", "entity Tags", null, null));
 	}
 
 	@Test

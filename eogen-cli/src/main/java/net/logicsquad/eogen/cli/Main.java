@@ -16,6 +16,7 @@ import java.util.Map;
 
 import net.logicsquad.eogen.EOGenerator;
 import net.logicsquad.eogen.EOGeneratorException;
+import net.logicsquad.eogen.Finding;
 import net.logicsquad.eogen.GeneratedFile;
 import net.logicsquad.eogen.GeneratedFile.Kind;
 import net.logicsquad.eogen.GeneratedFile.Status;
@@ -295,7 +296,7 @@ public final class Main {
 			try {
 				result = check ? generator.check(eogenFile) : generator.generate(eogenFile);
 			} catch (EOGeneratorException e) {
-				eogenReport.put("errors", Collections.singletonList(e.getMessage()));
+				eogenReport.put("errors", findings(e.getFindings(), true));
 				failed(name + e.getMessage(), e);
 				status = FAILED;
 				continue;
@@ -316,8 +317,8 @@ public final class Main {
 	 */
 	private int report(String name, File eogenFile, GenerationResult result, Map<String, Object> eogenReport) {
 		eogenReport.put("written", result.isWritten());
-		eogenReport.put("errors", result.getErrors());
-		eogenReport.put("warnings", result.getWarnings());
+		eogenReport.put("errors", findings(result.getFindings(), true));
+		eogenReport.put("warnings", findings(result.getFindings(), false));
 		List<Object> files = new ArrayList<>();
 		for (GeneratedFile file : result.getFiles()) {
 			files.add(describe(file));
@@ -394,8 +395,8 @@ public final class Main {
 		}
 		Map<String, Object> verification = new LinkedHashMap<>();
 		verification.put("models", result.getModelNames());
-		verification.put("errors", failures(result.getErrors()));
-		verification.put("warnings", failures(result.getWarnings()));
+		verification.put("errors", findings(result.getFindings(), true));
+		verification.put("warnings", findings(result.getFindings(), false));
 		report.put("verification", verification);
 		if (result.getModelNames().isEmpty()) {
 			warn("no models in " + models + ".");
@@ -422,7 +423,7 @@ public final class Main {
 			return failed(e.getMessage(), e);
 		}
 		Map<String, Object> formatReport = new LinkedHashMap<>();
-		formatReport.put("errors", result.getErrors());
+		formatReport.put("errors", findings(result.getFindings(), true));
 		List<Object> files = new ArrayList<>();
 		for (FormattedFile file : result.getRefusedFiles()) {
 			Map<String, Object> map = new LinkedHashMap<>();
@@ -462,15 +463,43 @@ public final class Main {
 		return OK;
 	}
 
-	private List<Object> failures(List<EOModelVerificationFailure> failures) {
+	/**
+	 * Returns the errors, or the warnings, among findings, as JSON objects.
+	 */
+	private static List<Object> findings(List<Finding> findings, boolean errors) {
 		List<Object> list = new ArrayList<>();
-		for (EOModelVerificationFailure failure : failures) {
-			Map<String, Object> map = new LinkedHashMap<>();
-			map.put("model", failure.getModel() == null ? null : failure.getModel().getName());
-			map.put("message", failure.getMessage());
-			list.add(map);
+		for (Finding finding : findings) {
+			if (finding.isError() == errors) {
+				list.add(describe(finding));
+			}
 		}
 		return list;
+	}
+
+	/**
+	 * Returns a finding as a JSON object, with only the fields eogen knows.
+	 */
+	private static Map<String, Object> describe(Finding finding) {
+		Map<String, Object> map = new LinkedHashMap<>();
+		map.put("severity", finding.getSeverity().name().toLowerCase(Locale.ROOT));
+		map.put("code", finding.getCode());
+		map.put("message", finding.getMessage());
+		put(map, "file", finding.getFile());
+		put(map, "line", finding.getLine());
+		put(map, "column", finding.getColumn());
+		put(map, "model", finding.getModel());
+		put(map, "entity", finding.getEntity());
+		put(map, "object", finding.getObject());
+		put(map, "key", finding.getKey());
+		put(map, "suggestion", finding.getSuggestion());
+		put(map, "template", finding.getTemplate());
+		return map;
+	}
+
+	private static void put(Map<String, Object> map, String key, Object value) {
+		if (value != null) {
+			map.put(key, value);
+		}
 	}
 
 	private Map<String, Object> describe(GeneratedFile file) {
@@ -522,7 +551,11 @@ public final class Main {
 		}
 		@SuppressWarnings("unchecked")
 		List<Object> problems = (List<Object>) report.computeIfAbsent("problems", key -> new ArrayList<>());
-		problems.add(message);
+		if (cause instanceof EOGeneratorException) {
+			problems.addAll(findings(((EOGeneratorException) cause).getFindings(), true));
+		} else {
+			problems.add(describe(Finding.error(Finding.FAILURE, message).build()));
+		}
 		return FAILED;
 	}
 

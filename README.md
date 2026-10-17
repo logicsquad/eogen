@@ -158,6 +158,49 @@ with a `kind` (`superclass` or `subclass`) and a `status` (`created`,
 there when `--all` and `--verify` are; and `problems` has any failure
 that stopped it. Problems still go to standard error, as text.
 
+Each error, warning and problem is a finding, the same object wherever
+it appears:
+
+    {
+      "severity": "warning",
+      "code": "unknown-key",
+      "message": "Library.eomodeld/Book.plist: attribute price: unknown key prototypeNam (did you mean prototypeName?).",
+      "file": "src/main/resources/Library.eomodeld/Book.plist",
+      "model": "Library",
+      "entity": "Book",
+      "object": "attribute price",
+      "key": "prototypeNam",
+      "suggestion": "prototypeName"
+    }
+
+`severity` is `error` or `warning`, and `message` is the text eogen
+prints. `file` is relative to the project, with `/`. The other fields
+are there only where eogen knows them: `line` and `column`, `model`,
+`entity`, `object`, which names what the finding is about as the message
+does, `key`, the key, name, key path or template reference that is
+wrong, `suggestion`, what it most likely meant, and `template`. `code`
+names the kind of finding, and keeps its meaning once released:
+
+| Code | Finding |
+|---|---|
+| `syntax` | a model file that doesn't parse, at a `line` and `column` |
+| `load` | a model that fails to load for another reason |
+| `verifier` | what Entity Modeler's own verifier finds, which it describes only in text |
+| `unknown-key` | a key in a model file that the model classes don't read |
+| `unmatched-name` | a name in `classProperties`, `primaryKeyAttributes` or `attributesUsedForLocking` that matches nothing |
+| `unlisted-file` | a model file that `index.eomodeld` doesn't list, so the model ignores it |
+| `missing-file` | an entity that `index.eomodeld` lists, but that has no file |
+| `misnamed-entity` | an entity whose `name` isn't its file's |
+| `unmatched-key` | a key in a fetch specification or a restricting qualifier that matches nothing |
+| `unresolved-reference` | a template reference that rendered with no value |
+| `format-loss` | a model that formatting leaves alone, since saving it would change what a file says |
+| `eogen-file` | an `.eogen` file that eogen can't use, such as one with no `-destination` |
+| `failure` | anything else that stops a run |
+
+The library has the same findings, as `Finding`, in
+`GenerationResult.getFindings()`, `VerificationResult.getFindings()`,
+`FormatResult.getFindings()` and `EOGeneratorException.getFindings()`.
+
 Using eogen with a coding agent
 -------------------------------
 [`skills/eogen/SKILL.md`](skills/eogen/SKILL.md) is a
