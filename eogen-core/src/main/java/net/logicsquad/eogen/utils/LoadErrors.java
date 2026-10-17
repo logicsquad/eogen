@@ -22,6 +22,12 @@ public final class LoadErrors {
 	private static final Pattern FILE = Pattern.compile("'([^']+\\.(?:plist|fspec|storedProcedure|eomodeld))'");
 
 	/**
+	 * A model's index, which the model classes don't quote: "index.eomodeld is
+	 * corrupted."
+	 */
+	private static final String CORRUPT_INDEX = "index.eomodeld is corrupted.";
+
+	/**
 	 * Where the parser stopped: "At line number: 12, column: 58."
 	 */
 	private static final Pattern POSITION = Pattern.compile("\\s*At line number: (-?\\d+), column: (-?\\d+)\\.?");
@@ -50,6 +56,8 @@ public final class LoadErrors {
 			Matcher fileMatcher = FILE.matcher(message);
 			if (fileMatcher.find()) {
 				file = fileMatcher.group(1);
+			} else if (message.startsWith(CORRUPT_INDEX)) {
+				file = modelFolder == null ? "index.eomodeld" : new File(modelFolder, "index.eomodeld").getPath();
 			}
 			Matcher positionMatcher = POSITION.matcher(message);
 			if (positionMatcher.find()) {

@@ -59,6 +59,7 @@ import java.util.Calendar;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
@@ -207,13 +208,15 @@ public class VelocityEOGeneratorRunner {
 						}
 						EOModel generatingModel = generatingModelGroup.getEditingModel();
 						if (generatingModel == null) {
-							StringBuilder message = new StringBuilder("Failed to load the model " + modelURL + ".");
+							// eogen: the errors say which model failed, and where, so the
+							// URL is only for when there are none.
+							Set<String> errors = new LinkedHashSet<String>();
 							for (EOModelVerificationFailure failure : failures) {
 								if (!failure.isWarning()) {
-									message.append(' ').append(failure.getMessage());
+									errors.add(failure.getMessage());
 								}
 							}
-							throw new EOModelException(message.toString());
+							throw new EOModelException(errors.isEmpty() ? "Failed to load the model " + modelURL + "." : String.join(" ", errors));
 						}
 						models.add(generatingModel);
 

@@ -515,10 +515,11 @@ public class EOModelGroup extends EOModelObject<Object> {
 					} catch (Exception e) {
 						// eogen: an error rather than a warning, since a model that fails to load
 						// can't be generated from or verified, and in one line, with the file and
-						// position the parser stopped at, rather than as a stack trace.
+						// position the parser stopped at, rather than as a stack trace. The
+						// failure has no root cause, whose messages getMessage() would append.
 						LOG.debug(model.getName() + " failed to load.", e);
 						File modelFolder = "file".equals(modelURL.getProtocol()) ? URLUtils.cheatAndTurnIntoFile(modelURL) : null;
-						failures.add(new EOModelVerificationFailure(model, model, model.getName() + " failed to load: " + LoadErrors.describe(e, modelFolder), false, e));
+						failures.add(new EOModelVerificationFailure(model, model, model.getName() + " failed to load: " + LoadErrors.describe(e, modelFolder), false, null));
 						reloadModel = false;
 					}
 				}

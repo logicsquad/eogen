@@ -28,6 +28,14 @@ class LoadErrorsTest {
 	}
 
 	@Test
+	void namesTheIndexOfAModel() {
+		Exception failure = new EOModelException("index.eomodeld is corrupted.",
+				new IllegalArgumentException("Property list parsing failed while attempting to read array. Input exhausted before end of array was found. At line number: 4, column: -48."));
+		assertThat(LoadErrors.describe(failure, MODEL))
+				.isEqualTo("Library.eomodeld/index.eomodeld:4: Property list parsing failed while attempting to read array. Input exhausted before end of array was found.");
+	}
+
+	@Test
 	void fallsBackToTheDeepestMessage() {
 		Exception failure = new RuntimeException("outer", new IllegalStateException("the real problem"));
 		assertThat(LoadErrors.describe(failure, MODEL)).isEqualTo("the real problem");

@@ -215,7 +215,8 @@ class MainTest {
 		Files.write(book, text.replace("name = price;", "name = price").getBytes(StandardCharsets.UTF_8));
 		assertThat(run("--project", project.toString(), "--classpath", reference.toString(), eogen())).isEqualTo(Main.FAILED);
 		assertThat(err()).containsPattern("Library failed to load: Library\\.eomodeld/Book\\.plist:\\d+:\\d+: Property list parsing failed")
-				.doesNotContain("\tat ");
+				.doesNotContain("\tat ").doesNotContain("At line number").doesNotContain("Failed to load the model");
+		assertThat(err().split("Library failed to load", -1)).hasSize(2);
 		err.reset();
 		assertThat(run("--debug", "--project", project.toString(), "--classpath", reference.toString(), eogen())).isEqualTo(Main.FAILED);
 		assertThat(err()).contains("\tat ");

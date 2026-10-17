@@ -375,7 +375,8 @@ class EOGeneratorTest {
 		FixtureProject project = FixtureProject.copyTo(temp);
 		write(project.resolve("src/main/resources/Shop.eomodeld/index.eomodeld"), "{ entities = ( ");
 		assertThatThrownBy(() -> project.generator().generate(project.eogen("ShopClassic"))).isInstanceOf(EOGeneratorException.class)
-				.hasMessageContaining("Failed to load the model");
+				.hasMessageEndingWith(": Shop failed to load: Shop.eomodeld/index.eomodeld:1: Property list parsing failed while attempting to read array."
+						+ " Input exhausted before end of array was found.");
 	}
 
 	/**
@@ -388,8 +389,8 @@ class EOGeneratorTest {
 		Path tag = project.resolve("src/main/resources/Shop.eomodeld/Tag.plist");
 		write(tag, read(tag).replace("name = Tag;", "name = Tag"));
 		VerificationResult result = project.generator().verify(false);
-		assertThat(result.getErrors()).extracting(EOModelVerificationFailure::getMessage)
-				.anyMatch(message -> message.matches("Shop failed to load: Shop\\.eomodeld/Tag\\.plist:\\d+:\\d+: Property list parsing failed .*"));
+		assertThat(result.getErrors()).extracting(EOModelVerificationFailure::getMessage).anyMatch(message -> message.matches(
+				"Shop failed to load: Shop\\.eomodeld/Tag\\.plist:\\d+:\\d+: Property list parsing failed while attempting to read dictionary\\. [^.]+\\."));
 	}
 
 	@Test
