@@ -627,6 +627,11 @@ public class EOGenerator {
 						refusals.add(taken);
 					}
 				}
+				// By the names that each save lists: where the file system ignores
+				// case, asking for a renamed entity's new file finds its old one if
+				// only the case of the name changes.
+				Set<String> oldNames = modelFiles(before.get(folder.getKey()));
+				Set<String> newNames = modelFiles(saved);
 				for (String name : modelFiles(before.get(folder.getKey()), saved)) {
 					File old = new File(before.get(folder.getKey()), name);
 					File updated = new File(saved, name);
@@ -635,9 +640,9 @@ public class EOGenerator {
 					// change, which saving must lose nothing from: itself, or a
 					// renamed entity's old file.
 					String original = null;
-					if (!updated.isFile()) {
+					if (!newNames.contains(name)) {
 						files.add(new RefactorResult.ChangedFile(file, RefactorResult.Status.DELETED));
-					} else if (!old.isFile()) {
+					} else if (!oldNames.contains(name)) {
 						files.add(new RefactorResult.ChangedFile(file, RefactorResult.Status.CREATED));
 						original = renamed.get(name);
 					} else if (!Arrays.equals(Files.readAllBytes(old.toPath()), Files.readAllBytes(updated.toPath()))) {
@@ -656,10 +661,16 @@ public class EOGenerator {
 				return new RefactorResult(Collections.<RefactorResult.ChangedFile>emptyList(), refusals, false);
 			}
 			if (write) {
+				// Deleting first: where the file system ignores case, deleting a
+				// renamed entity's old file would delete its new one, if only the
+				// case of the name changes.
 				for (RefactorResult.ChangedFile file : files) {
 					if (file.getStatus() == RefactorResult.Status.DELETED) {
 						Files.deleteIfExists(file.getFile().toPath());
-					} else {
+					}
+				}
+				for (RefactorResult.ChangedFile file : files) {
+					if (file.getStatus() != RefactorResult.Status.DELETED) {
 						EOModel model = folders.entrySet().stream().filter(entry -> entry.getValue().equals(file.getFile().getParentFile())).findFirst().get().getKey();
 						Files.copy(new File(after.get(model), file.getFile().getName()).toPath(), file.getFile().toPath(), StandardCopyOption.REPLACE_EXISTING);
 					}
@@ -767,8 +778,8 @@ public class EOGenerator {
 	}
 
 	/**
-	 * Returns the names of the model files in either of two saved folders,
-	 * sorted.
+	 * Returns the names of the model files in any of some saved folders, as the
+	 * file system lists them, sorted.
 	 */
 	private static Set<String> modelFiles(File... folders) {
 		Set<String> names = new TreeSet<>();

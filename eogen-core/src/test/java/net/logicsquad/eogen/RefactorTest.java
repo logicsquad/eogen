@@ -129,6 +129,29 @@ class RefactorTest {
 		assertThat(read("Movies.eomodeld/Distributor.plist")).contains("className = \"webobjectsexamples.businesslogic.movies.server.Studio\";");
 	}
 
+	/**
+	 * A rename that changes only the case of an entity's name renames its
+	 * files, even where the file system ignores case, as macOS's and Windows's
+	 * do unless told otherwise.
+	 */
+	@Test
+	void renamesAnEntitysFilesWhenOnlyTheCaseChanges() throws Exception {
+		Map<String, String> original = modelFiles();
+		RefactorResult result = generator.rename("Studio", "STUDIO", false, true);
+		assertThat(result.isRefused()).as(String.valueOf(result.getFindings())).isFalse();
+		assertThat(files(result)).contains(tuple("Movies.eomodeld/STUDIO.fspec", Status.CREATED), tuple("Movies.eomodeld/STUDIO.plist", Status.CREATED),
+				tuple("Movies.eomodeld/Studio.fspec", Status.DELETED), tuple("Movies.eomodeld/Studio.plist", Status.DELETED));
+		assertThat(modelFiles().keySet()).contains("Movies.eomodeld/STUDIO.fspec", "Movies.eomodeld/STUDIO.plist").doesNotContain("Movies.eomodeld/Studio.fspec",
+				"Movies.eomodeld/Studio.plist");
+		assertThat(read("Movies.eomodeld/STUDIO.plist")).contains("name = STUDIO;");
+		assertThat(result.getFindings()).extracting(Finding::getMessage).contains("Studio and STUDIO differ only in case, so where the file system ignores case,"
+				+ " version control may keep the entity's files under their old names. Rename them there too, as with git mv Studio.plist STUDIO.plist.");
+		assertWorks();
+
+		assertThat(generator.rename("STUDIO", "Studio", false, true).isRefused()).isFalse();
+		assertThat(differences(original, modelFiles())).isEmpty();
+	}
+
 	@Test
 	void writesNothingWhenOnlyReporting() throws Exception {
 		Map<String, String> original = modelFiles();

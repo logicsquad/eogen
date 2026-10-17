@@ -142,6 +142,10 @@ public final class ModelRefactorer {
 		}
 		change.byHand("Code that names the entity " + oldName + " as text, such as in a fetch, needs changing to " + newName + ".", found.modelName(), newName,
 				"entity " + newName);
+		if (newName.equalsIgnoreCase(oldName)) {
+			change.byHand(oldName + " and " + newName + " differ only in case, so where the file system ignores case, version control may keep the entity's files under"
+					+ " their old names. Rename them there too, as with git mv " + oldName + ".plist " + newName + ".plist.", found.modelName(), newName, "entity " + newName);
+		}
 		textThatNames(projectModels, oldName, change);
 		return change;
 	}

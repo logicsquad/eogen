@@ -470,8 +470,11 @@ file goes ahead, and leaves it as it is.
 Both report what is left to do by hand, as warnings with the code
 `by-hand`: renaming a subclass, since eogen never edits one; deleting an
 orphaned superclass, which `generate` with `deleteOrphans` does; code
-that uses the old accessors, which compiling finds; and text in the
-models that still names the old name, such as custom SQL. With `dryRun`
+that uses the old accessors, which compiling finds; text in the models
+that still names the old name, such as custom SQL; and, when only the
+case of an entity's name changes, renaming its files in version
+control, which may not see the change where the file system ignores
+case, as macOS's and Windows's do by default. With `dryRun`
 (`eogen.dryRun`), they change nothing and only report. The command line
 does the same with `--rename <target> --to <name>`, `--rename-class`
 and `--remove <target>`, and `--check` for a dry run.
