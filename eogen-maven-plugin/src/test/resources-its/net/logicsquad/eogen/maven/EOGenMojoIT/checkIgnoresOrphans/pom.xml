@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+                             http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>net.logicsquad.eogen.it</groupId>
+  <artifactId>library</artifactId>
+  <version>1.0</version>
+  <packaging>pom</packaging>
+
+  <properties>
+    <it-reference.jar>${project.build.directory}/it-reference.jar</it-reference.jar>
+  </properties>
+
+  <dependencies>
+    <dependency>
+      <groupId>net.logicsquad.eogen.it</groupId>
+      <artifactId>reference</artifactId>
+      <version>1.0</version>
+      <scope>system</scope>
+      <systemPath>${it-reference.jar}</systemPath>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>net.logicsquad</groupId>
+        <artifactId>eogen-maven-plugin</artifactId>
+        <version>${project.version}</version>
+        <configuration>
+          <checkOrphans>false</checkOrphans>
+        </configuration>
+        <executions>
+          <execution>
+            <id>generate</id>
+            <phase>generate-sources</phase>
+            <goals>
+              <goal>generate</goal>
+            </goals>
+          </execution>
+          <execution>
+            <id>check</id>
+            <phase>process-sources</phase>
+            <goals>
+              <goal>check</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+</project>

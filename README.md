@@ -62,7 +62,7 @@ The goals are:
   and fails the build if `generate` would change anything: a
   superclass that differs, or a missing superclass or subclass. It
   names each stale file, and changes nothing in the project. Errors
-  and orphans fail it too.
+  and orphans fail it too, unless `checkOrphans` is false.
 * `verify` (default phase `verify`): loads the project's model group,
   resolves and verifies it as Entity Modeler does, reports errors and
   warnings, and fails the build on errors.
@@ -82,6 +82,8 @@ They take these parameters:
   [Lint](#lint)).
 * For `generate`, `deleteOrphans` (`eogen.deleteOrphans`) deletes
   orphaned superclasses.
+* For `check`, `checkOrphans` (`eogen.check.orphans`): set it to false,
+  and `check` doesn't look for orphans.
 * `generatedMarker` (`eogen.generatedMarker`): the text that marks a
   superclass as generated. The default is `DO NOT EDIT`.
 * For `verify`, `includeDependencies` (`eogen.verify.includeDependencies`)
@@ -226,10 +228,11 @@ destination, has that file's prefix and extension, has the generated
 marker (`DO NOT EDIT`) in its first five lines, and no `.eogen` file
 in the project generates it.
 
-`check` fails on orphans and on their subclasses. `generate` reports
-them, and with `deleteOrphans` deletes the orphaned superclasses. It
-never deletes a subclass, since a subclass is edited by hand, so it
-leaves those to you.
+`check` fails on orphans and on their subclasses, unless
+`checkOrphans` is false. `generate` reports them, and with
+`deleteOrphans` deletes the orphaned superclasses. It never deletes a
+subclass, since a subclass is edited by hand, so it leaves those to
+you.
 
 Several `.eogen` files often share a destination, so the goals only
 look for orphans when they use every `.eogen` file in the model

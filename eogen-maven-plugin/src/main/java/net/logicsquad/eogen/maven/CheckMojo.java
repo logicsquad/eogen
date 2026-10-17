@@ -8,6 +8,7 @@ import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
+import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.plugins.annotations.ResolutionScope;
 
 import net.logicsquad.eogen.EOGenerator;
@@ -23,10 +24,17 @@ import net.logicsquad.eogen.GenerationResult;
  * generates into a scratch folder, and changes nothing in the project. Errors
  * in the model group or templates fail it too, unless {@code eogen.force} is
  * set, since {@code generate} would not write the classes. So do orphans:
- * superclasses that no .eogen file generates any more, and their subclasses.
+ * superclasses that no .eogen file generates any more, and their subclasses,
+ * unless {@code eogen.check.orphans} is false.
  */
 @Mojo(name = "check", defaultPhase = LifecyclePhase.VERIFY, requiresDependencyResolution = ResolutionScope.COMPILE_PLUS_RUNTIME, threadSafe = true)
 public class CheckMojo extends AbstractEOGenMojo {
+	/**
+	 * Whether to fail the build on orphans.
+	 */
+	@Parameter(property = "eogen.check.orphans", defaultValue = "true")
+	private boolean checkOrphans;
+
 	@Override
 	protected void execute(EOGenerator generator) throws MojoExecutionException, MojoFailureException {
 		int superclasses = 0;
@@ -56,7 +64,7 @@ public class CheckMojo extends AbstractEOGenMojo {
 			}
 		}
 		int orphans = 0;
-		if (findsOrphans()) {
+		if (checkOrphans && findsOrphans()) {
 			try {
 				for (GeneratedFile orphan : generator.findOrphans(results)) {
 					orphans++;

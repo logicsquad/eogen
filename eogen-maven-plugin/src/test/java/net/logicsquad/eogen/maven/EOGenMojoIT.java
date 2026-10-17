@@ -121,6 +121,18 @@ public class EOGenMojoIT {
 	}
 
 	/**
+	 * With checkOrphans false, check passes despite Loan's classes, which
+	 * generate still reports.
+	 */
+	@MavenTest
+	void checkIgnoresOrphans(MavenExecutionResult result) {
+		assertThat(result).isSuccessful();
+		assertThat(result).out().info().contains("All 2 generated superclasses are up to date.");
+		assertThat(result).out().warn().contains(LIBRARY + "_Loan.java is an orphan: no .eogen file generates it any more. Delete it, or set eogen.deleteOrphans.");
+		assertThat(result).out().error().isEmpty();
+	}
+
+	/**
 	 * With deleteOrphans, generate deletes Loan's superclass, and leaves its
 	 * subclass, which was edited by hand.
 	 */

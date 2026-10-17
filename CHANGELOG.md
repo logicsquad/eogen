@@ -22,8 +22,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Orphans: superclasses that no `.eogen` file generates any more, such
   as those of deleted or renamed entities, and their subclasses. `check`
-  fails on them, and `generate` reports them, deleting the superclasses
-  with the new `deleteOrphans` option (`eogen.deleteOrphans`).
+  fails on them, unless `checkOrphans` (`eogen.check.orphans`) is false,
+  and `generate` reports them, deleting the superclasses with the new
+  `deleteOrphans` option (`eogen.deleteOrphans`).
   `EOGenerator.findOrphans` and `deleteOrphans` do the same in the
   library. #7
 
