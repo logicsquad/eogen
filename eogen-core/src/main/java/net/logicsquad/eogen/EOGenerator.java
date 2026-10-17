@@ -434,7 +434,12 @@ public class EOGenerator {
 		}
 		List<EOModelVerificationFailure> reported = new ArrayList<>();
 		for (EOModelVerificationFailure failure : failures) {
-			if (failure.getModel() == null || reportedModels.contains(failure.getModel())) {
+			EOModel model = failure.getModel();
+			if (model == null || reportedModels.contains(model)) {
+				reported.add(failure);
+			} else if (!modelGroup.getModels().contains(model) && (includeDependencyModels || isProjectModel(model))) {
+				// A model that failed to load is not in the group, but its failure counts.
+				reportedModels.add(model);
 				reported.add(failure);
 			}
 		}

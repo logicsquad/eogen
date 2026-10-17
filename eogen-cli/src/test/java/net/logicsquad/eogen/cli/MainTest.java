@@ -141,8 +141,84 @@ class MainTest {
 		assertThat(run("--project")).isEqualTo(Main.FAILED);
 		assertThat(err()).contains("--project needs a value.");
 		err.reset();
-		assertThat(run(eogen(), eogen())).isEqualTo(Main.FAILED);
-		assertThat(err()).contains("Give one .eogen file.");
+		assertThat(run("--all", eogen())).isEqualTo(Main.FAILED);
+		assertThat(err()).contains("Give .eogen files or --all, not both.");
+		err.reset();
+		assertThat(run("--verify", "--check")).isEqualTo(Main.FAILED);
+		assertThat(err()).contains("--verify takes no .eogen files");
+		err.reset();
+		assertThat(run("--delete-orphans", eogen())).isEqualTo(Main.FAILED);
+		assertThat(err()).contains("--delete-orphans needs --all");
+		err.reset();
+		assertThat(run("--include-dependencies", eogen())).isEqualTo(Main.FAILED);
+		assertThat(err()).contains("--include-dependencies goes with --verify.");
+	}
+
+	@Test
+	void allUsesEveryEOGenFileAndReportsOrphans() throws Exception {
+		Path library = Files.createDirectories(project.resolve(LIBRARY));
+		Files.write(library.resolve("_Loan.java"), "// DO NOT EDIT.  Make changes to com.example.library.Loan.java instead.\n".getBytes(StandardCharsets.UTF_8));
+		Files.write(library.resolve("Loan.java"), "class Loan extends _Loan {}\n".getBytes(StandardCharsets.UTF_8));
+		assertThat(run("--all", "--project", project.toString(), "--classpath", reference.toString())).isEqualTo(Main.OK);
+		assertThat(out()).contains("Created " + LIBRARY + "_Book.java", LIBRARY + "_Loan.java is an orphan: no .eogen file generates it any more.",
+				LIBRARY + "Loan.java is the subclass of an orphaned superclass. Delete it by hand if its entity is gone.");
+
+		out.reset();
+		assertThat(run("--all", "--check", "--project", project.toString(), "--classpath", reference.toString())).isEqualTo(Main.STALE);
+		assertThat(out()).contains("src" + File.separator + "main" + File.separator + "resources" + File.separator + "Library.eogen: All 2 generated superclasses are up to date.",
+				LIBRARY + "_Loan.java is an orphan");
+
+		out.reset();
+		assertThat(run("--all", "--delete-orphans", "--project", project.toString(), "--classpath", reference.toString())).isEqualTo(Main.OK);
+		assertThat(out()).contains("Deleted " + LIBRARY + "_Loan.java, which no .eogen file generates any more.");
+		assertThat(library.resolve("_Loan.java")).doesNotExist();
+		assertThat(library.resolve("Loan.java")).exists();
+	}
+
+	@Test
+	void generatesSeveralEOGenFiles() throws Exception {
+		Path second = project.resolve("src/main/resources/Second.eogen");
+		Files.write(second, new String(Files.readAllBytes(Paths.get(eogen())), StandardCharsets.UTF_8).replace("src/main/java", "generated").getBytes(StandardCharsets.UTF_8));
+		assertThat(run("--project", project.toString(), "--classpath", reference.toString(), eogen(), second.toString())).isEqualTo(Main.OK);
+		assertThat(project.resolve(LIBRARY + "_Book.java")).exists();
+		assertThat(project.resolve("generated/com/example/library/_Book.java")).exists();
+	}
+
+	@Test
+	void verifyReportsTheModelGroup() throws Exception {
+		assertThat(run("--verify", "--project", project.toString(), "--classpath", reference.toString())).isEqualTo(Main.OK);
+		assertThat(out()).contains("Verified Library: 0 errors, 0 warnings.");
+		out.reset();
+		assertThat(run("--verify", "--include-dependencies", "--project", project.toString(), "--classpath", reference.toString())).isEqualTo(Main.OK);
+		assertThat(out()).contains("Verified Library, Reference: 0 errors, 0 warnings.");
+		out.reset();
+		assertThat(run("--verify", "--project", project.toString())).isEqualTo(Main.FAILED);
+		assertThat(err()).contains("eogen: Library: ", "Currency");
+	}
+
+	@Test
+	void jsonReportsWhatHappened() throws Exception {
+		assertThat(run("--json", "--check", "--project", project.toString(), "--classpath", reference.toString(), eogen())).isEqualTo(Main.STALE);
+		String json = out();
+		assertThat(json).startsWith("{\n  \"status\": \"stale\",\n  \"eogenFiles\": [\n").contains("\"written\": false", "\"kind\": \"superclass\"",
+				"\"status\": \"created\"", "\"file\": \"" + (LIBRARY + "_Book.java").replace("\\", "\\\\") + "\"").doesNotContain("is missing.");
+		out.reset();
+		assertThat(run("--json", "--verify", "--project", project.toString())).isEqualTo(Main.FAILED);
+		assertThat(out()).startsWith("{\n  \"status\": \"failed\",\n  \"verification\": {\n").contains("\"model\": \"Library\"");
+	}
+
+	@Test
+	void aModelThatFailsToParseIsReportedInOneLine() throws Exception {
+		Path book = project.resolve("src/main/resources/Library.eomodeld/Book.plist");
+		String text = new String(Files.readAllBytes(book), StandardCharsets.UTF_8);
+		assertThat(text).contains("name = price;");
+		Files.write(book, text.replace("name = price;", "name = price").getBytes(StandardCharsets.UTF_8));
+		assertThat(run("--project", project.toString(), "--classpath", reference.toString(), eogen())).isEqualTo(Main.FAILED);
+		assertThat(err()).containsPattern("Library failed to load: Library\\.eomodeld/Book\\.plist:\\d+:\\d+: Property list parsing failed")
+				.doesNotContain("\tat ");
+		err.reset();
+		assertThat(run("--debug", "--project", project.toString(), "--classpath", reference.toString(), eogen())).isEqualTo(Main.FAILED);
+		assertThat(err()).contains("\tat ");
 	}
 
 	@Test

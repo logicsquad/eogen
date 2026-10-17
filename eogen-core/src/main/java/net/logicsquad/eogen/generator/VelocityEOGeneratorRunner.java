@@ -207,7 +207,13 @@ public class VelocityEOGeneratorRunner {
 						}
 						EOModel generatingModel = generatingModelGroup.getEditingModel();
 						if (generatingModel == null) {
-							throw new EOModelException("Failed to load the model " + modelURL + ".");
+							StringBuilder message = new StringBuilder("Failed to load the model " + modelURL + ".");
+							for (EOModelVerificationFailure failure : failures) {
+								if (!failure.isWarning()) {
+									message.append(' ').append(failure.getMessage());
+								}
+							}
+							throw new EOModelException(message.toString());
 						}
 						models.add(generatingModel);
 

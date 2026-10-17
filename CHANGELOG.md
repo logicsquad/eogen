@@ -28,7 +28,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `EOGenerator.findOrphans` and `deleteOrphans` do the same in the
   library. #7
 
+- The command line takes several `.eogen` files, or `--all` to use
+  every one under the model folders, which also reports orphans and,
+  with `--delete-orphans`, deletes them. It can `--verify` the model
+  group, with `--include-dependencies`, and report in JSON with
+  `--json`. `--debug` shows stack traces. #15
+
 ### Fixed
+- A model that fails to load is an error, reported in one line with the
+  file and the position the parser stopped at. It was a warning, with a
+  stack trace, and `verify` passed. #6
 - The Maven plugin finds models in runtime-scoped dependencies, such as
   a framework of prototypes, as WOLips does through Eclipse's classpath.
   #5

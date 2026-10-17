@@ -378,6 +378,20 @@ class EOGeneratorTest {
 				.hasMessageContaining("Failed to load the model");
 	}
 
+	/**
+	 * WOLips makes a model that fails to load a warning, with a stack trace;
+	 * eogen makes it an error, in one line.
+	 */
+	@Test
+	void verifyFailsOnAModelThatFailsToParse() throws Exception {
+		FixtureProject project = FixtureProject.copyTo(temp);
+		Path tag = project.resolve("src/main/resources/Shop.eomodeld/Tag.plist");
+		write(tag, read(tag).replace("name = Tag;", "name = Tag"));
+		VerificationResult result = project.generator().verify(false);
+		assertThat(result.getErrors()).extracting(EOModelVerificationFailure::getMessage)
+				.anyMatch(message -> message.matches("Shop failed to load: Shop\\.eomodeld/Tag\\.plist:\\d+:\\d+: Property list parsing failed .*"));
+	}
+
 	@Test
 	void findsEOGenFilesInNameOrder() throws Exception {
 		FixtureProject project = FixtureProject.copyTo(temp);

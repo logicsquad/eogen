@@ -66,6 +66,7 @@ import org.objectstyle.woenvironment.plist.PropertyListParserException;
 import org.objectstyle.woenvironment.plist.WOLPropertyListSerialization;
 import net.logicsquad.eogen.runtime.IProgressMonitor;
 import net.logicsquad.eogen.runtime.NullProgressMonitor;
+import net.logicsquad.eogen.utils.LoadErrors;
 import net.logicsquad.eogen.utils.URLUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -503,7 +504,7 @@ public class EOModelGroup extends EOModelObject<Object> {
 						addModel(model, failures);
 						reloadModel = false;
 					} catch (DuplicateEntityNameException e) {
-						e.printStackTrace();
+						LOG.debug("Duplicate entity in " + model.getName() + ".", e);
 						if (!skipOnDuplicates) {
 							throw e;
 						}
@@ -512,8 +513,12 @@ public class EOModelGroup extends EOModelObject<Object> {
 						failures.add(new EOModelVerificationFailure(model, model, existingEntityModel.getName() + " and " + model.getName() + " both declare an entity named " + existingEntity.getName() + ", so " + existingEntityModel.getName() + " is being removed. You can create an EOModelGroup file to resolve this.", true, e));
 						removeModel(existingEntityModel, failures);
 					} catch (Exception e) {
-						e.printStackTrace();
-						failures.add(new EOModelVerificationFailure(model, model, model.getName() + " failed to load.", true, e));
+						// eogen: an error rather than a warning, since a model that fails to load
+						// can't be generated from or verified, and in one line, with the file and
+						// position the parser stopped at, rather than as a stack trace.
+						LOG.debug(model.getName() + " failed to load.", e);
+						File modelFolder = "file".equals(modelURL.getProtocol()) ? URLUtils.cheatAndTurnIntoFile(modelURL) : null;
+						failures.add(new EOModelVerificationFailure(model, model, model.getName() + " failed to load: " + LoadErrors.describe(e, modelFolder), false, e));
 						reloadModel = false;
 					}
 				}

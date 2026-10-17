@@ -100,31 +100,55 @@ Using the command line
 ----------------------
 `eogen-cli`'s jar contains everything it needs:
 
-    java -jar eogen-cli-0.1.jar [options] <file.eogen>
+    java -jar eogen-cli-0.2.jar [options] <file.eogen>...
+    java -jar eogen-cli-0.2.jar [options] --all
+    java -jar eogen-cli-0.2.jar [options] --verify
 
-    --project <folder>    The folder that the .eogen file's paths are
-                          relative to. Default: the current folder.
-    --models <folders>    Folders whose models make up the model group,
-                          separated by ':' (';' on Windows). Default:
-                          <project>/src/main/resources.
-    --classpath <path>    Jars and folders whose Resources folders add
-                          their models to the model group, separated by
-                          ':' (';' on Windows).
-    --check               Write nothing. List the files that generating
-                          would change, and exit with status 1 if there
-                          are any.
-    --force               Write the classes even when there are errors,
-                          as WOLips does. Without it, errors mean
-                          nothing is written, and the exit status is 2.
-    --strict              Make the lint's findings in the models errors
-                          rather than warnings.
+    --project <folder>      The folder that the .eogen files' paths are
+                            relative to. Default: the current folder.
+    --models <folders>      Folders whose models make up the model
+                            group, separated by ':' (';' on Windows).
+                            Default: <project>/src/main/resources.
+    --classpath <path>      Jars and folders whose Resources folders add
+                            their models to the model group, separated
+                            by ':' (';' on Windows).
+    --all                   Use every .eogen file under the model
+                            folders, and report orphans.
+    --check                 Write nothing. List the files that
+                            generating would change, and the orphans,
+                            and exit with status 1 if there are any.
+    --verify                Load, resolve and verify the model group as
+                            Entity Modeler does, and lint the project's
+                            models. Exit with status 2 on errors.
+    --include-dependencies  With --verify, report on the dependencies'
+                            models too.
+    --delete-orphans        With --all, delete the orphaned superclasses.
+    --force                 Write the classes even when there are
+                            errors, as WOLips does. Without it, errors
+                            mean nothing is written, and the exit
+                            status is 2.
+    --strict                Make the lint's findings in the models
+                            errors rather than warnings.
+    --json                  Report in JSON on standard output.
+    --debug                 Show stack traces.
+
+The exit status is 0 when all is well, 1 when `--check` finds stale
+files or orphans, and 2 for errors.
 
 To give it a Maven project's dependencies, run it from the project's
 folder with the classpath that Maven resolves:
 
     mvn dependency:build-classpath -Dmdep.outputFile=cp.txt
-    java -jar eogen-cli-0.1.jar --classpath "$(cat cp.txt)" \
-        src/main/resources/Library.eogen
+    java -jar eogen-cli-0.2.jar --classpath "$(cat cp.txt)" --all
+
+With `--json`, it writes one JSON object to standard output, which a
+script or a coding agent can read instead of the text. `status` is
+`ok`, `stale` or `failed`; `eogenFiles` has each `.eogen` file's
+`errors`, `warnings`, whether it was `written`, and its `files`, each
+with a `kind` (`superclass` or `subclass`) and a `status` (`created`,
+`updated`, `unchanged` or `orphaned`); `orphans` and `verification` are
+there when `--all` and `--verify` are; and `problems` has any failure
+that stopped it. Problems still go to standard error, as text.
 
 Using the library
 -----------------
@@ -168,6 +192,12 @@ Maven plugin's classpath is the project's resolved compile, provided,
 runtime and system dependencies, in Maven's order: every scope but
 `test`, as in Eclipse. Without `-loadModelGroup`,
 eogen loads the `-model` and `-refmodel` models, as WOLips does.
+
+When a model fails to load, such as a property list with a syntax
+error, WOLips prints a stack trace and reports a warning. eogen reports
+an error, in one line that names the file and where the parser stopped:
+
+    Library failed to load: Library.eomodeld/Book.plist:12:58: Property list parsing failed while attempting to read dictionary. Read key and value with no terminating semicolon.
 
 Errors
 ------
