@@ -29,6 +29,8 @@ import net.logicsquad.eogen.generator.ClasspathEOModelGroupFactory;
 import net.logicsquad.eogen.generator.EOGeneratorModel;
 import net.logicsquad.eogen.generator.EOGeneratorResourceLoader;
 import net.logicsquad.eogen.generator.EOModelReference;
+import net.logicsquad.eogen.format.FormatResult;
+import net.logicsquad.eogen.format.ModelFormatter;
 import net.logicsquad.eogen.generator.VelocityEOGeneratorRunner;
 import net.logicsquad.eogen.lint.LintFinding;
 import net.logicsquad.eogen.lint.ModelLinter;
@@ -449,6 +451,62 @@ public class EOGenerator {
 				.thenComparing(EOModelVerificationFailure::getMessage));
 		List<String> modelNames = reportedModels.stream().map(EOModel::getName).sorted().collect(Collectors.toList());
 		return new VerificationResult(modelNames, reported);
+	}
+
+	/**
+	 * Formats the project's models as Entity Modeler saves them, with
+	 * {@link ModelFormatter}: only their layout changes, and a model whose
+	 * contents saving would change is left alone. Nothing is formatted if the
+	 * model group has errors.
+	 *
+	 * @param write whether to write the formatted files, or only report them
+	 * @return the model files, and what formatting does to each
+	 * @throws EOGeneratorException if the model group can't be loaded, or a
+	 *         model can't be saved
+	 */
+	public FormatResult format(boolean write) throws EOGeneratorException {
+		Set<EOModelVerificationFailure> failures = new LinkedHashSet<>();
+		EOModelGroup modelGroup = new EOModelGroup();
+		try {
+			modelGroupFactory().loadModelGroup(null, modelGroup, failures, true, new NullProgressMonitor());
+		} catch (EOModelException e) {
+			throw new EOGeneratorException("Failed to load the model group: " + e.getMessage(), e);
+		}
+		modelGroup.resolve(failures);
+		List<String> errors = new ArrayList<>();
+		for (EOModelVerificationFailure failure : failures) {
+			if (!failure.isWarning()) {
+				errors.add((failure.getModel() == null ? "" : failure.getModel().getName() + ": ") + failure.getMessage());
+			}
+		}
+		if (!errors.isEmpty()) {
+			return new FormatResult(Collections.<FormatResult.FormattedFile>emptyList(), errors, false);
+		}
+		Path scratch;
+		try {
+			scratch = Files.createTempDirectory("eogen-format");
+		} catch (IOException e) {
+			throw new EOGeneratorException("Failed to create a scratch folder: " + e.getMessage(), e);
+		}
+		try {
+			List<FormatResult.FormattedFile> files = new ArrayList<>();
+			for (File modelFolder : modelFolders) {
+				for (File model : ClasspathEOModelGroupFactory.findModelFolders(modelFolder)) {
+					String name = EOModelGroup.getModelNameForFile(model);
+					EOModel eomodel = name == null ? null : modelGroup.getModelNamed(name);
+					if (eomodel == null || !isProjectModel(eomodel)) {
+						continue;
+					}
+					File modelScratch = Files.createTempDirectory(scratch, name).toFile();
+					files.addAll(ModelFormatter.format(eomodel, model, modelScratch, write));
+				}
+			}
+			return new FormatResult(files, errors, write);
+		} catch (IOException e) {
+			throw new EOGeneratorException("Failed to format the models: " + e.getMessage(), e);
+		} finally {
+			delete(scratch);
+		}
 	}
 
 	private ClasspathEOModelGroupFactory modelGroupFactory() {

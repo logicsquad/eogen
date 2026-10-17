@@ -66,6 +66,10 @@ The goals are:
 * `verify` (default phase `verify`): loads the project's model group,
   resolves and verifies it as Entity Modeler does, reports errors and
   warnings, and fails the build on errors.
+* `format` (no default phase): formats the project's models as Entity
+  Modeler saves them (see [Formatting models](#formatting-models)).
+  With `checkFormat` (`eogen.checkFormat`), it changes nothing, and
+  fails if any model needs formatting.
 
 They take these parameters:
 
@@ -122,6 +126,10 @@ Using the command line
                             models. Exit with status 2 on errors.
     --include-dependencies  With --verify, report on the dependencies'
                             models too.
+    --format                Format the project's models as Entity
+                            Modeler saves them. With --check, write
+                            nothing, and exit with status 1 if any
+                            model needs formatting.
     --delete-orphans        With --all, delete the orphaned superclasses.
     --force                 Write the classes even when there are
                             errors, as WOLips does. Without it, errors
@@ -267,6 +275,30 @@ you.
 Several `.eogen` files often share a destination, so the goals only
 look for orphans when they use every `.eogen` file in the model
 directories, and not when `eogenFiles` names some of them.
+
+Formatting models
+-----------------
+A model edited by hand, or by a coding agent, rarely looks as Entity
+Modeler would write it, so the next save in Entity Modeler rewrites it,
+and its diff is noise. `format` saves each of the project's models with
+Entity Modeler's own writer, in a scratch folder, and writes back the
+files that only change in layout.
+
+It must lose nothing that a file says. No value may be dropped or
+changed, and no entry removed from a list. It may drop an empty value,
+such as `fetchSpecificationDictionary = {}`, and add what Entity
+Modeler writes for the model as it loaded it, such as an inherited
+entity's `parent` in `index.eomodeld`. If it would lose anything from
+any file, such as changing `isMandatory = YES` to `Y`, it leaves the
+whole model alone and fails, naming the first loss:
+
+    Library.eomodeld/Book.plist: its model is left alone, since saving it would change what it says: relationships[author].isMandatory would change from YES to Y.
+
+Entity Modeler's writer keeps keys it doesn't know, so formatting
+doesn't hide a misspelt key: the lint still reports it. Files that a
+model never loads, such as an entity file that `index.eomodeld`
+doesn't list, are left alone. Formatting needs the model group, and
+does nothing if it has errors.
 
 How eogen finds templates
 -------------------------

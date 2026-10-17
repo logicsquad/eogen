@@ -47,6 +47,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   flattened relationships, partial entities, `ERXConstantClassName`,
   entity indexes and stored procedures. #10, #11
 
+- `format` (the goal, `--format` and `EOGenerator.format`) formats the
+  project's models as Entity Modeler saves them, for models edited by
+  hand or by a coding agent. It only changes their layout: if saving a
+  model would drop or change anything it says, the model is left alone.
+  `checkFormat` (`eogen.checkFormat`, or `--format --check`) only
+  reports. #16
+
 ### Fixed
 - A model that fails to load is an error, reported in one line with the
   file and the position the parser stopped at. It was a warning, with a

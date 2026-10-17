@@ -21,6 +21,8 @@ import net.logicsquad.eogen.GeneratedFile.Kind;
 import net.logicsquad.eogen.GeneratedFile.Status;
 import net.logicsquad.eogen.GenerationResult;
 import net.logicsquad.eogen.VerificationResult;
+import net.logicsquad.eogen.format.FormatResult;
+import net.logicsquad.eogen.format.FormatResult.FormattedFile;
 import net.logicsquad.eogen.model.EOModelVerificationFailure;
 
 /**
@@ -54,6 +56,7 @@ public final class Main {
 			"Usage: eogen [options] <file.eogen>...",
 			"       eogen [options] --all",
 			"       eogen [options] --verify",
+			"       eogen [options] --format",
 			"",
 			"Generates the entity classes for .eogen files as WOLips's EOGenerator does:",
 			"every superclass whose contents have changed, and every subclass that is",
@@ -77,6 +80,11 @@ public final class Main {
 			"                          with status 2 if there are errors.",
 			"  --include-dependencies  With --verify, report on the dependencies' models",
 			"                          too.",
+			"  --format                Format the project's models as Entity Modeler saves",
+			"                          them. Only the layout changes; a model whose contents",
+			"                          saving would change is left alone, and the exit",
+			"                          status is 2. With --check, write nothing, and exit",
+			"                          with status 1 if any model needs formatting.",
 			"  --delete-orphans        With --all, delete the orphaned superclasses. Their",
 			"                          subclasses are only reported.",
 			"  --force                 Write the classes even when the model group or a",
@@ -101,6 +109,8 @@ public final class Main {
 	private boolean check;
 
 	private boolean verify;
+
+	private boolean format;
 
 	private boolean includeDependencies;
 
@@ -187,6 +197,8 @@ public final class Main {
 				check = true;
 			} else if ("--verify".equals(arg)) {
 				verify = true;
+			} else if ("--format".equals(arg)) {
+				format = true;
 			} else if ("--include-dependencies".equals(arg)) {
 				includeDependencies = true;
 			} else if ("--delete-orphans".equals(arg)) {
@@ -217,6 +229,9 @@ public final class Main {
 				eogenFiles.add(new File(arg));
 			}
 		}
+		if (format && (verify || all || deleteOrphans || !eogenFiles.isEmpty())) {
+			return usage("--format takes no .eogen files, and goes only with --check.");
+		}
 		if (verify && (check || all || deleteOrphans || !eogenFiles.isEmpty())) {
 			return usage("--verify takes no .eogen files, and doesn't go with --check, --all or --delete-orphans.");
 		}
@@ -229,7 +244,7 @@ public final class Main {
 		if (includeDependencies && !verify) {
 			return usage("--include-dependencies goes with --verify.");
 		}
-		if (!verify && !all && eogenFiles.isEmpty()) {
+		if (!verify && !format && !all && eogenFiles.isEmpty()) {
 			return usage("Give an .eogen file.");
 		}
 		for (File eogenFile : eogenFiles) {
@@ -252,6 +267,9 @@ public final class Main {
 		generator.setStrict(strict);
 		if (verify) {
 			return verify(generator);
+		}
+		if (format) {
+			return format(generator);
 		}
 		if (all) {
 			try {
@@ -394,6 +412,54 @@ public final class Main {
 		say("Verified " + String.join(", ", result.getModelNames()) + ": " + errors + (errors == 1 ? " error, " : " errors, ") + warnings
 				+ (warnings == 1 ? " warning." : " warnings."));
 		return errors > 0 ? FAILED : OK;
+	}
+
+	private int format(EOGenerator generator) {
+		FormatResult result;
+		try {
+			result = generator.format(!check);
+		} catch (EOGeneratorException e) {
+			return failed(e.getMessage(), e);
+		}
+		Map<String, Object> formatReport = new LinkedHashMap<>();
+		formatReport.put("errors", result.getErrors());
+		List<Object> files = new ArrayList<>();
+		for (FormattedFile file : result.getRefusedFiles()) {
+			Map<String, Object> map = new LinkedHashMap<>();
+			map.put("file", relative(file.getFile()));
+			map.put("status", "refused");
+			map.put("reason", file.getReason());
+			files.add(map);
+		}
+		for (FormattedFile file : result.getFormattedFiles()) {
+			Map<String, Object> map = new LinkedHashMap<>();
+			map.put("file", relative(file.getFile()));
+			map.put("status", "formatted");
+			files.add(map);
+		}
+		formatReport.put("files", files);
+		report.put("format", formatReport);
+		for (String error : result.getErrors()) {
+			problem(error);
+		}
+		if (!result.getErrors().isEmpty()) {
+			problem("the model group has errors, so no model was formatted.");
+			return FAILED;
+		}
+		for (FormattedFile file : result.getRefusedFiles()) {
+			problem(relative(file.getFile()) + ": its model is left alone, since saving it would change what it says: " + file.getReason() + ".");
+		}
+		for (FormattedFile file : result.getFormattedFiles()) {
+			say(check ? relative(file.getFile()) + " is not formatted as Entity Modeler writes it." : "Formatted " + relative(file.getFile()));
+		}
+		if (!result.getRefusedFiles().isEmpty()) {
+			return FAILED;
+		}
+		if (check && !result.getFormattedFiles().isEmpty()) {
+			return STALE;
+		}
+		say(result.getFiles().size() + " model files checked, " + result.getFormattedFiles().size() + (check ? " to format." : " formatted."));
+		return OK;
 	}
 
 	private List<Object> failures(List<EOModelVerificationFailure> failures) {

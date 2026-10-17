@@ -114,6 +114,15 @@ class CorpusTest {
 		assertThat(index.getAttributes()).extracting(attribute -> attribute.getName()).containsExactly("number");
 	}
 
+	/**
+	 * Entity Modeler wrote these models, so saving them changes nothing they
+	 * say.
+	 */
+	@Test
+	void formattingChangesNothingTheModelsSay() throws Exception {
+		assertThat(generator.format(false).getRefusedFiles()).isEmpty();
+	}
+
 	@Test
 	void findsNoOrphans() throws Exception {
 		List<GenerationResult> results = new java.util.ArrayList<>();

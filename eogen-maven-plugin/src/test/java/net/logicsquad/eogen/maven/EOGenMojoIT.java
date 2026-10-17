@@ -199,6 +199,24 @@ public class EOGenMojoIT {
 		assertThat(result.getMavenProjectResult().getTargetProjectDirectory().resolve("src/main/java")).doesNotExist();
 	}
 
+	/**
+	 * The test projects' models were written by hand, not by Entity Modeler.
+	 */
+	@MavenTest
+	void format(MavenExecutionResult result) throws IOException {
+		assertThat(result).isSuccessful();
+		assertThat(result).out().info().contains("Formatted src/main/resources/Library.eomodeld/Book.plist");
+		String book = read(result.getMavenProjectResult().getTargetProjectDirectory().resolve("src/main/resources/Library.eomodeld/Book.plist"));
+		assertThat(book).contains("classProperties = (author, currency, price, title);");
+	}
+
+	@MavenTest
+	void formatCheck(MavenExecutionResult result) {
+		assertThat(result).isFailure();
+		assertThat(result).out().error().contains("src/main/resources/Library.eomodeld/Book.plist is not formatted as Entity Modeler writes it.")
+				.anyMatch(line -> line.contains("not formatted. Run mvn eogen:format, and commit the result."));
+	}
+
 	@MavenTest
 	void skip(MavenExecutionResult result) {
 		assertThat(result).isSuccessful();

@@ -121,6 +121,32 @@ class MainTest {
 		assertThat(project.resolve(LIBRARY + "_Book.java")).exists();
 	}
 
+	/**
+	 * The fixture's models were written by hand, not by Entity Modeler.
+	 */
+	@Test
+	void formatsTheModels() throws Exception {
+		String book = "src/main/resources/Library.eomodeld/Book.plist".replace('/', File.separatorChar);
+		assertThat(run("--format", "--check", "--project", project.toString(), "--classpath", reference.toString())).isEqualTo(Main.STALE);
+		assertThat(out()).contains(book + " is not formatted as Entity Modeler writes it.");
+		out.reset();
+		assertThat(run("--format", "--project", project.toString(), "--classpath", reference.toString())).isEqualTo(Main.OK);
+		assertThat(out()).contains("Formatted " + book);
+		out.reset();
+		assertThat(run("--format", "--check", "--project", project.toString(), "--classpath", reference.toString())).isEqualTo(Main.OK);
+		assertThat(out()).contains("model files checked, 0 to format.");
+
+		Path path = project.resolve("src/main/resources/Library.eomodeld/Book.plist");
+		String text = new String(Files.readAllBytes(path), StandardCharsets.UTF_8);
+		assertThat(text).contains("isMandatory = Y;");
+		Files.write(path, text.replaceFirst("isMandatory = Y;", "isMandatory = YES;").getBytes(StandardCharsets.UTF_8));
+		assertThat(run("--format", "--project", project.toString(), "--classpath", reference.toString())).isEqualTo(Main.FAILED);
+		assertThat(err()).contains(book + ": its model is left alone, since saving it would change what it says: ", ".isMandatory would change from YES to Y.");
+		err.reset();
+		assertThat(run("--format", "--verify")).isEqualTo(Main.FAILED);
+		assertThat(err()).contains("--format takes no .eogen files, and goes only with --check.");
+	}
+
 	@Test
 	void helpAndVersion() throws Exception {
 		assertThat(run("--help")).isEqualTo(Main.OK);
