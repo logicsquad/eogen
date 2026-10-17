@@ -150,6 +150,11 @@ class RefactorTest {
 
 		assertThat(generator.rename("STUDIO", "Studio", false, true).isRefused()).isFalse();
 		assertThat(differences(original, modelFiles())).isEmpty();
+
+		// With the class, which is named for the entity, its files too.
+		assertThat(generator.rename("Studio", "STUDIO", true, false).getFindings()).extracting(Finding::getMessage).contains("Studio and STUDIO differ only in case,"
+				+ " so where the file system ignores case, version control may keep the entity's files, and its classes', such as Studio.java and _Studio.java, under"
+				+ " their old names. Rename them there too, as with git mv Studio.plist STUDIO.plist.");
 	}
 
 	@Test
