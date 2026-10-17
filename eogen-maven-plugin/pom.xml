@@ -17,6 +17,8 @@
 
   <properties>
     <itf.version>0.13.1</itf.version>
+    <!-- A Maven repository that EOGenMojoIT creates, with the reference jar in it. -->
+    <it-repo.url>${project.baseUri}target/it-repo</it-repo.url>
   </properties>
 
   <dependencies>

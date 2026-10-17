@@ -25,9 +25,12 @@ import net.logicsquad.eogen.GenerationResult;
  */
 public abstract class AbstractEOGenMojo extends AbstractMojo {
 	/**
-	 * Scopes whose dependencies are on the compile classpath.
+	 * Scopes whose dependencies' models join the model group: every scope but
+	 * test. Eclipse's classpath, which WOLips searches, has runtime dependencies
+	 * too, and a framework with only models in it, such as ERPrototypes, is
+	 * often one.
 	 */
-	private static final Set<String> COMPILE_SCOPES = new HashSet<>(Arrays.asList(Artifact.SCOPE_COMPILE, Artifact.SCOPE_PROVIDED, Artifact.SCOPE_SYSTEM));
+	private static final Set<String> MODEL_SCOPES = new HashSet<>(Arrays.asList(Artifact.SCOPE_COMPILE, Artifact.SCOPE_PROVIDED, Artifact.SCOPE_RUNTIME, Artifact.SCOPE_SYSTEM));
 
 	/**
 	 * The project.
@@ -159,15 +162,15 @@ public abstract class AbstractEOGenMojo extends AbstractMojo {
 	}
 
 	/**
-	 * Returns the jars and folders of the project's compile, provided and system
-	 * dependencies, in the order Maven resolved them.
+	 * Returns the jars and folders of the project's compile, provided,
+	 * runtime and system dependencies, in the order Maven resolved them.
 	 *
 	 * @return classpath
 	 */
 	protected List<File> classpath() {
 		List<File> classpath = new ArrayList<>();
 		for (Artifact artifact : project.getArtifacts()) {
-			if (COMPILE_SCOPES.contains(artifact.getScope()) && artifact.getFile() != null) {
+			if (MODEL_SCOPES.contains(artifact.getScope()) && artifact.getFile() != null) {
 				classpath.add(artifact.getFile());
 			}
 		}

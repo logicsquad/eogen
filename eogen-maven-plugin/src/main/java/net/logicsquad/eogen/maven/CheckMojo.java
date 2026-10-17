@@ -22,7 +22,7 @@ import net.logicsquad.eogen.GenerationResult;
  * in the model group or templates fail it too, unless {@code eogen.force} is
  * set, since {@code generate} would not write the classes.
  */
-@Mojo(name = "check", defaultPhase = LifecyclePhase.VERIFY, requiresDependencyResolution = ResolutionScope.COMPILE, threadSafe = true)
+@Mojo(name = "check", defaultPhase = LifecyclePhase.VERIFY, requiresDependencyResolution = ResolutionScope.COMPILE_PLUS_RUNTIME, threadSafe = true)
 public class CheckMojo extends AbstractEOGenMojo {
 	@Override
 	protected void execute(EOGenerator generator) throws MojoExecutionException, MojoFailureException {

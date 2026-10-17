@@ -12,6 +12,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `EOGenerator.setForce`) writes the classes anyway, as WOLips does.
   #1, #2
 
+### Fixed
+- The Maven plugin finds models in runtime-scoped dependencies, such as
+  a framework of prototypes, as WOLips does through Eclipse's classpath.
+  #5
+
 ## [0.1] - 2026-10-17
 ### Added
 - `eogen-core`: WOLips's Velocity EOGenerator and Entity Modeler's model

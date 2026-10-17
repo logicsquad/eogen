@@ -9,6 +9,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.util.List;
 import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
@@ -23,7 +24,8 @@ import com.soebes.itf.jupiter.maven.MavenExecutionResult;
 
 /**
  * Runs the goals in Maven, on projects with a Library model whose prototypes
- * and Currency entity come from a dependency, target/it-reference.jar.
+ * and Currency entity come from a dependency, target/it-reference.jar, or the
+ * same jar in a Maven repository, target/it-repo.
  */
 @MavenJupiterExtension
 public class EOGenMojoIT {
@@ -31,7 +33,8 @@ public class EOGenMojoIT {
 
 	/**
 	 * Jars src/test/resources/it-reference, as a WebObjects framework would be,
-	 * for the test projects' system-scoped dependency.
+	 * for the test projects' system-scoped dependency, and puts the jar in a
+	 * repository for those that resolve it.
 	 */
 	@BeforeAll
 	static void buildReferenceJar() throws IOException {
@@ -50,6 +53,10 @@ public class EOGenMojoIT {
 				jar.closeEntry();
 			}
 		}
+		Path repository = Files.createDirectories(Paths.get("target/it-repo/net/logicsquad/eogen/it/reference/1.0"));
+		Files.copy(Paths.get("target/it-reference.jar"), repository.resolve("reference-1.0.jar"), StandardCopyOption.REPLACE_EXISTING);
+		Files.write(repository.resolve("reference-1.0.pom"), ("<project xmlns=\"http://maven.apache.org/POM/4.0.0\">\n  <modelVersion>4.0.0</modelVersion>\n"
+				+ "  <groupId>net.logicsquad.eogen.it</groupId>\n  <artifactId>reference</artifactId>\n  <version>1.0</version>\n</project>\n").getBytes(StandardCharsets.UTF_8));
 	}
 
 	/**
@@ -67,6 +74,17 @@ public class EOGenMojoIT {
 		assertThat(book).contains("public abstract class _Book", "public java.math.BigDecimal price()", "public com.example.reference.Currency currency()");
 		assertThat(project.resolve(LIBRARY + "Author.java")).exists();
 		assertThat(project.resolve(LIBRARY + "_Author.java")).exists();
+	}
+
+	/**
+	 * The jar is a runtime dependency here, as a framework of prototypes often
+	 * is, and its models still join the model group.
+	 */
+	@MavenTest
+	void generateWithRuntimeDependency(MavenExecutionResult result) throws IOException {
+		assertThat(result).isSuccessful();
+		String book = read(result.getMavenProjectResult().getTargetProjectDirectory().resolve(LIBRARY + "_Book.java"));
+		assertThat(book).contains("public java.math.BigDecimal price()", "public com.example.reference.Currency currency()");
 	}
 
 	@MavenTest

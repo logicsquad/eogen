@@ -151,8 +151,9 @@ When two models have the same name, the first one found wins. When a
 model declares an entity that an earlier model declares, the earlier
 model is removed, so loading the `.eogen` file's model last means it
 survives a dependency's model that shares one of its entities. The
-Maven plugin's classpath is the project's resolved compile, provided
-and system dependencies, in Maven's order. Without `-loadModelGroup`,
+Maven plugin's classpath is the project's resolved compile, provided,
+runtime and system dependencies, in Maven's order: every scope but
+`test`, as in Eclipse. Without `-loadModelGroup`,
 eogen loads the `-model` and `-refmodel` models, as WOLips does.
 
 Errors

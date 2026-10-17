@@ -22,7 +22,7 @@ import net.logicsquad.eogen.GenerationResult;
  * writes nothing for an .eogen file whose model group or templates have
  * errors, and fails the build, unless {@code eogen.force} is set.
  */
-@Mojo(name = "generate", defaultPhase = LifecyclePhase.GENERATE_SOURCES, requiresDependencyResolution = ResolutionScope.COMPILE, threadSafe = true)
+@Mojo(name = "generate", defaultPhase = LifecyclePhase.GENERATE_SOURCES, requiresDependencyResolution = ResolutionScope.COMPILE_PLUS_RUNTIME, threadSafe = true)
 public class GenerateMojo extends AbstractEOGenMojo {
 	@Override
 	protected void execute(EOGenerator generator) throws MojoExecutionException, MojoFailureException {

@@ -18,7 +18,7 @@ import net.logicsquad.eogen.model.EOModelVerificationFailure;
  * Loads the project's model group, then resolves and verifies it, as Entity
  * Modeler does. It reports what it finds, and fails the build on errors.
  */
-@Mojo(name = "verify", defaultPhase = LifecyclePhase.VERIFY, requiresDependencyResolution = ResolutionScope.COMPILE, threadSafe = true)
+@Mojo(name = "verify", defaultPhase = LifecyclePhase.VERIFY, requiresDependencyResolution = ResolutionScope.COMPILE_PLUS_RUNTIME, threadSafe = true)
 public class VerifyMojo extends AbstractEOGenMojo {
 	/**
 	 * Whether to report failures in models from dependencies, as well as in the
