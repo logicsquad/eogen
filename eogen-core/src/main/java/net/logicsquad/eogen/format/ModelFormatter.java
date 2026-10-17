@@ -57,6 +57,8 @@ public final class ModelFormatter {
 	public static List<FormattedFile> format(EOModel model, File modelFolder, File scratch, boolean write) throws IOException {
 		for (EOEntity entity : model.getEntities()) {
 			entity.setEntityDirty(true);
+			// An entity writes its .fspec only when its fetch specifications are.
+			entity.setFetchSpecsDirty(true);
 		}
 		for (EOStoredProcedure storedProcedure : model.getStoredProcedures()) {
 			storedProcedure.setStoredProcedureDirty(true);
@@ -109,8 +111,9 @@ public final class ModelFormatter {
 
 	/**
 	 * Describes the first thing that formatting would lose from a property list,
-	 * as a path into it, such as {@code attributes[price].width}, or returns
-	 * null if it would lose nothing.
+	 * as a path into it, such as {@code attributes[price].width}, or
+	 * {@code qualifier.qualifiers[0].selectorName} in a list whose entries have
+	 * no names, or returns null if it would lose nothing.
 	 *
 	 * @param original the model's
 	 * @param formatted Entity Modeler's
@@ -157,12 +160,26 @@ public final class ModelFormatter {
 				}
 				return null;
 			}
+			TreeSet<String> originalItems = new TreeSet<>();
+			for (Object item : originalList) {
+				originalItems.add(canonical(item));
+			}
 			TreeSet<String> formattedItems = new TreeSet<>();
 			for (Object item : formattedList) {
 				formattedItems.add(canonical(item));
 			}
-			for (Object item : originalList) {
+			for (int i = 0; i < originalList.size(); i++) {
+				Object item = originalList.get(i);
 				if (!formattedItems.contains(canonical(item))) {
+					// Entity Modeler writes the lists it doesn't sort, such as a
+					// qualifier's, in their order, so a changed entry is in its place.
+					Object counterpart = i < formattedList.size() ? formattedList.get(i) : null;
+					if (item instanceof Map && counterpart instanceof Map && !originalItems.contains(canonical(counterpart))) {
+						String difference = difference(item, counterpart, path + "[" + i + "]");
+						if (difference != null) {
+							return difference;
+						}
+					}
 					return (path.isEmpty() ? "the list" : path) + " would lose " + (item instanceof String ? item : "an entry");
 				}
 			}

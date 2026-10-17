@@ -32,6 +32,25 @@ class ModelFormatterTest {
 				.isEqualTo("classProperties would lose author");
 	}
 
+	/**
+	 * A list whose entries have no names, such as a qualifier's, keeps its
+	 * order, so an entry that would change is compared with the one in its
+	 * place.
+	 */
+	@Test
+	void namesWhatWouldChangeInAnEntryWithoutAName() {
+		Map<String, Object> original = map("qualifiers", Arrays.asList(map("key", "login", "selectorName", "isEqualTo"), map("key", "password", "selectorName", "isEqualTo")));
+		Map<String, Object> formatted = map("qualifiers", Arrays.asList(map("key", "login", "selectorName", "isEqualTo:"), map("key", "password", "selectorName", "isEqualTo:")));
+		assertThat(ModelFormatter.difference(original, formatted, "")).isEqualTo("qualifiers[0].selectorName would change from isEqualTo to isEqualTo:");
+		assertThat(ModelFormatter.difference(map("sortOrderings", Collections.singletonList(map("key", "placed", "selector", "compareDescending:"))),
+				map("sortOrderings", Collections.singletonList(map("key", "placed"))), "")).isEqualTo("sortOrderings[0].selector would be dropped");
+		// The entry in customer's place is store, which is kept, so customer is lost.
+		Map<String, Object> customer = map("sourceAttribute", "customerID", "destinationAttribute", "id");
+		Map<String, Object> store = map("sourceAttribute", "storeID", "destinationAttribute", "id");
+		assertThat(ModelFormatter.difference(map("joins", Arrays.asList(customer, store)), map("joins", Collections.singletonList(store)), ""))
+				.isEqualTo("joins would lose an entry");
+	}
+
 	@Test
 	void allowsAdditionsEmptyValuesAndDuplicatesToGo() {
 		assertThat(ModelFormatter.difference(map("name", "Book"), map("name", "Book", "isReadOnly", "Y"), "")).isNull();

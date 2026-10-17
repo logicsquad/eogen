@@ -54,6 +54,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   with the inverse relationship's key from the partial's class, which
   declares it, so the superclass compiles. eogen's templates, like
   WOLips's, named the class of the entity that the partial extends. #18
+- `format` formats each entity's fetch specifications, in its `.fspec`
+  file, too. It skipped them, and `checkFormat` passed with them
+  unformatted, since an entity writes its `.fspec` only once its fetch
+  specifications change. As with the other files, a model is left alone
+  if saving would change what its `.fspec` says, such as a qualifier's
+  `isEqualTo`, which Entity Modeler writes as `isEqualTo:`. The reason
+  names the entry that would change, such as
+  `qualifiers[0].selectorName`, rather than saying that the list would
+  lose an entry.
 
 ## [0.2] - 2026-10-17
 ### Changed

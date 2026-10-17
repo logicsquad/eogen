@@ -1,6 +1,7 @@
 package net.logicsquad.eogen;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.tuple;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -75,6 +76,51 @@ class FormatTest {
 		assertThat(refused.getFile().getName()).isEqualTo("Order.plist");
 		assertThat(refused.getStatus()).isEqualTo(Status.REFUSED);
 		assertThat(refused.getReason()).endsWith(".isMandatory would change from YES to Y");
+		assertThat(result.getFormattedFiles()).isEmpty();
+		assertThat(read(tag)).isEqualTo(tagText);
+	}
+
+	/**
+	 * An entity writes its .fspec only when its fetch specifications have
+	 * changed, so formatting marks them changed.
+	 */
+	@Test
+	void restoresTheLayoutOfFetchSpecifications() throws Exception {
+		FixtureProject project = FixtureProject.copyTo(temp);
+		EOGenerator generator = project.generator();
+		assertThat(generator.format(true).getRefusedFiles()).isEmpty();
+		Path order = project.resolve("src/main/resources/Shop.eomodeld/Order.fspec");
+		String formatted = read(order);
+
+		String edited = formatted.replace("    ", "  ").replace("; \n", ";\n");
+		assertThat(edited).isNotEqualTo(formatted);
+		write(order, edited);
+		FormatResult result = generator.format(true);
+		assertThat(result.getFormattedFiles()).extracting(file -> file.getFile().getName()).containsExactly("Order.fspec");
+		assertThat(read(order)).isEqualTo(formatted);
+	}
+
+	/**
+	 * Entity Modeler writes a sort ordering with only its class, key and
+	 * selectorName, so a misspelt selectorName would be dropped.
+	 */
+	@Test
+	void leavesAModelAloneIfFormattingWouldDropPartOfAFetchSpecification() throws Exception {
+		FixtureProject project = FixtureProject.copyTo(temp);
+		EOGenerator generator = project.generator();
+		generator.format(true);
+		Path order = project.resolve("src/main/resources/Shop.eomodeld/Order.fspec");
+		Path tag = project.resolve("src/main/resources/Shop.eomodeld/Tag.plist");
+		String orderText = read(order);
+		assertThat(orderText).contains("selectorName = \"compareDescending:\"");
+		write(order, orderText.replaceFirst("selectorName = \"compareDescending:\"", "selector = \"compareDescending:\""));
+		String tagText = read(tag).replace("    ", "  ");
+		write(tag, tagText);
+
+		FormatResult result = generator.format(true);
+
+		assertThat(result.getRefusedFiles()).extracting(file -> file.getFile().getName(), FormattedFile::getReason)
+				.containsExactly(tuple("Order.fspec", "byCustomerName.sortOrderings[0].selector would be dropped"));
 		assertThat(result.getFormattedFiles()).isEmpty();
 		assertThat(read(tag)).isEqualTo(tagText);
 	}

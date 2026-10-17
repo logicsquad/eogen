@@ -1,6 +1,7 @@
 package net.logicsquad.eogen;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.tuple;
 
 import java.io.File;
 import java.io.IOException;
@@ -22,6 +23,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
+import net.logicsquad.eogen.format.FormatResult.FormattedFile;
 import net.logicsquad.eogen.generator.ClasspathEOModelGroupFactory;
 import net.logicsquad.eogen.lint.ModelLinter;
 import net.logicsquad.eogen.model.EOEntity;
@@ -173,12 +175,16 @@ class CorpusTest {
 	}
 
 	/**
-	 * Entity Modeler wrote these models, so saving them changes nothing they
-	 * say.
+	 * Saving these models changes nothing they say, except in two of Project
+	 * Wonder's fetch specifications: Entity Modeler writes their qualifiers'
+	 * isEqualTo as isEqualTo:, so formatting leaves BugTracker and ERMail
+	 * alone.
 	 */
 	@Test
-	void formattingChangesNothingTheModelsSay() throws Exception {
-		assertThat(generator.format(false).getRefusedFiles()).isEmpty();
+	void savingChangesOnlySelectorsWithoutTheirColon() throws Exception {
+		assertThat(generator.format(false).getRefusedFiles()).extracting(file -> file.getFile().getName(), FormattedFile::getReason).containsExactlyInAnyOrder(
+				tuple("People.fspec", "login.qualifier.qualifiers[0].selectorName would change from isEqualTo to isEqualTo:"),
+				tuple("ERCMailMessage.fspec", "messagesToBeSent.qualifier.selectorName would change from isEqualTo to isEqualTo:"));
 	}
 
 	@Test

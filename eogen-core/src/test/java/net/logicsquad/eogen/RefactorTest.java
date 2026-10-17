@@ -27,7 +27,8 @@ import net.logicsquad.eogen.refactor.RefactorResult.Status;
 
 /**
  * Renames and removes entities, attributes and relationships in a copy of the
- * corpus, formatted first so that its files are as Entity Modeler writes them.
+ * corpus, formatted first so that its files are as Entity Modeler writes them,
+ * but for the two models that formatting leaves alone.
  */
 class RefactorTest {
 	@TempDir
@@ -52,7 +53,8 @@ class RefactorTest {
 		Path prototypes = temp.resolve("erprototypes.jar");
 		FixtureProject.jar(CorpusTest.corpus().resolve("framework"), prototypes);
 		generator = new EOGenerator(project.toFile(), Collections.singletonList(resources.toFile()), Collections.singletonList(prototypes.toFile()));
-		assertThat(generator.format(true).getRefusedFiles()).isEmpty();
+		// Formatting leaves BugTracker and ERMail alone, as CorpusTest shows.
+		assertThat(generator.format(true).getRefusedFiles()).extracting(file -> file.getFile().getName()).containsExactlyInAnyOrder("People.fspec", "ERCMailMessage.fspec");
 	}
 
 	@Test

@@ -402,12 +402,15 @@ changed, and no entry removed from a list. It may drop an empty value,
 such as `fetchSpecificationDictionary = {}`, and add what Entity
 Modeler writes for the model as it loaded it, such as an inherited
 entity's `parent` in `index.eomodeld`. If it would lose anything from
-any file, such as changing `isMandatory = YES` to `Y`, it leaves the
-whole model alone and fails, naming the first loss:
+any file, such as changing `isMandatory = YES` to `Y`, or a qualifier's
+`isEqualTo` to `isEqualTo:`, it leaves the whole model alone and fails,
+naming the first loss:
 
     Library.eomodeld/Book.plist: its model is left alone, since saving it would change what it says: relationships[author].isMandatory would change from YES to Y.
 
-Entity Modeler's writer keeps keys it doesn't know, so formatting
+Entity Modeler's writer keeps keys it doesn't know, except in a fetch
+specification's qualifier and sort orderings, which it writes afresh,
+and there formatting refuses to drop them. Either way, formatting
 doesn't hide a misspelt key: the lint still reports it. Files that a
 model never loads, such as an entity file that `index.eomodeld`
 doesn't list, are left alone. Formatting needs the model group, and
