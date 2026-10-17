@@ -83,7 +83,8 @@ class EOGeneratorModelTest {
 
 	@Test
 	void templateDirInsideTheProjectIsRelative() throws Exception {
-		EOGeneratorModel model = read(" -templatedir " + temp.resolve("templates/wonder") + "\n");
+		// WOLips writes paths with /, and the tokenizer reads \ as an escape.
+		EOGeneratorModel model = read(" -templatedir " + temp.resolve("templates/wonder").toString().replace(File.separatorChar, '/') + "\n");
 		assertThat(model.getTemplateDir()).isEqualTo("templates/wonder");
 	}
 

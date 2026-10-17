@@ -25,6 +25,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -43,6 +44,11 @@ class EOGeneratorTest {
 
 	@TempDir
 	Path temp;
+
+	@AfterEach
+	void releaseJars() throws IOException {
+		Jars.release(temp);
+	}
 
 	@ParameterizedTest
 	@CsvSource({ "ShopWonder, src/main/java", "ShopClassic, generated/classic", "ShopCustom, generated/custom" })

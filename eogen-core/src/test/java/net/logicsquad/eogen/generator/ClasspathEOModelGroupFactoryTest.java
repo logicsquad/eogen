@@ -18,9 +18,11 @@ import java.util.jar.JarOutputStream;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import net.logicsquad.eogen.Jars;
 import net.logicsquad.eogen.model.EOModel;
 import net.logicsquad.eogen.model.EOModelGroup;
 import net.logicsquad.eogen.model.EOModelVerificationFailure;
@@ -33,6 +35,11 @@ import net.logicsquad.eogen.runtime.NullProgressMonitor;
 class ClasspathEOModelGroupFactoryTest {
 	@TempDir
 	Path temp;
+
+	@AfterEach
+	void releaseJars() throws IOException {
+		Jars.release(temp);
+	}
 
 	@Test
 	void loadsEveryModelUnderTheModelFolders() throws Exception {

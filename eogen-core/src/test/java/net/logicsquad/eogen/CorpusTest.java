@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -38,6 +39,11 @@ import net.logicsquad.eogen.runtime.NullProgressMonitor;
 class CorpusTest {
 	@TempDir
 	Path temp;
+
+	@AfterEach
+	void releaseJars() throws IOException {
+		Jars.release(temp);
+	}
 
 	private Path project;
 
