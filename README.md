@@ -16,8 +16,25 @@ eogen is not a rewrite. The model classes, the `.eogen` parser and the
 generator loop are WOLips's own code, with only the Eclipse parts
 replaced, so prototypes, inheritance, flattened attributes and
 relationships, qualifiers and `javaClassName` behave as they do in
-Entity Modeler. On three real projects, eogen generates every committed
-superclass byte for byte, 125 in all.
+Entity Modeler. On eleven real projects, eogen generates every
+committed superclass byte for byte, 208 in all.
+
+It also:
+
+* checks that the classes are up to date, so that a build fails when
+  someone changes a model without regenerating them;
+* writes Project Wonder migrations for model changes, and fails a build
+  when a model has changed without one (see
+  [Writing migrations](#writing-migrations));
+* lints the keys in qualifiers, sort orderings and prefetching, which
+  otherwise fail only when a fetch runs (see [Lint](#lint));
+* formats models as Entity Modeler writes them, and renames and removes
+  entities, attributes and relationships through Entity Modeler's own
+  classes (see [Formatting models](#formatting-models) and
+  [Renaming and removing](#renaming-and-removing));
+* comes with a Claude Code skill, which a team can install as a plugin,
+  that shows a coding agent how to edit models with eogen (see
+  [Using eogen with a coding agent](#using-eogen-with-a-coding-agent)).
 
 There are three modules:
 
