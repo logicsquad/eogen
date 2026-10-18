@@ -1,15 +1,22 @@
 package er.bugtracker;
 
 import com.webobjects.eocontrol.EOEditingContext;
+import com.webobjects.foundation.NSArray;
 
 import er.extensions.migration.ERXMigrationDatabase;
 import er.extensions.migration.ERXMigrationFailedException;
 import er.extensions.migration.ERXMigrationTable;
+import er.extensions.migration.ERXModelVersion;
 
 /**
  * Creates the tables of the BugTracker model.
  */
 public class BugTracker0 extends ERXMigrationDatabase.Migration {
+	@Override
+	public NSArray<ERXModelVersion> modelDependencies() {
+		return new NSArray<ERXModelVersion>(new ERXModelVersion("ERAttachment", 0));
+	}
+
 	@Override
 	public void downgrade(EOEditingContext editingContext, ERXMigrationDatabase database) throws Throwable {
 		throw new ERXMigrationFailedException("BugTracker0 can't be undone.");

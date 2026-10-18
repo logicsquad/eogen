@@ -156,3 +156,9 @@ database may have run it.
   delete the migration, give the attribute a `default` in its
   `userInfo`, and run `mvn eogen:migration` again: while the migration
   is there, the next run writes the one after it.
+- `src/main/java/com/example/Library3.java:18: This migration needs
+  Reference's table currency, but eogen can't find a migration of
+  Reference, so it can't tell which version of Reference to depend
+  on.`: a gap in `modelDependencies()`. Ask the user which migration of
+  Reference creates the table, and replace `EOGEN_GAP` with its number,
+  or drop the dependency if the table doesn't come from a migration.

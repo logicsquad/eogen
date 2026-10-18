@@ -3,6 +3,8 @@ package net.logicsquad.eogen.migration;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URL;
+import java.net.URLConnection;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -17,6 +19,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipFile;
 
 import net.logicsquad.eogen.model.EOEntity;
 import net.logicsquad.eogen.model.EOModel;
@@ -239,6 +243,122 @@ final class MigrationNaming {
 					properties.load(in);
 				}
 			}
+		}
+		return properties;
+	}
+
+	/**
+	 * Returns the highest of the migrations of a model in a dependency, among
+	 * the classes in jars and folders, which {@code ERXMigrator} finds by their
+	 * simple names: the model's {@code MigrationClassPrefix}, from the
+	 * project's properties, or else from the {@code Properties} beside the
+	 * model, then a number, as with a vendor's name between them. A class
+	 * counts only if it names Wonder's migration classes, so that an entity
+	 * class doesn't. With none, it is the model's
+	 * {@code InitialMigrationVersion}, if one is set.
+	 *
+	 * @param model a model from a dependency
+	 * @param properties the project's properties
+	 * @param classpath jars and folders of classes
+	 * @return the highest version, or -1 if eogen can't tell one
+	 * @throws IOException if a jar or folder can't be read
+	 */
+	static int highestOnClasspath(EOModel model, Properties properties, List<File> classpath) throws IOException {
+		Properties beside = besideModel(model);
+		String fullPrefix = properties.getProperty(model.getName() + ".MigrationClassPrefix", beside.getProperty(model.getName() + ".MigrationClassPrefix", model.getName())).trim();
+		int dot = fullPrefix.lastIndexOf('.');
+		String prefix = fullPrefix.substring(dot + 1);
+		String folder = dot < 0 ? null : fullPrefix.substring(0, dot).replace('.', '/');
+		Pattern name = Pattern.compile("(?:(.*)/)?" + Pattern.quote(prefix) + "(?:[A-Z][A-Za-z]*)?(\\d+)\\.class");
+		int highest = -1;
+		for (File entry : classpath) {
+			if (entry.isDirectory()) {
+				List<Path> files;
+				try (Stream<Path> paths = Files.walk(entry.toPath())) {
+					files = paths.filter(path -> path.getFileName().toString().startsWith(prefix) && Files.isRegularFile(path)).collect(Collectors.toList());
+				}
+				for (Path file : files) {
+					int number = number(name, folder, entry.toPath().relativize(file).toString().replace(File.separatorChar, '/'));
+					if (number > highest && referencesMigrations(Files.readAllBytes(file))) {
+						highest = number;
+					}
+				}
+			} else if (entry.isFile() && entry.getName().endsWith(".jar")) {
+				try (ZipFile jar = new ZipFile(entry)) {
+					for (ZipEntry jarEntry : Collections.list(jar.entries())) {
+						int number = number(name, folder, jarEntry.getName());
+						if (number > highest) {
+							try (InputStream in = jar.getInputStream(jarEntry)) {
+								if (referencesMigrations(in.readAllBytes())) {
+									highest = number;
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+		if (highest < 0) {
+			String initial = properties.getProperty(model.getName() + ".InitialMigrationVersion", beside.getProperty(model.getName() + ".InitialMigrationVersion", "-1"));
+			try {
+				highest = Math.max(-1, Integer.parseInt(initial.trim()));
+			} catch (NumberFormatException e) {
+				// As with the project's own models, the first migration is the 0th.
+			}
+		}
+		return highest;
+	}
+
+	/**
+	 * Returns the number of a class file that a migration's name matches, in
+	 * its package if it must have one, or -1.
+	 */
+	private static int number(Pattern name, String folder, String path) {
+		Matcher matcher = name.matcher(path);
+		if (!matcher.matches() || folder != null && !folder.equals(matcher.group(1))) {
+			return -1;
+		}
+		try {
+			return Integer.parseInt(matcher.group(2));
+		} catch (NumberFormatException e) {
+			return -1;
+		}
+	}
+
+	/**
+	 * Returns whether a class file names a class of Wonder's migration package,
+	 * as a migration's superclass or interface does.
+	 */
+	private static boolean referencesMigrations(byte[] classFile) {
+		return new String(classFile, StandardCharsets.ISO_8859_1).contains("er/extensions/migration/");
+	}
+
+	/**
+	 * Reads the {@code Properties} file in the folder that has a model, as a
+	 * framework's {@code Resources} does, if there is one.
+	 */
+	private static Properties besideModel(EOModel model) {
+		Properties properties = new Properties();
+		if (model.getModelURL() == null) {
+			return properties;
+		}
+		String spec = model.getModelURL().toExternalForm();
+		while (spec.endsWith("/")) {
+			spec = spec.substring(0, spec.length() - 1);
+		}
+		int slash = spec.lastIndexOf('/');
+		if (slash < 0) {
+			return properties;
+		}
+		try {
+			URLConnection connection = new URL(spec.substring(0, slash + 1) + "Properties").openConnection();
+			// So that a jar isn't left open.
+			connection.setUseCaches(false);
+			try (InputStream in = connection.getInputStream()) {
+				properties.load(in);
+			}
+		} catch (IOException e) {
+			// The model's folder has no Properties.
 		}
 		return properties;
 	}

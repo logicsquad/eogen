@@ -50,6 +50,13 @@ import net.logicsquad.eogen.velocity.WOLipsVelocityUtils;
  * tables. Nothing changes an existing migration, and nothing is written if
  * there are errors.
  * <p>
+ * A migration depends on the other models whose tables it needs, so that
+ * {@code ERXMigrator} migrates them first: up to the version of another
+ * model's migration written in the same run, or else its latest, in the
+ * project or among a dependency's classes. Where eogen can't tell the
+ * version, it leaves a gap.
+ * </p>
+ * <p>
  * The template sees {@code $migration}, a {@link GeneratedMigration}, and
  * {@code $model}, the model, and is found as the entity templates are: in the
  * project folder, then among the shared templates, then WOLips's folders, and
@@ -131,7 +138,6 @@ public final class MigrationGenerator {
 			Map<String, EOModel> earlierModels = models(earlierGroup, earlier.getModelFolders());
 			Properties properties = MigrationNaming.properties(modelFolders);
 			List<String> skipped = MigrationNaming.skippedModels(properties);
-			List<ModelMigration> migrations = new ArrayList<>();
 			List<Finding> findings = new ArrayList<>();
 			Map<File, String> contents = new LinkedHashMap<>();
 			VelocityEngine engine = null;
@@ -140,6 +146,10 @@ public final class MigrationGenerator {
 				namings.put(entry.getKey(), MigrationNaming.of(entry.getValue(), properties, sourceFolders, options.getPackageName()));
 			}
 			namings = MigrationNaming.place(namings);
+			// First what changed in each model, so that a migration can depend on
+			// another model's that is written with it.
+			Map<String, ModelMigration> outcomes = new LinkedHashMap<>();
+			Map<String, MigrationWriter> changed = new LinkedHashMap<>();
 			for (Map.Entry<String, EOModel> entry : models.entrySet()) {
 				String name = entry.getKey();
 				EOModel model = entry.getValue();
@@ -148,7 +158,7 @@ public final class MigrationGenerator {
 					continue;
 				}
 				if (skipped.contains(name)) {
-					migrations.add(new ModelMigration(name, Status.SKIPPED, null, null, -1, false, 0, "er.migration.skipModelNames names it."));
+					outcomes.put(name, new ModelMigration(name, Status.SKIPPED, null, null, -1, false, 0, "er.migration.skipModelNames names it."));
 					continue;
 				}
 				MigrationNaming naming = namings.get(name);
@@ -158,48 +168,62 @@ public final class MigrationGenerator {
 				if (naming.isFirst()) {
 					then = Schema.empty(name);
 					if (!named && earlierModel != null && !new MigrationWriter(Schema.of(earlierModel), now).hasChanges()) {
-						migrations.add(new ModelMigration(name, Status.UNCHANGED, null, null, -1, true, 0, "Its tables haven't changed since " + earlier.getDescription()
+						outcomes.put(name, new ModelMigration(name, Status.UNCHANGED, null, null, -1, true, 0, "Its tables haven't changed since " + earlier.getDescription()
 								+ ", and it has no migrations: name it to write its first, " + naming.getClassName() + ", which creates them."));
 						continue;
 					}
 				} else if (earlierModel == null) {
 					String reason = name + " has migrations, but " + earlier.getDescription() + " has no " + name + " model, so eogen can't tell what changed.";
 					findings.add(Finding.builder(Finding.Severity.WARNING, Finding.NOT_COMPARED, reason).model(name).build());
-					migrations.add(new ModelMigration(name, Status.SKIPPED, null, null, -1, false, 0, reason));
+					outcomes.put(name, new ModelMigration(name, Status.SKIPPED, null, null, -1, false, 0, reason));
 					continue;
 				} else {
 					then = Schema.of(earlierModel);
 				}
 				MigrationWriter writer = new MigrationWriter(then, now);
 				if (!writer.hasChanges()) {
-					migrations.add(new ModelMigration(name, Status.UNCHANGED, null, null, -1, naming.isFirst(), 0, "Its tables haven't changed since " + earlier.getDescription() + "."));
+					outcomes.put(name, new ModelMigration(name, Status.UNCHANGED, null, null, -1, naming.isFirst(), 0, "Its tables haven't changed since " + earlier.getDescription() + "."));
 					continue;
 				}
-				GeneratedMigration migration = new GeneratedMigration(name, naming.getClassName(), naming.getPackageName(), naming.getNumber(), naming.isFirst(), earlier.getDescription(), writer);
+				outcomes.put(name, null);
+				changed.put(name, writer);
+			}
+			List<ModelMigration> migrations = new ArrayList<>();
+			Map<String, Integer> found = new TreeMap<>();
+			for (Map.Entry<String, ModelMigration> outcome : outcomes.entrySet()) {
+				if (outcome.getValue() != null) {
+					migrations.add(outcome.getValue());
+					continue;
+				}
+				String name = outcome.getKey();
+				MigrationNaming naming = namings.get(name);
+				MigrationWriter writer = changed.get(name);
+				List<GeneratedMigration.Dependency> dependencies = dependencies(writer, namings, changed.keySet(), skipped, properties, modelGroup, found);
+				GeneratedMigration migration = new GeneratedMigration(name, naming.getClassName(), naming.getPackageName(), naming.getNumber(), naming.isFirst(), earlier.getDescription(), writer,
+						dependencies);
 				File file = naming.getFile();
 				String path = relative(file);
 				if (engine == null) {
 					engine = engine();
 				}
-				String content = render(engine, options.getTemplate(), migration, model, path, findings);
-				List<Integer> gapLines = new ArrayList<>();
+				String content = render(engine, options.getTemplate(), migration, models.get(name), path, findings);
+				// A dependency's gap is in modelDependencies(), wherever the template
+				// puts it.
+				List<Integer> dependencyGapLines = new ArrayList<>();
+				List<Integer> upgradeGapLines = new ArrayList<>();
 				String[] lines = content.split("\n", -1);
 				for (int i = 0; i < lines.length; i++) {
 					if (lines[i].contains(MigrationWriter.GAP) && !lines[i].trim().startsWith("//")) {
-						gapLines.add(i + 1);
+						(lines[i].contains("ERXModelVersion(") ? dependencyGapLines : upgradeGapLines).add(i + 1);
 					}
 				}
-				for (int i = 0; i < writer.getGaps().size(); i++) {
-					MigrationWriter.Gap gap = writer.getGaps().get(i);
-					Integer line = i < gapLines.size() ? gapLines.get(i) : null;
-					findings.add(Finding.builder(Finding.Severity.WARNING, Finding.MIGRATION_GAP, path + (line == null ? "" : ":" + line) + ": " + gap.getMessage()).file(path).line(line).model(name)
-							.entity(gap.getEntity()).object(gap.getObject()).build());
-				}
+				addGaps(migration.getDependencyGaps(), dependencyGapLines, path, name, findings);
+				addGaps(writer.getGaps(), upgradeGapLines, path, name, findings);
 				if (file.exists()) {
 					findings.add(Finding.error(Finding.FAILURE, path + " exists already, and eogen never changes a migration.").file(path).model(name).build());
 				}
 				String className = naming.getPackageName() == null ? naming.getClassName() : naming.getPackageName() + "." + naming.getClassName();
-				migrations.add(new ModelMigration(name, Status.CREATED, file, className, naming.getNumber(), naming.isFirst(), writer.getGaps().size(), null));
+				migrations.add(new ModelMigration(name, Status.CREATED, file, className, naming.getNumber(), naming.isFirst(), migration.getGapCount(), null));
 				contents.put(file, content);
 			}
 			boolean written = write && findings.stream().noneMatch(Finding::isError);
@@ -214,6 +238,54 @@ public final class MigrationGenerator {
 			throw new EOGeneratorException("Failed to write the migrations: " + e.getMessage(), e);
 		} finally {
 			delete(scratch);
+		}
+	}
+
+	/**
+	 * Returns the other models whose tables a migration needs, but those that
+	 * {@code ERXMigrator} skips, which it logs an error for, each with the
+	 * version to depend on: that of its migration written in the same run, or
+	 * else of its latest, in the project or among a dependency's classes, or
+	 * -1 if eogen can't tell.
+	 */
+	private List<GeneratedMigration.Dependency> dependencies(MigrationWriter writer, Map<String, MigrationNaming> namings, Set<String> written, List<String> skipped, Properties properties,
+			EOModelGroup modelGroup, Map<String, Integer> found) throws IOException {
+		List<GeneratedMigration.Dependency> dependencies = new ArrayList<>();
+		for (Map.Entry<String, Set<String>> needed : writer.getNeededModels().entrySet()) {
+			String name = needed.getKey();
+			if (skipped.contains(name)) {
+				continue;
+			}
+			int version;
+			MigrationNaming naming = namings.get(name);
+			if (naming != null) {
+				version = written.contains(name) ? naming.getNumber() : naming.getNumber() - 1;
+			} else {
+				EOModel model = modelGroup.getModelNamed(name);
+				if (model == null) {
+					continue;
+				}
+				Integer highest = found.get(name);
+				if (highest == null) {
+					highest = MigrationNaming.highestOnClasspath(model, properties, classpath);
+					found.put(name, highest);
+				}
+				version = highest;
+			}
+			dependencies.add(new GeneratedMigration.Dependency(name, version, needed.getValue()));
+		}
+		return dependencies;
+	}
+
+	/**
+	 * Reports each gap as a warning, at its line, if the template has it.
+	 */
+	private static void addGaps(List<MigrationWriter.Gap> gaps, List<Integer> lines, String path, String model, List<Finding> findings) {
+		for (int i = 0; i < gaps.size(); i++) {
+			MigrationWriter.Gap gap = gaps.get(i);
+			Integer line = i < lines.size() ? lines.get(i) : null;
+			findings.add(Finding.builder(Finding.Severity.WARNING, Finding.MIGRATION_GAP, path + (line == null ? "" : ":" + line) + ": " + gap.getMessage()).file(path).line(line).model(model)
+					.entity(gap.getEntity()).object(gap.getObject()).build());
 		}
 	}
 

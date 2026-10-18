@@ -1,15 +1,25 @@
 package com.example.shop;
 
 import com.webobjects.eocontrol.EOEditingContext;
+import com.webobjects.foundation.NSArray;
 
 import er.extensions.migration.ERXMigrationDatabase;
 import er.extensions.migration.ERXMigrationFailedException;
 import er.extensions.migration.ERXMigrationTable;
+import er.extensions.migration.ERXModelVersion;
 
 /**
  * Creates the tables of the Shop model.
  */
 public class Shop0 extends ERXMigrationDatabase.Migration {
+	@Override
+	public NSArray<ERXModelVersion> modelDependencies() {
+		// TODO eogen: This migration needs Reference's table currency, but eogen can't find a migration of
+		// Reference, so it can't tell which version of Reference to depend on. Replace EOGEN_GAP with the
+		// version whose migration creates it, or drop the dependency if it comes from elsewhere.
+		return new NSArray<ERXModelVersion>(new ERXModelVersion("Reference", EOGEN_GAP));
+	}
+
 	@Override
 	public void downgrade(EOEditingContext editingContext, ERXMigrationDatabase database) throws Throwable {
 		throw new ERXMigrationFailedException("Shop0 can't be undone.");

@@ -379,6 +379,82 @@ class MigrationTest {
 		assertCompilesButAtGaps(result);
 	}
 
+	/**
+	 * Shop's first migration needs Reference's currency table, but the
+	 * Reference jar has no migrations, so the dependency is a gap, as
+	 * {@code Shop0.java} shows. A jar with them gives the highest.
+	 */
+	@Test
+	void dependsOnTheLatestMigrationOfAModelInADependency() throws Exception {
+		Files.delete(fixture.resolve("src/main/java/com/example/shop/migrations/Shop0.java"));
+		Path reference = temp.resolve("reference");
+		Files.write(reference.resolve("Resources/Properties"), Collections.singletonList("Reference.MigrationClassPrefix=RefSchema"));
+		Path sources = Files.createDirectories(temp.resolve("reference-sources/com/example/reference"));
+		Files.write(sources.resolve("RefSchema3.java"), Arrays.asList("package com.example.reference;", "", "import com.webobjects.eocontrol.EOEditingContext;", "",
+				"import er.extensions.migration.ERXMigrationDatabase;", "", "public class RefSchema3 extends ERXMigrationDatabase.Migration {",
+				"\tpublic void downgrade(EOEditingContext editingContext, ERXMigrationDatabase database) {", "\t}", "",
+				"\tpublic void upgrade(EOEditingContext editingContext, ERXMigrationDatabase database) {", "\t}", "}"));
+		// Not a migration, though its name looks like one.
+		Files.write(sources.resolve("RefSchema9.java"), Arrays.asList("package com.example.reference;", "", "public class RefSchema9 {", "}"));
+		compile(reference, sources.resolve("RefSchema3.java"), sources.resolve("RefSchema9.java"));
+		FixtureProject.jar(reference, temp.resolve("reference.jar"));
+		MigrationOptions options = options();
+		options.setModels(Collections.singletonList("Shop"));
+		MigrationResult result = fixture.generator().generateMigrations(options, true);
+		assertThat(result.getFindings()).isEmpty();
+		assertThat(read(result)).contains("import com.webobjects.foundation.NSArray;", "import er.extensions.migration.ERXModelVersion;",
+				"\t@Override\n\tpublic NSArray<ERXModelVersion> modelDependencies() {\n\t\treturn new NSArray<ERXModelVersion>(new ERXModelVersion(\"Reference\", 3));\n\t}\n");
+		assertCompilesButAtGaps(result);
+	}
+
+	@Test
+	void dependsOnTheLatestMigrationOfAnotherModelOfTheProject() throws Exception {
+		addNotes(fixture.resolve("src/main/resources"));
+		addNotes(earlier);
+		Files.write(fixture.resolve("src/main/java/com/example/shop/migrations/Notes4.java"), Arrays.asList("package com.example.shop.migrations;", "", "public class Notes4 {", "}"));
+		addMemo();
+		MigrationResult result = generate();
+		assertThat(result.getMigrations()).extracting(ModelMigration::getModel, ModelMigration::getStatus).containsExactly(tuple("Notes", Status.UNCHANGED), tuple("Shop", Status.CREATED));
+		assertThat(upgrade(result)).containsExactly(
+				"ERXMigrationTable orderTable = database.existingTableNamed(\"shop_order\");",
+				"orderTable.newIntegerColumn(\"memo_id\", ALLOWS_NULL);",
+				"",
+				"orderTable.addForeignKey(\"memo_id\", \"note\", \"id\");");
+		assertThat(read(result)).contains("\t\treturn new NSArray<ERXModelVersion>(new ERXModelVersion(\"Notes\", 4));\n");
+		assertCompilesButAtGaps(result);
+	}
+
+	/**
+	 * Shop's first migration needs Notes's note table, and Reference's
+	 * currency table, whose version is a gap.
+	 */
+	@Test
+	void dependsOnEachModelWhoseTablesItNeeds() throws Exception {
+		Files.delete(fixture.resolve("src/main/java/com/example/shop/migrations/Shop0.java"));
+		addNotes(fixture.resolve("src/main/resources"));
+		Files.write(fixture.resolve("src/main/java/com/example/shop/migrations/Notes4.java"), Arrays.asList("package com.example.shop.migrations;", "", "public class Notes4 {", "}"));
+		addMemo();
+		MigrationOptions options = options();
+		options.setModels(Collections.singletonList("Shop"));
+		MigrationResult result = fixture.generator().generateMigrations(options, true);
+		assertThat(result.getFindings()).extracting(Finding::getCode, Finding::getObject).containsExactly(tuple(Finding.MIGRATION_GAP, "dependency on Reference"));
+		assertThat(read(result)).contains("\t\treturn new NSArray<ERXModelVersion>(new ERXModelVersion[] {\n\t\t\t\tnew ERXModelVersion(\"Notes\", 4),\n"
+				+ "\t\t\t\tnew ERXModelVersion(\"Reference\", EOGEN_GAP) });\n");
+		assertThat(created(result).getGaps()).isEqualTo(1);
+		assertCompilesButAtGaps(result);
+	}
+
+	@Test
+	void dependsOnNoModelThatWonderDoesNotMigrate() throws Exception {
+		Files.delete(fixture.resolve("src/main/java/com/example/shop/migrations/Shop0.java"));
+		Files.write(fixture.resolve("src/main/resources/Properties"), Collections.singletonList("er.migration.skipModelNames=Reference"));
+		MigrationOptions options = options();
+		options.setModels(Collections.singletonList("Shop"));
+		MigrationResult result = fixture.generator().generateMigrations(options, true);
+		assertThat(result.getFindings()).isEmpty();
+		assertThat(read(result)).doesNotContain("modelDependencies", "ERXModelVersion").contains("orderTable.addForeignKey(\"currency_code\", \"currency\", \"code\");");
+	}
+
 	@Test
 	void writesNoFirstMigrationForAModelThatIsNotNamedAndHasNotChanged() throws Exception {
 		Files.delete(fixture.resolve("src/main/java/com/example/shop/migrations/Shop0.java"));
@@ -549,6 +625,28 @@ class MigrationTest {
 	}
 
 	/**
+	 * Adds a Notes model, whose one entity, Note, has the table note, to a
+	 * folder.
+	 */
+	private static void addNotes(Path resources) throws IOException {
+		Path notes = Files.createDirectories(resources.resolve("Notes.eomodeld"));
+		Files.write(notes.resolve("index.eomodeld"), Arrays.asList("{", "    EOModelVersion = \"2.1\"; ", "    adaptorName = JDBC; ", "    connectionDictionary = {}; ",
+				"    entities = ({className = \"com.example.notes.Note\"; name = Note; }); ", "}"));
+		Files.write(notes.resolve("Note.plist"), Arrays.asList("{", "    attributes = ({allowsNull = N; columnName = id; name = id; prototypeName = id; }); ",
+				"    attributesUsedForLocking = (id); ", "    className = \"com.example.notes.Note\"; ", "    classProperties = (); ", "    externalName = note; ", "    name = Note; ",
+				"    primaryKeyAttributes = (id); ", "}"));
+	}
+
+	/**
+	 * Gives the fixture's Order a to-one relationship, memo, to Notes's Note.
+	 */
+	private void addMemo() throws IOException {
+		edit(ORDER, ATTRIBUTES, ATTRIBUTES + "        {allowsNull = Y; columnName = \"memo_id\"; name = memoID; prototypeName = id; }, \n");
+		edit(ORDER, "    relationships = (\n",
+				"    relationships = (\n        {destination = Note; isToMany = N; joinSemantic = EOInnerJoin; joins = ({destinationAttribute = id; sourceAttribute = memoID; }); name = memo; }, \n");
+	}
+
+	/**
 	 * Returns the folder of the migrations that eogen is expected to write for
 	 * the fixture. Those for the corpus models are in the corpus.
 	 */
@@ -613,14 +711,36 @@ class MigrationTest {
 	}
 
 	/**
+	 * Compiles classes against stubs of Wonder's API into a folder, with the
+	 * stubs' classes, and checks that they compile.
+	 */
+	private static void compile(Path classes, Path... files) throws IOException, URISyntaxException {
+		List<File> sources = stubs();
+		for (Path file : files) {
+			sources.add(file.toFile());
+		}
+		JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
+		DiagnosticCollector<JavaFileObject> diagnostics = new DiagnosticCollector<>();
+		boolean compiled;
+		try (StandardJavaFileManager fileManager = compiler.getStandardFileManager(diagnostics, Locale.ROOT, StandardCharsets.UTF_8)) {
+			compiled = compiler.getTask(null, fileManager, diagnostics, Arrays.asList("-d", classes.toString(), "-proc:none", "-encoding", "UTF-8"), null,
+					fileManager.getJavaFileObjectsFromFiles(sources)).call();
+		}
+		assertThat(compiled).as("%s", diagnostics.getDiagnostics()).isTrue();
+	}
+
+	private static List<File> stubs() throws IOException, URISyntaxException {
+		try (Stream<Path> stubs = Files.walk(Paths.get(MigrationTest.class.getResource("/wonder").toURI()))) {
+			return stubs.filter(path -> path.toString().endsWith(".java")).map(Path::toFile).collect(Collectors.toCollection(ArrayList::new));
+		}
+	}
+
+	/**
 	 * Compiles the migrations that a result created against stubs of Wonder's
 	 * API, and checks that the only errors are at their gaps.
 	 */
 	private void assertCompilesButAtGaps(MigrationResult result) throws IOException, URISyntaxException {
-		List<File> sources = new ArrayList<>();
-		try (Stream<Path> stubs = Files.walk(Paths.get(MigrationTest.class.getResource("/wonder").toURI()))) {
-			sources.addAll(stubs.filter(path -> path.toString().endsWith(".java")).map(Path::toFile).collect(Collectors.toList()));
-		}
+		List<File> sources = stubs();
 		List<String> gaps = new ArrayList<>();
 		for (ModelMigration migration : result.getCreated()) {
 			sources.add(migration.getFile());

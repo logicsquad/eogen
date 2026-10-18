@@ -44,6 +44,11 @@ import net.logicsquad.eogen.utils.BooleanUtils;
  * to-one that holds the key, has no foreign key, and nor has one that
  * propagates its primary key, whose destination's foreign key is back to it.
  * </p>
+ * <p>
+ * A table knows the model that creates it, and a foreign key the model that
+ * creates its destination, so that a migration can depend on another model
+ * whose table it needs.
+ * </p>
  */
 final class Schema {
 	/**
@@ -231,11 +236,14 @@ final class Schema {
 
 		private final String relationship;
 
-		ForeignKey(List<String> sourceColumns, String destinationTable, List<String> destinationColumns, String relationship) {
+		private final String destinationModel;
+
+		ForeignKey(List<String> sourceColumns, String destinationTable, List<String> destinationColumns, String relationship, String destinationModel) {
 			this.sourceColumns = Collections.unmodifiableList(new ArrayList<>(sourceColumns));
 			this.destinationTable = destinationTable;
 			this.destinationColumns = Collections.unmodifiableList(new ArrayList<>(destinationColumns));
 			this.relationship = relationship;
+			this.destinationModel = destinationModel;
 		}
 
 		List<String> getSourceColumns() {
@@ -258,6 +266,14 @@ final class Schema {
 		}
 
 		/**
+		 * Returns the name of the model that creates its destination table, as
+		 * {@link Table#getCreator()} does, or null.
+		 */
+		String getDestinationModel() {
+			return destinationModel;
+		}
+
+		/**
 		 * Returns it with tables and columns renamed: those of the earlier
 		 * version, in the names they now have.
 		 */
@@ -270,7 +286,7 @@ final class Schema {
 			for (String column : this.destinationColumns) {
 				destination.add(destinationColumns.getOrDefault(key(column), column));
 			}
-			return new ForeignKey(source, tables.getOrDefault(key(destinationTable), destinationTable), destination, relationship);
+			return new ForeignKey(source, tables.getOrDefault(key(destinationTable), destinationTable), destination, relationship, destinationModel);
 		}
 
 		@Override
@@ -300,6 +316,8 @@ final class Schema {
 		private final List<String> entities = new ArrayList<>();
 
 		private boolean owned;
+
+		private String creator;
 
 		private final Map<String, Column> columns = new LinkedHashMap<>();
 
@@ -341,6 +359,14 @@ final class Schema {
 		 */
 		boolean isOwned() {
 			return owned;
+		}
+
+		/**
+		 * Returns the name of the model that creates it: this one, if it owns
+		 * it, or else the model of the partial entity's base entity, or null.
+		 */
+		String getCreator() {
+			return creator;
 		}
 
 		/**
@@ -418,6 +444,7 @@ final class Schema {
 				// A partial entity's table is its base entity's.
 				EOEntity base = entity.isPartialEntitySet() ? entity.getPartialEntity() : entity;
 				table = new Table(entity.getExternalName(), base.getInitialLowercaseName() + "Table");
+				table.creator = creator(entity);
 				schema.tables.put(key, table);
 			}
 			table.entities.add(entity.getName());
@@ -425,6 +452,7 @@ final class Schema {
 			boolean partial = entity.isPartialEntitySet();
 			if (!partial && !table.owned) {
 				table.owned = true;
+				table.creator = model.getName();
 				for (EOAttribute attribute : entity.getPrimaryKeyAttributes()) {
 					if (!isBlank(attribute.getColumnName())) {
 						table.primaryKey.add(attribute.getColumnName());
@@ -511,7 +539,21 @@ final class Schema {
 		if (primaryKey.size() != destinationColumns.size() || !new LinkedHashSet<>(keys(primaryKey)).equals(new LinkedHashSet<>(keys(destinationColumns)))) {
 			return null;
 		}
-		return new ForeignKey(sourceColumns, destination.getExternalName(), destinationColumns, entity.getName() + "." + relationship.getName());
+		return new ForeignKey(sourceColumns, destination.getExternalName(), destinationColumns, entity.getName() + "." + relationship.getName(), creator(destination));
+	}
+
+	/**
+	 * Returns the name of the model that creates an entity's table: the model
+	 * of the entity at the top of the table's single-table inheritance, through
+	 * a partial entity's base entity, or null.
+	 */
+	private static String creator(EOEntity entity) {
+		EOEntity top = entity.isPartialEntitySet() && entity.getPartialEntity() != null ? entity.getPartialEntity() : entity;
+		String table = key(top.getExternalName());
+		for (int depth = 0; top.getParent() != null && key(top.getParent().getExternalName()).equals(table) && depth < 100; depth++) {
+			top = top.getParent();
+		}
+		return top.getModel() == null ? null : top.getModel().getName();
 	}
 
 	/**

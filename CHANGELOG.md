@@ -17,7 +17,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   doesn't allow null needs in the rows a table has, the migration has a
   gap that doesn't compile, which a warning reports. A migration is
   named and placed as `ERXMigrator` looks for it, and rendered from a
-  template, which a project can replace. #24
+  template, which a project can replace. It depends, in
+  `modelDependencies()`, on each other model whose tables it needs, at
+  that model's latest migration, so that `ERXMigrator` migrates that
+  model first. #24, #26
 
 ## [0.3] - 2026-10-18
 ### Changed

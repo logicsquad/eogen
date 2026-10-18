@@ -19,6 +19,15 @@ $line
 #end
  */
 public class ${migration.className} extends ERXMigrationDatabase.Migration {
+#if (!$migration.dependencyLines.isEmpty())
+	@Override
+	public NSArray<ERXModelVersion> modelDependencies() {
+#foreach ($line in $migration.dependencyLines)
+$line
+#end
+	}
+
+#end
 	@Override
 	public void downgrade(EOEditingContext editingContext, ERXMigrationDatabase database) throws Throwable {
 		throw new ERXMigrationFailedException("${migration.className} can't be undone.");

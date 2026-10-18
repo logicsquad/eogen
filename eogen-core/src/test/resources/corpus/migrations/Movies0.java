@@ -1,10 +1,12 @@
 package webobjectsexamples.businesslogic.movies.common;
 
 import com.webobjects.eocontrol.EOEditingContext;
+import com.webobjects.foundation.NSArray;
 
 import er.extensions.migration.ERXMigrationDatabase;
 import er.extensions.migration.ERXMigrationFailedException;
 import er.extensions.migration.ERXMigrationTable;
+import er.extensions.migration.ERXModelVersion;
 
 import java.sql.Types;
 
@@ -12,6 +14,11 @@ import java.sql.Types;
  * Creates the tables of the Movies model.
  */
 public class Movies0 extends ERXMigrationDatabase.Migration {
+	@Override
+	public NSArray<ERXModelVersion> modelDependencies() {
+		return new NSArray<ERXModelVersion>(new ERXModelVersion("ERAttachment", 0));
+	}
+
 	@Override
 	public void downgrade(EOEditingContext editingContext, ERXMigrationDatabase database) throws Throwable {
 		throw new ERXMigrationFailedException("Movies0 can't be undone.");

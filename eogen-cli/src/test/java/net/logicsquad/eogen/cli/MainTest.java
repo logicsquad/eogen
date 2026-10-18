@@ -290,16 +290,18 @@ class MainTest {
 		String isbn = "        {allowsNull = Y; columnName = isbn; name = isbn; prototypeName = varchar100; }, \n";
 		Files.write(book, new String(Files.readAllBytes(book), StandardCharsets.UTF_8).replace("    attributes = (\n", "    attributes = (\n" + isbn).getBytes(StandardCharsets.UTF_8));
 		// The Library model has no migrations, so its first creates its tables.
+		// It needs Reference's currency table, but Reference has no migrations,
+		// so its dependency on Reference is a gap.
 		assertThat(run("--json", "--check", "--project", project.toString(), "--classpath", reference.toString(), "--migration", "--from", earlier.toString())).isEqualTo(Main.OK);
 		assertThat(out()).contains("\"migration\": {", "\"written\": false,", "\"model\": \"Library\",", "\"status\": \"created\",", "\"class\": \"com.example.library.Library0\",",
-				"\"first\": true,", "\"gaps\": 0");
+				"\"first\": true,", "\"gaps\": 1", "\"code\": \"migration-gap\",", "This migration needs Reference's table currency");
 		Path migrations = project.resolve("src/main/java/com/example/library/migrations");
 		assertThat(migrations.resolve("Library0.java")).doesNotExist();
 
 		out.reset();
 		assertThat(run("--project", project.toString(), "--classpath", reference.toString(), "--migration", "--from", earlier.toString(), "--package", "com.example.library.migrations"))
 				.isEqualTo(Main.OK);
-		assertThat(out()).contains("Created src/main/java/com/example/library/migrations/Library0.java.",
+		assertThat(out()).contains("Created src/main/java/com/example/library/migrations/Library0.java, with 1 gap to fill in.",
 				"Wrote 1 migration for the changes since the models in " + earlier.toString().replace(File.separatorChar, '/') + ".");
 		assertThat(new String(Files.readAllBytes(migrations.resolve("Library0.java")), StandardCharsets.UTF_8)).contains("bookTable.newStringColumn(\"isbn\", 100, ALLOWS_NULL);");
 

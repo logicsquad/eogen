@@ -568,7 +568,9 @@ with the code `migration-gap`. There is a gap for:
 * a column whose type changes, whose values may need converting;
 * a primary key that changes;
 * a foreign key or an index that goes, since Wonder has no call to drop
-  one.
+  one;
+* the version of another model to depend on, when eogen finds no
+  migration of it.
 
 A migration is named as `ERXMigrator` looks for it: the model's
 `MigrationClassPrefix`, which is its name unless the project's
@@ -586,6 +588,27 @@ even if its tables didn't change, and a model that Wonder's
 existing migration, and nothing is written if there are errors. To
 write a migration again, after changing the model, delete it first:
 while it is there, the next run writes the one after it.
+
+`ERXMigrator` migrates the models in the order of
+`er.migration.modelNames`, or of the model group if that isn't set, and
+before a migration, it migrates each model in its `modelDependencies()`
+up to the version given. So a migration that needs another model's
+table, for a foreign key to it, or for a partial entity's columns in
+its base entity's table, depends on that model:
+
+    @Override
+    public NSArray<ERXModelVersion> modelDependencies() {
+        return new NSArray<ERXModelVersion>(new ERXModelVersion("Reference", 3));
+    }
+
+The version is that model's latest migration: the one written in the
+same run, if there is one, or else the highest in the project's
+sources, or, for a model in a dependency, among the dependency's
+classes, named with its `MigrationClassPrefix` from the project's
+`Properties` or the dependency's own. `ERXMigrator` stops quietly at a
+version that doesn't exist, so the latest is safe, even when the table
+came earlier. A model that `er.migration.skipModelNames` names isn't a
+dependency.
 
 The parameters are:
 
@@ -609,10 +632,13 @@ so that a team can share one in a jar. A template sees `$migration`,
 with its `className`, `packageName`, `modelName` and `number`, whether
 it is the `first`, `since`, the earlier version, such as
 `commit 1a2b3c4`, `changes`, a sentence for each change, `upgradeLines`,
-the body of `upgrade`, which uses its `database` argument, and
-`importLines`, the imports that the body needs, or with
-`importLines(["com.example.Base"])`, those and others; and `$model`, the
-model. A reference with no value is an error, as it is for the classes.
+the body of `upgrade`, which uses its `database` argument,
+`dependencies`, each with its `modelName`, its `version`, whether it is
+`known`, and its `tables`, `dependencyLines`, the body of
+`modelDependencies`, or none, and `importLines`, the imports that the
+bodies need, or with `importLines(["com.example.Base"])`, those and
+others; and `$model`, the model. A reference with no value is an error,
+as it is for the classes.
 The command line does the same with `--migration`, `--from`,
 `--sources`, `--package`, `--template`, `--migration-models`, and
 `--check` for a dry run.

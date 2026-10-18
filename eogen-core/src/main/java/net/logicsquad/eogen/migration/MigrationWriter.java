@@ -42,6 +42,12 @@ import net.logicsquad.eogen.migration.Schema.Table;
  * tables, with their columns, primary keys and indexes; then the new foreign
  * keys, once every table they need exists; and last the dropped tables.
  * </p>
+ * <p>
+ * It also notes the other models whose tables the calls need, for the
+ * migration to depend on: the models that create the destinations of the
+ * foreign keys it adds, and the model of a table that it adds a partial
+ * entity's columns to.
+ * </p>
  */
 final class MigrationWriter {
 	/**
@@ -117,6 +123,11 @@ final class MigrationWriter {
 	private final List<String> changes = new ArrayList<>();
 
 	/**
+	 * The other models whose tables the calls need, with those tables' names.
+	 */
+	private final Map<String, Set<String>> needed = new TreeMap<>();
+
+	/**
 	 * Each table's variable, by the table's name without case, once declared.
 	 */
 	private final Map<String, String> declared = new HashMap<>();
@@ -188,6 +199,14 @@ final class MigrationWriter {
 		return !changes.isEmpty();
 	}
 
+	/**
+	 * Returns the other models whose tables the calls need, by name, with the
+	 * names of those tables.
+	 */
+	Map<String, Set<String>> getNeededModels() {
+		return needed;
+	}
+
 	private void write() {
 		Map<String, Table> beforeTables = before.getTables();
 		Map<String, Table> afterTables = after.getTables();
@@ -254,6 +273,22 @@ final class MigrationWriter {
 		}
 		if (!lines.isEmpty() && lines.get(lines.size() - 1).isEmpty()) {
 			lines.remove(lines.size() - 1);
+		}
+		// A partial entity's columns change another model's table.
+		for (String key : declared.keySet()) {
+			Table table = afterTables.containsKey(key) ? afterTables.get(key) : beforeTables.get(key);
+			if (table != null && !table.isOwned()) {
+				need(table.getCreator(), table.getName());
+			}
+		}
+	}
+
+	/**
+	 * Notes that the calls need a table of a model, unless it is this one.
+	 */
+	private void need(String model, String table) {
+		if (model != null && !model.equals(after.getModel())) {
+			needed.computeIfAbsent(model, name -> new TreeSet<>()).add(table);
 		}
 	}
 
@@ -546,6 +581,7 @@ final class MigrationWriter {
 			declare(key, variable, "database.existingTableNamed(" + literal(table.getName()) + ")");
 		}
 		for (ForeignKey foreignKey : foreignKeys) {
+			need(foreignKey.getDestinationModel(), foreignKey.getDestinationTable());
 			change("Adds a foreign key from " + describe(table.getName(), foreignKey.getSourceColumns()) + " to " + describe(foreignKey.getDestinationTable(), foreignKey.getDestinationColumns()) + ".");
 			if (foreignKey.getSourceColumns().size() == 1) {
 				statement(variable + ".addForeignKey(" + literal(foreignKey.getSourceColumns().get(0)) + ", " + literal(foreignKey.getDestinationTable()) + ", "
@@ -694,10 +730,25 @@ final class MigrationWriter {
 	}
 
 	/**
-	 * Writes a {@code // TODO eogen:} comment, wrapped, but not inside
-	 * parentheses, so that a call it suggests stays on one line.
+	 * Writes a {@code // TODO eogen:} comment, wrapped as
+	 * {@link #commentLines(String)} wraps it.
 	 */
 	private void comment(String text) {
+		for (String line : commentLines(text)) {
+			statement(line);
+		}
+	}
+
+	/**
+	 * Returns the lines of a {@code // TODO eogen:} comment, without their
+	 * indentation, wrapped, but not inside parentheses, so that a call it
+	 * suggests stays on one line.
+	 *
+	 * @param text what it says
+	 * @return lines
+	 */
+	static List<String> commentLines(String text) {
+		List<String> lines = new ArrayList<>();
 		List<String> words = new ArrayList<>();
 		StringBuilder word = new StringBuilder();
 		int depth = 0;
@@ -722,13 +773,14 @@ final class MigrationWriter {
 		boolean empty = true;
 		for (String next : words) {
 			if (!empty && line.length() + 1 + next.length() > COMMENT_WIDTH - 8) {
-				statement(line.toString());
+				lines.add(line.toString());
 				line = new StringBuilder("//");
 			}
 			line.append(' ').append(next);
 			empty = false;
 		}
-		statement(line.toString());
+		lines.add(line.toString());
+		return lines;
 	}
 
 	/**
