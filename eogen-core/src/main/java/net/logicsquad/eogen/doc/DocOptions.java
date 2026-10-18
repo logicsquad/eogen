@@ -7,12 +7,35 @@ import java.io.File;
  */
 public final class DocOptions {
 	/**
-	 * The folder of the pages by default, relative to the project, so that a
-	 * project's Maven site includes them.
+	 * What the pages are written in.
+	 */
+	public enum Format {
+		/**
+		 * EOModelDoc's HTML pages, for a project's Maven site.
+		 */
+		HTML,
+
+		/**
+		 * A Markdown page for each model, with a Mermaid diagram, to commit beside
+		 * the code.
+		 */
+		MARKDOWN
+	}
+
+	/**
+	 * The folder of the HTML pages by default, relative to the project, so that
+	 * a project's Maven site includes them.
 	 */
 	public static final String DEFAULT_OUTPUT = "target/site/eomodeldoc";
 
-	private File output = new File(DEFAULT_OUTPUT);
+	/**
+	 * The folder of the Markdown pages by default, relative to the project.
+	 */
+	public static final String DEFAULT_MARKDOWN_OUTPUT = "docs/models";
+
+	private Format format = Format.HTML;
+
+	private File output;
 
 	private File templateFolder;
 
@@ -21,22 +44,44 @@ public final class DocOptions {
 	private boolean includeDependencies;
 
 	/**
+	 * Returns what the pages are written in.
+	 *
+	 * @return format
+	 */
+	public Format getFormat() {
+		return format;
+	}
+
+	/**
+	 * Sets what the pages are written in. The default is HTML.
+	 *
+	 * @param format format, or null for HTML
+	 */
+	public void setFormat(Format format) {
+		this.format = format == null ? Format.HTML : format;
+	}
+
+	/**
 	 * Returns the folder of the pages.
 	 *
 	 * @return folder
 	 */
 	public File getOutput() {
-		return output;
+		if (output != null) {
+			return output;
+		}
+		return new File(format == Format.MARKDOWN ? DEFAULT_MARKDOWN_OUTPUT : DEFAULT_OUTPUT);
 	}
 
 	/**
 	 * Sets the folder of the pages, relative to the project if it isn't
-	 * absolute. The default is {@link #DEFAULT_OUTPUT}.
+	 * absolute. The default is {@link #DEFAULT_OUTPUT} for HTML, and
+	 * {@link #DEFAULT_MARKDOWN_OUTPUT} for Markdown.
 	 *
-	 * @param output folder
+	 * @param output folder, or null for the default
 	 */
 	public void setOutput(File output) {
-		this.output = output == null ? new File(DEFAULT_OUTPUT) : output;
+		this.output = output;
 	}
 
 	/**

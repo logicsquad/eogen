@@ -33,6 +33,7 @@ import net.logicsquad.eogen.model.EOModelGroup;
 import net.logicsquad.eogen.model.EOModelVerificationFailure;
 import net.logicsquad.eogen.model.EOStoredProcedure;
 import net.logicsquad.eogen.runtime.NullProgressMonitor;
+import net.logicsquad.eogen.utils.LineEndings;
 import net.logicsquad.eogen.utils.URLUtils;
 import net.logicsquad.eogen.velocity.ListTool;
 import net.logicsquad.eogen.velocity.SetTool;
@@ -45,7 +46,9 @@ import net.logicsquad.eogen.velocity.WOLipsVelocityUtils;
  * {@code EOModelDocGenerator} did, from its templates: an index of every
  * model and entity, in frames, and a page for each model, entity and stored
  * procedure, with the documentation that Entity Modeler keeps in their
- * {@code userInfo}.
+ * {@code userInfo}. Or, in Markdown, a page for each model, from
+ * {@code model.md.vm}, with a Mermaid diagram of its entities and
+ * relationships, to commit beside the code.
  * <p>
  * It documents the project's own models, and with
  * {@link DocOptions#setIncludeDependencies(boolean)} the dependencies' too,
@@ -58,11 +61,28 @@ import net.logicsquad.eogen.velocity.WOLipsVelocityUtils;
  * page its {@code $model}, {@code $entity}, with {@code $entityURL}, or
  * {@code $storedProcedure}. The
  * style sheet and the scripts, among them Prototype 1.5.0, are copied as they
- * are. A reference that renders with no value is an error, and nothing is
- * written, unless forced.
+ * are. A Markdown page sees {@code $model}, {@code $entities} and
+ * {@code $storedProcedures}, its model's, {@code $diagram}, the Mermaid
+ * diagram, {@code $md}, a {@link MarkdownTool}, {@code $documented}, and
+ * {@code $entityURLs}, the link from each entity's class name, by entity. A
+ * reference that renders with no value is an error, and nothing is written,
+ * unless forced.
+ * </p>
+ * <p>
+ * Each page is compared with its file, and only those that are missing or
+ * differ are written. A file that differs only in its line endings is the
+ * same, and one that is written keeps the line endings it had. A Markdown
+ * page in the folder that starts with {@link #MARKDOWN_MARKER}, but that
+ * isn't written now, is an orphan, which writing deletes.
  * </p>
  */
 public final class ModelDocGenerator {
+	/**
+	 * How a Markdown page that eogen wrote starts, which tells an orphan from
+	 * a page of the project's own.
+	 */
+	public static final String MARKDOWN_MARKER = "<!-- Written by eogen";
+
 	/**
 	 * The files that are copied rather than rendered.
 	 */
@@ -92,15 +112,16 @@ public final class ModelDocGenerator {
 	}
 
 	/**
-	 * Writes the pages.
+	 * Writes the pages, or compares them with their files.
 	 *
 	 * @param options where to write them, and what with
+	 * @param write whether to write them, or only compare them
 	 * @param force whether to write them despite errors
-	 * @return what was written
+	 * @return what was written, or would be
 	 * @throws EOGeneratorException if the model group can't be loaded, a
-	 *         template fails, or a file can't be written
+	 *         template fails, or a file can't be read or written
 	 */
-	public DocResult generate(DocOptions options, boolean force) throws EOGeneratorException {
+	public DocResult generate(DocOptions options, boolean write, boolean force) throws EOGeneratorException {
 		Set<EOModelVerificationFailure> failures = new LinkedHashSet<>();
 		EOModelGroup modelGroup = new EOModelGroup();
 		try {
@@ -117,7 +138,7 @@ public final class ModelDocGenerator {
 			}
 		}
 		if (!findings.isEmpty() && !force) {
-			return new DocResult(Collections.<String>emptyList(), Collections.<File>emptyList(), findings, false);
+			return new DocResult(Collections.<String>emptyList(), Collections.<DocResult.Page>emptyList(), Collections.<File>emptyList(), findings, false);
 		}
 		List<EOModel> models = new ArrayList<>();
 		for (EOModel model : modelGroup.getModels()) {
@@ -143,6 +164,56 @@ public final class ModelDocGenerator {
 		}
 		File output = resolve(options.getOutput());
 		Map<String, byte[]> pages = new LinkedHashMap<>();
+		boolean markdown = options.getFormat() == DocOptions.Format.MARKDOWN;
+		if (markdown) {
+			markdown(engine, options, modelGroup, models, documented, pages, output, findings);
+		} else {
+			html(engine, options, modelGroup, models, entities, documented, templateFolder, pages, output, findings);
+		}
+		boolean written = write && (findings.isEmpty() || force);
+		List<DocResult.Page> files = new ArrayList<>();
+		List<File> orphans = new ArrayList<>();
+		try {
+			for (Map.Entry<String, byte[]> page : pages.entrySet()) {
+				File file = new File(output, page.getKey().replace('/', File.separatorChar));
+				byte[] contents = page.getValue();
+				DocResult.Status status = DocResult.Status.CREATED;
+				if (file.isFile()) {
+					byte[] existing = Files.readAllBytes(file.toPath());
+					if (LineEndings.same(contents, existing)) {
+						status = DocResult.Status.UNCHANGED;
+					} else {
+						status = DocResult.Status.UPDATED;
+						contents = LineEndings.like(contents, existing);
+					}
+				}
+				if (written && status != DocResult.Status.UNCHANGED) {
+					Files.createDirectories(file.getParentFile().toPath());
+					Files.write(file.toPath(), contents);
+				}
+				files.add(new DocResult.Page(file, status));
+			}
+			if (markdown) {
+				for (File orphan : orphans(output, pages.keySet())) {
+					orphans.add(orphan);
+					if (written) {
+						Files.delete(orphan.toPath());
+					}
+				}
+			}
+		} catch (IOException e) {
+			throw new EOGeneratorException("Failed to write the documentation: " + e.getMessage(), e);
+		}
+		List<String> names = new ArrayList<>(documented);
+		return new DocResult(names, files, orphans, findings, written);
+	}
+
+	/**
+	 * Renders EOModelDoc's HTML pages, and the files that are copied, into
+	 * memory.
+	 */
+	private void html(VelocityEngine engine, DocOptions options, EOModelGroup modelGroup, List<EOModel> models, List<EOEntity> entities, Set<String> documented,
+			File templateFolder, Map<String, byte[]> pages, File output, List<Finding> findings) throws EOGeneratorException {
 		VelocityOneContext context = new VelocityOneContext();
 		context.put("modelGroup", modelGroup);
 		context.put("models", models);
@@ -179,22 +250,67 @@ public final class ModelDocGenerator {
 			}
 			context.remove("storedProcedure");
 		}
-		boolean written = findings.isEmpty() || force;
-		List<File> files = new ArrayList<>();
-		try {
-			for (Map.Entry<String, byte[]> page : pages.entrySet()) {
-				File file = new File(output, page.getKey().replace('/', File.separatorChar));
-				files.add(file);
-				if (written) {
-					Files.createDirectories(file.getParentFile().toPath());
-					Files.write(file.toPath(), page.getValue());
+	}
+
+	/**
+	 * Renders a Markdown page for each model into memory.
+	 */
+	private void markdown(VelocityEngine engine, DocOptions options, EOModelGroup modelGroup, List<EOModel> models, Set<String> documented, Map<String, byte[]> pages,
+			File output, List<Finding> findings) throws EOGeneratorException {
+		MarkdownTool md = new MarkdownTool();
+		for (EOModel model : models) {
+			VelocityOneContext context = new VelocityOneContext();
+			context.put("modelGroup", modelGroup);
+			context.put("models", models);
+			context.put("documented", documented);
+			context.put("md", md);
+			context.put("list", new ListTool());
+			context.put("set", new SetTool());
+			context.put("model", model);
+			List<EOEntity> entities = entities(model);
+			context.put("entities", entities);
+			context.put("storedProcedures", new ArrayList<>(model.getSortedStoredProcedures()));
+			context.put("diagram", MermaidDiagram.erDiagram(entities));
+			Map<String, String> entityURLs = new LinkedHashMap<>();
+			if (options.getEntityURL() != null) {
+				for (EOEntity entity : entities) {
+					String className = entity.getClassName();
+					if (className != null && !className.isEmpty()) {
+						entityURLs.put(entity.getName(), entityURL(engine, options.getEntityURL(), entity, findings));
+					}
 				}
 			}
-		} catch (IOException e) {
-			throw new EOGeneratorException("Failed to write the documentation: " + e.getMessage(), e);
+			context.put("entityURLs", entityURLs);
+			render(engine, context, "model.md.vm", model.getName() + ".md", pages, output, findings);
 		}
-		List<String> names = new ArrayList<>(documented);
-		return new DocResult(names, files, findings, written);
+	}
+
+	/**
+	 * Returns the Markdown pages in a folder that start with
+	 * {@link #MARKDOWN_MARKER}, other than those written now.
+	 */
+	private static List<File> orphans(File output, Set<String> pages) throws IOException {
+		List<File> orphans = new ArrayList<>();
+		File[] files = output.listFiles((folder, name) -> name.endsWith(".md"));
+		if (files == null) {
+			return orphans;
+		}
+		Arrays.sort(files);
+		byte[] marker = MARKDOWN_MARKER.getBytes(StandardCharsets.UTF_8);
+		for (File file : files) {
+			if (!file.isFile() || pages.contains(file.getName())) {
+				continue;
+			}
+			byte[] start = new byte[marker.length];
+			int read;
+			try (InputStream in = Files.newInputStream(file.toPath())) {
+				read = in.readNBytes(start, 0, start.length);
+			}
+			if (read == marker.length && Arrays.equals(start, marker)) {
+				orphans.add(file);
+			}
+		}
+		return orphans;
 	}
 
 	/**

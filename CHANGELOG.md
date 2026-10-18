@@ -29,6 +29,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   on, as `malformed-html`: a tag that HTML5 doesn't have, an end tag
   that closes nothing, an element without the end tag that it needs,
   and an `&` or a `<` that starts nothing. #29
+- `doc` writes Markdown, with `format` (`eogen.doc.format`,
+  `--doc-format`) `markdown`: a page for each model, in `docs/models`,
+  to commit, with a Mermaid diagram of its entities and relationships,
+  and a section for each entity, with its attributes, relationships,
+  fetch specifications and entity indexes, and their documentation.
+  With `checkDoc` (`eogen.checkDoc`, `--doc --check`), it writes
+  nothing, and fails if a page would change, or if the folder has a
+  page that eogen wrote for a model that it no longer documents, which
+  writing the pages deletes. #30
 
 ## [0.4] - 2026-10-18
 ### Added

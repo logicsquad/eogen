@@ -8,13 +8,88 @@ import java.util.List;
 import net.logicsquad.eogen.Finding;
 
 /**
- * What documenting the models did: the models documented, the files written,
- * or that would have been written, and the findings, which are errors.
+ * What documenting the models did: the models documented, the pages written,
+ * or that would have been written, with whether each is new, changed or
+ * unchanged, the orphans, and the findings, which are errors.
  */
 public final class DocResult {
+	/**
+	 * How a page compares with the file it is written to.
+	 */
+	public enum Status {
+		/**
+		 * The file doesn't exist.
+		 */
+		CREATED,
+
+		/**
+		 * The file differs, other than in its line endings.
+		 */
+		UPDATED,
+
+		/**
+		 * The file is the same.
+		 */
+		UNCHANGED
+	}
+
+	/**
+	 * A page, and how it compares with its file.
+	 */
+	public static final class Page {
+		private final File file;
+
+		private final Status status;
+
+		/**
+		 * Constructor.
+		 *
+		 * @param file the file
+		 * @param status how it compares
+		 */
+		public Page(File file, Status status) {
+			this.file = file;
+			this.status = status;
+		}
+
+		/**
+		 * Returns the file.
+		 *
+		 * @return file
+		 */
+		public File getFile() {
+			return file;
+		}
+
+		/**
+		 * Returns how the page compares with its file.
+		 *
+		 * @return status
+		 */
+		public Status getStatus() {
+			return status;
+		}
+
+		/**
+		 * Returns whether writing the page changes its file.
+		 *
+		 * @return {@code true} if the file is missing or differs
+		 */
+		public boolean isStale() {
+			return status != Status.UNCHANGED;
+		}
+
+		@Override
+		public String toString() {
+			return file + " (" + status + ")";
+		}
+	}
+
 	private final List<String> models;
 
-	private final List<File> files;
+	private final List<Page> pages;
+
+	private final List<File> orphans;
 
 	private final List<Finding> findings;
 
@@ -24,13 +99,16 @@ public final class DocResult {
 	 * Constructor.
 	 *
 	 * @param models the names of the models documented
-	 * @param files the files
+	 * @param pages the pages
+	 * @param orphans Markdown pages that eogen wrote for models that it no
+	 *        longer documents
 	 * @param findings errors
-	 * @param written whether the files were written
+	 * @param written whether the pages were written
 	 */
-	public DocResult(List<String> models, List<File> files, List<Finding> findings, boolean written) {
+	public DocResult(List<String> models, List<Page> pages, List<File> orphans, List<Finding> findings, boolean written) {
 		this.models = Collections.unmodifiableList(new ArrayList<>(models));
-		this.files = Collections.unmodifiableList(new ArrayList<>(files));
+		this.pages = Collections.unmodifiableList(new ArrayList<>(pages));
+		this.orphans = Collections.unmodifiableList(new ArrayList<>(orphans));
 		this.findings = Collections.unmodifiableList(new ArrayList<>(findings));
 		this.written = written;
 	}
@@ -45,12 +123,60 @@ public final class DocResult {
 	}
 
 	/**
-	 * Returns the files, the index first.
+	 * Returns the pages, the index first.
+	 *
+	 * @return pages
+	 */
+	public List<Page> getPages() {
+		return pages;
+	}
+
+	/**
+	 * Returns the pages' files, the index first.
 	 *
 	 * @return files
 	 */
 	public List<File> getFiles() {
+		List<File> files = new ArrayList<>();
+		for (Page page : pages) {
+			files.add(page.getFile());
+		}
 		return files;
+	}
+
+	/**
+	 * Returns the pages whose files are missing or differ.
+	 *
+	 * @return pages
+	 */
+	public List<Page> getStalePages() {
+		List<Page> stale = new ArrayList<>();
+		for (Page page : pages) {
+			if (page.isStale()) {
+				stale.add(page);
+			}
+		}
+		return stale;
+	}
+
+	/**
+	 * Returns the Markdown pages in the folder that eogen wrote for models that
+	 * it no longer documents, which writing the pages deletes.
+	 *
+	 * @return files
+	 */
+	public List<File> getOrphans() {
+		return orphans;
+	}
+
+	/**
+	 * Returns whether writing the pages changes the folder: whether a page is
+	 * missing or differs, or there are orphans.
+	 *
+	 * @return {@code true} if it does
+	 */
+	public boolean isStale() {
+		return !getStalePages().isEmpty() || !orphans.isEmpty();
 	}
 
 	/**
@@ -78,8 +204,8 @@ public final class DocResult {
 	}
 
 	/**
-	 * Returns whether the files were written: they are unless there are
-	 * errors, or when forced.
+	 * Returns whether the pages were written, and the orphans deleted: they are
+	 * when asked, unless there are errors, or when forced.
 	 *
 	 * @return {@code true} if written
 	 */

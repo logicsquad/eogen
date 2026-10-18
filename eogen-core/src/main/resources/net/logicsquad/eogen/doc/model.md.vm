@@ -1,0 +1,89 @@
+<!-- Written by eogen from the $model.name model. Change the model, and run eogen's doc goal, rather than editing this page. -->
+
+$model.name
+$md.rule($model.name, "=")
+#if ($md.has($model))
+
+$md.block($model)
+#end
+
+```mermaid
+$diagram
+```
+#foreach ($entity in $entities)
+
+$entity.name
+$md.rule($entity.name, "-")
+#if ($md.has($entity))
+
+$md.block($entity)
+#end
+
+#if ($entity.externalName)
+- Table: $md.code($entity.externalName)
+#end
+#if ($entity.className)
+#if ($entityURLs.containsKey($entity.name))
+- Class: [$md.code($entity.className)]($entityURLs.get($entity.name))
+#else
+- Class: $md.code($entity.className)
+#end
+#end
+#if ($entity.parent)
+- Parent: $md.link($entity.parent, $model, $documented)
+#end
+#if (!$entity.childrenEntities.empty)
+- Subentities: $md.links($entity.childrenEntities, $model, $documented)
+#end
+#if ($entity.restrictingQualifier)
+- Restricting qualifier: $md.code($entity.restrictingQualifier)
+#end
+#if ($entity.abstractEntity)
+- Abstract
+#end
+#set ($attributes = $md.attributes($entity))
+#if (!$attributes.empty)
+
+| Attribute | Column | Type | Allows null | Documentation |
+|---|---|---|---|---|
+#foreach ($attribute in $attributes)
+| $md.code($attribute.name)#if ($attribute.primaryKey) (primary key)#end | #if ($attribute.flattened)via $md.code($attribute.definition)#elseif ($attribute.columnName)$md.code($attribute.columnName)#elseif ($attribute.definition)$md.code($attribute.definition)#end | $md.code($md.type($attribute)) | #if ($attribute.flattened)#elseif ($attribute.allowsNull)yes#{else}no#end | $md.cell($attribute) |
+#end
+#end
+#set ($relationships = $md.relationships($entity))
+#if (!$relationships.empty)
+
+| Relationship | Destination | Cardinality | Documentation |
+|---|---|---|---|
+#foreach ($relationship in $relationships)
+| $md.code($relationship.name) | #if ($relationship.destination)$md.link($relationship.destination, $model, $documented)#end | #if ($relationship.toMany)to many#{else}to one#end#if ($relationship.mandatory), mandatory#end#if ($relationship.flattened), via $md.code($relationship.definition)#end | $md.cell($relationship) |
+#end
+#end
+#if (!$entity.sortedFetchSpecs.empty)
+
+| Fetch specification | Qualifier | Documentation |
+|---|---|---|
+#foreach ($fetchSpec in $entity.sortedFetchSpecs)
+| $md.code($fetchSpec.name) | #if ($fetchSpec.qualifierString)$md.code($fetchSpec.qualifierString)#end | $md.cell($fetchSpec) |
+#end
+#end
+#if (!$entity.sortedEntityIndexes.empty)
+
+| Entity index | Attributes | Constraint | Documentation |
+|---|---|---|---|
+#foreach ($entityIndex in $entity.sortedEntityIndexes)
+| $md.code($entityIndex.name) | $md.names($entityIndex.attributes) | #if ($entityIndex.constraint)$entityIndex.constraint.externalName#end | $md.cell($entityIndex) |
+#end
+#end
+#end
+#if (!$storedProcedures.empty)
+
+Stored procedures
+-----------------
+
+| Stored procedure | External name | Arguments | Documentation |
+|---|---|---|---|
+#foreach ($storedProcedure in $storedProcedures)
+| $md.code($storedProcedure.name) | #if ($storedProcedure.externalName)$md.code($storedProcedure.externalName)#end | $md.names($storedProcedure.sortedArguments) | $md.cell($storedProcedure) |
+#end
+#end

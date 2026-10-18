@@ -135,9 +135,17 @@ public final class Main {
 			"                          gets its first, even if it didn't change.",
 			"  --doc                   Write EOModelDoc's HTML pages for the project's",
 			"                          models: an index, and a page for each model, entity",
-			"                          and stored procedure, with their documentation.",
+			"                          and stored procedure, with their documentation. With",
+			"                          --check, write nothing, and exit with status 1 if a",
+			"                          page would change, or an orphan would be deleted.",
+			"  --doc-format <format>   With --doc, html, or markdown for a page for each",
+			"                          model, with a Mermaid diagram of its entities, to",
+			"                          commit. Writing deletes the pages that eogen wrote",
+			"                          for models that it no longer documents. Default:",
+			"                          html.",
 			"  --output <folder>       With --doc, the folder of the pages. Default:",
-			"                          <project>/target/site/eomodeldoc.",
+			"                          <project>/target/site/eomodeldoc, or for Markdown,",
+			"                          <project>/docs/models.",
 			"  --doc-templates <folder>",
 			"                          With --doc, a folder of templates and files, which",
 			"                          come before the bundled ones.",
@@ -187,6 +195,8 @@ public final class Main {
 	private boolean doc;
 
 	private File output;
+
+	private DocOptions.Format docFormat;
 
 	private File docTemplates;
 
@@ -307,7 +317,7 @@ public final class Main {
 				debug = true;
 			} else if ("--project".equals(arg) || "--models".equals(arg) || "--classpath".equals(arg) || "--templates".equals(arg) || "--rename".equals(arg)
 					|| "--to".equals(arg) || "--remove".equals(arg) || "--from".equals(arg) || "--sources".equals(arg) || "--package".equals(arg) || "--template".equals(arg)
-					|| "--migration-models".equals(arg) || "--output".equals(arg) || "--doc-templates".equals(arg) || "--entity-url".equals(arg)) {
+					|| "--migration-models".equals(arg) || "--output".equals(arg) || "--doc-templates".equals(arg) || "--entity-url".equals(arg) || "--doc-format".equals(arg)) {
 				if (i + 1 == args.length) {
 					return usage(arg + " needs a value.");
 				}
@@ -336,6 +346,14 @@ public final class Main {
 					output = new File(value);
 				} else if ("--doc-templates".equals(arg)) {
 					docTemplates = new File(value);
+				} else if ("--doc-format".equals(arg)) {
+					if ("html".equalsIgnoreCase(value)) {
+						docFormat = DocOptions.Format.HTML;
+					} else if ("markdown".equalsIgnoreCase(value)) {
+						docFormat = DocOptions.Format.MARKDOWN;
+					} else {
+						return usage("--doc-format is html or markdown, not " + value + ".");
+					}
 				} else if ("--entity-url".equals(arg)) {
 					entityURL = value;
 				} else if ("--migration-models".equals(arg)) {
@@ -354,11 +372,11 @@ public final class Main {
 				eogenFiles.add(new File(arg));
 			}
 		}
-		if (doc && (verify || format || migration || all || check || deleteOrphans || rename != null || remove != null || !eogenFiles.isEmpty())) {
-			return usage("--doc takes no .eogen files, and goes only with --force, --include-dependencies and its own options.");
+		if (doc && (verify || format || migration || all || deleteOrphans || rename != null || remove != null || !eogenFiles.isEmpty())) {
+			return usage("--doc takes no .eogen files, and goes only with --check, --force, --include-dependencies and its own options.");
 		}
-		if (!doc && (output != null || docTemplates != null || entityURL != null)) {
-			return usage("--output, --doc-templates and --entity-url go with --doc.");
+		if (!doc && (output != null || docFormat != null || docTemplates != null || entityURL != null)) {
+			return usage("--output, --doc-format, --doc-templates and --entity-url go with --doc.");
 		}
 		if (migration && (verify || format || all || deleteOrphans || rename != null || remove != null || !eogenFiles.isEmpty())) {
 			return usage("--migration takes no .eogen files, and goes only with --check and its own options.");
@@ -630,13 +648,16 @@ public final class Main {
 	 */
 	private int doc(EOGenerator generator) {
 		DocOptions options = new DocOptions();
-		options.setOutput(output == null ? new File(project, DocOptions.DEFAULT_OUTPUT) : output);
-		options.setTemplateFolder(docTemplates);
+		options.setFormat(docFormat);
+		// The core resolves a relative folder against the project, but the command
+		// line's are relative to the current folder, as the project's is.
+		options.setOutput((output == null ? new File(project, options.getOutput().getPath()) : output).getAbsoluteFile());
+		options.setTemplateFolder(docTemplates == null ? null : docTemplates.getAbsoluteFile());
 		options.setEntityURL(entityURL);
 		options.setIncludeDependencies(includeDependencies);
 		DocResult result;
 		try {
-			result = generator.generateDoc(options);
+			result = generator.generateDoc(options, !check);
 		} catch (EOGeneratorException e) {
 			return failed(e.getMessage(), e);
 		}
@@ -644,8 +665,17 @@ public final class Main {
 		docReport.put("written", result.isWritten());
 		docReport.put("models", result.getModels());
 		List<Object> files = new ArrayList<>();
-		for (File file : result.getFiles()) {
-			files.add(relative(file));
+		for (DocResult.Page page : result.getPages()) {
+			Map<String, Object> map = new LinkedHashMap<>();
+			map.put("file", relative(page.getFile()));
+			map.put("status", page.getStatus().name().toLowerCase(Locale.ROOT));
+			files.add(map);
+		}
+		for (File orphan : result.getOrphans()) {
+			Map<String, Object> map = new LinkedHashMap<>();
+			map.put("file", relative(orphan));
+			map.put("status", "orphaned");
+			files.add(map);
 		}
 		docReport.put("files", files);
 		docReport.put("errors", findings(result.getFindings(), true));
@@ -657,11 +687,30 @@ public final class Main {
 				problem(finding.getMessage());
 			}
 		}
-		if (!result.isWritten()) {
-			problem("there are errors, so no page was written. Fix them, or use --force to write anyway.");
+		if (result.hasErrors() && !force) {
+			problem("there are errors, so no page was " + (check ? "checked" : "written") + ". Fix them, or use --force to " + (check ? "check" : "write") + " anyway.");
 			return FAILED;
 		}
-		say("Documented " + String.join(", ", result.getModels()) + " in " + relative(options.getOutput()) + ": " + result.getFiles().size() + " files.");
+		String folder = relative(options.getOutput());
+		int pages = result.getPages().size();
+		if (check) {
+			for (DocResult.Page page : result.getStalePages()) {
+				say(relative(page.getFile()) + (page.getStatus() == DocResult.Status.CREATED ? " is missing." : " is out of date."));
+			}
+			for (File orphan : result.getOrphans()) {
+				say(relative(orphan) + " is an orphan: eogen wrote it for a model that it no longer documents.");
+			}
+			if (result.isStale()) {
+				return STALE;
+			}
+			say((pages == 1 ? "The page" : "All " + pages + " pages") + " of " + String.join(", ", result.getModels()) + " in " + folder + (pages == 1 ? " is" : " are") + " up to date.");
+			return OK;
+		}
+		for (File orphan : result.getOrphans()) {
+			say("Deleted " + relative(orphan) + ", which eogen wrote for a model that it no longer documents.");
+		}
+		say("Documented " + String.join(", ", result.getModels()) + " in " + folder + ": " + pages + (pages == 1 ? " file, " : " files, ") + result.getStalePages().size()
+				+ " written.");
 		return OK;
 	}
 

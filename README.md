@@ -26,9 +26,10 @@ It also:
 * writes Project Wonder migrations for model changes, and fails a build
   when a model has changed without one (see
   [Writing migrations](#writing-migrations));
-* writes WOLips's EOModelDoc pages, with the documentation that Entity
-  Modeler keeps for each model, entity and attribute, and puts that
-  documentation in the generated classes' Javadoc (see
+* writes the documentation that Entity Modeler keeps for each model,
+  entity and attribute as WOLips's EOModelDoc pages, or as Markdown
+  pages with a diagram of each model, to commit, and puts it in the
+  generated classes' Javadoc (see
   [Documenting models](#documenting-models));
 * lints the keys in qualifiers, sort orderings and prefetching, which
   otherwise fail only when a fetch runs (see [Lint](#lint));
@@ -99,7 +100,9 @@ The goals are:
   migration for each model whose tables changed (see
   [Writing migrations](#writing-migrations)).
 * `doc` (default phase `pre-site`): writes EOModelDoc's HTML pages for
-  the project's models (see [Documenting models](#documenting-models)).
+  the project's models, or a Markdown page for each, and with
+  `checkDoc` fails the build if the pages are stale (see
+  [Documenting models](#documenting-models)).
 
 They take these parameters:
 
@@ -188,9 +191,16 @@ Using the command line
                             With --migration, the models to write
                             migrations for, separated by ','.
     --doc                   Write EOModelDoc's HTML pages for the
-                            project's models.
+                            project's models. With --check, write
+                            nothing, and exit with status 1 if a page
+                            would change, or an orphan would be
+                            deleted.
+    --doc-format <format>   With --doc, html, or markdown for a page
+                            for each model, with a Mermaid diagram, to
+                            commit. Default: html.
     --output <folder>       With --doc, the folder of the pages.
-                            Default: <project>/target/site/eomodeldoc.
+                            Default: <project>/target/site/eomodeldoc,
+                            or for Markdown, <project>/docs/models.
     --doc-templates <folder>
                             With --doc, a folder of templates and files,
                             which come before the bundled ones.
@@ -228,7 +238,9 @@ has the earlier version it compared with, as `since`, whether it was
 it was compared with, and for a created one its `file`, `class`,
 `number`, whether it is the `first`, how many `gaps` it has, and its
 `changes`, or else the `reason`; `doc`, with `--doc`, has whether it was
-`written`, the `models` documented, the `files`, and its `errors`; and
+`written`, the `models` documented, the `files`, each with its `file`
+and a `status` (`created`, `updated`, `unchanged` or `orphaned`), and
+its `errors`; and
 `problems` has any failure that stopped it. Problems still go to
 standard error, as text.
 
@@ -788,8 +800,8 @@ documented. The other parameters are:
 * `outputDirectory` (`eogen.doc.output`): the folder of the pages.
 * `templateDirectory` (`eogen.doc.templates`): a folder of templates,
   which come before the bundled ones: a page's, such as
-  `entityContent.html.vm`, or a file that is copied, such as
-  `eomodeldoc.css`.
+  `entityContent.html.vm` or `model.md.vm`, or a file that is copied,
+  such as `eomodeldoc.css`.
 * `entityURL` (`eogen.doc.entityURL`): a Velocity template for the link
   from each entity's class name, such as to its Javadoc, which sees
   `$entity` and `$model`. It is relative to the entity's page, which is
@@ -802,6 +814,78 @@ does the same with `--doc`, `--output`, `--doc-templates`,
 `--entity-url` and `--include-dependencies`. Unlike WOLips's EOModelDoc,
 `doc` has no OmniGraffle export, whose diagrams placed entities at
 random.
+
+### In Markdown
+
+With `format` (`eogen.doc.format`, `--doc-format`) set to `markdown`,
+`doc` writes a page for each model instead, `<Model>.md`, in
+`docs/models`, to commit beside the code. GitHub and GitLab render it,
+and a pull request that changes a model shows the change in its page:
+
+    Shop
+    ====
+
+    A small shop, for testing eogen.
+
+    ```mermaid
+    erDiagram
+        Order
+        Party
+        ...
+        Party ||--o{ Order : "orders / customer"
+        Order }o--|| Currency : "currency"
+    ```
+
+    Order
+    -----
+
+    - Table: `shop_order`
+    - Class: `com.example.shop.Order`
+
+    | Attribute | Column | Type | Allows null | Documentation |
+    |---|---|---|---|---|
+    | `placed` | `placed` | `timestamp` | no | When the order was placed. |
+
+A page has the model's documentation, a
+[Mermaid](https://mermaid.js.org) diagram of its entities and their
+relationships, and a section for each entity, with its documentation,
+its table and class, and tables of its attributes and relationships,
+fetch specifications and entity indexes, each with its documentation.
+The diagram draws a relationship and its inverse as one line, whose ends
+say how many of each entity the other reaches. It has the entities of
+other models that relationships reach, but no attributes or flattened
+relationships. GitHub and GitLab draw it from its text, so a page has no
+date or layout in it, and changes only when its model does.
+Documentation stays the HTML it is, which Markdown keeps, but goes on
+one line in a table, with `|` escaped.
+
+With `checkDoc` (`eogen.checkDoc`, `--doc --check`), `doc` writes
+nothing, and fails if a page would change, or if the folder has a page
+that eogen wrote for a model that it no longer documents, which writing
+the pages deletes. A page's first line marks it as eogen's, so `doc`
+leaves the folder's other files alone. Bind the check to `verify`, so
+that a build fails when someone changes a model without writing its
+page again:
+
+    <execution>
+      <id>check-doc</id>
+      <phase>verify</phase>
+      <goals>
+        <goal>doc</goal>
+      </goals>
+      <configuration>
+        <format>markdown</format>
+        <checkDoc>true</checkDoc>
+      </configuration>
+    </execution>
+
+and write the pages again with:
+
+    mvn eogen:doc -Deogen.doc.format=markdown
+
+The pages render from `model.md.vm`, which a folder of templates can
+replace, as for the HTML pages. The command line does the same with
+`--doc-format markdown` and `--check`.
 
 ### In the generated classes
 

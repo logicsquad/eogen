@@ -921,16 +921,33 @@ public class EOGenerator {
 	 * Writes EOModelDoc's HTML pages for the project's models, with
 	 * {@link ModelDocGenerator}: an index of every model and entity, and a page
 	 * for each model, entity and stored procedure, with their documentation.
-	 * Nothing is written if the model group or a template has errors, unless
-	 * forced.
+	 * Or, in Markdown, a page for each model, with a diagram of its entities
+	 * and relationships, and deletes the Markdown pages that eogen wrote for
+	 * models that it no longer documents. Nothing is written if the model group
+	 * or a template has errors, unless forced.
 	 *
 	 * @param options where to write the pages, and what with
 	 * @return what was written
 	 * @throws EOGeneratorException if the model group can't be loaded, a
-	 *         template fails, or a file can't be written
+	 *         template fails, or a file can't be read or written
 	 */
 	public DocResult generateDoc(DocOptions options) throws EOGeneratorException {
-		return new ModelDocGenerator(projectDirectory, modelFolders, classpath, templatePath).generate(options, force);
+		return generateDoc(options, true);
+	}
+
+	/**
+	 * Writes the pages as {@link #generateDoc(DocOptions)} does, or compares
+	 * them with their files, and finds the orphans, without writing anything,
+	 * so that a build can fail when the committed pages are stale.
+	 *
+	 * @param options where to write the pages, and what with
+	 * @param write whether to write them, or only compare them
+	 * @return what was written, or would be
+	 * @throws EOGeneratorException if the model group can't be loaded, a
+	 *         template fails, or a file can't be read or written
+	 */
+	public DocResult generateDoc(DocOptions options, boolean write) throws EOGeneratorException {
+		return new ModelDocGenerator(projectDirectory, modelFolders, classpath, templatePath).generate(options, write, force);
 	}
 
 	private ClasspathEOModelGroupFactory modelGroupFactory() {

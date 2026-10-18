@@ -386,14 +386,53 @@ class MainTest {
 		// By default, the project's own models, in its site.
 		out.reset();
 		assertThat(run("--project", project.toString(), "--classpath", reference.toString(), "--doc")).isEqualTo(Main.OK);
-		assertThat(out()).contains("Documented Library in target/site/eomodeldoc: 11 files.");
+		assertThat(out()).contains("Documented Library in target/site/eomodeldoc: 11 files, 11 written.");
 
 		err.reset();
 		assertThat(run("--output", output.toString(), eogen())).isEqualTo(Main.FAILED);
-		assertThat(err()).contains("--output, --doc-templates and --entity-url go with --doc.");
+		assertThat(err()).contains("--output, --doc-format, --doc-templates and --entity-url go with --doc.");
 		err.reset();
-		assertThat(run("--doc", "--check")).isEqualTo(Main.FAILED);
+		assertThat(run("--doc", "--all")).isEqualTo(Main.FAILED);
 		assertThat(err()).contains("--doc takes no .eogen files");
+		err.reset();
+		assertThat(run("--doc", "--doc-format", "pdf")).isEqualTo(Main.FAILED);
+		assertThat(err()).contains("--doc-format is html or markdown, not pdf.");
+	}
+
+	/**
+	 * The project's folder is relative to the current folder here, as it is
+	 * when the command line runs in a project's parent.
+	 */
+	@Test
+	void writesAndChecksMarkdownPages() throws Exception {
+		String relativeProject = Paths.get("").toAbsolutePath().relativize(project).toString();
+		Path page = project.resolve("docs/models/Library.md");
+		assertThat(run("--project", relativeProject, "--classpath", reference.toString(), "--doc", "--doc-format", "markdown", "--check")).isEqualTo(Main.STALE);
+		assertThat(out()).contains("docs/models/Library.md is missing.");
+		assertThat(page).doesNotExist();
+
+		out.reset();
+		assertThat(run("--project", relativeProject, "--classpath", reference.toString(), "--doc", "--doc-format", "markdown")).isEqualTo(Main.OK);
+		assertThat(out()).contains("Documented Library in docs/models: 1 file, 1 written.");
+		assertThat(new String(Files.readAllBytes(page), StandardCharsets.UTF_8)).contains("```mermaid\nerDiagram\n    Author\n    Book\n");
+		out.reset();
+		assertThat(run("--project", relativeProject, "--classpath", reference.toString(), "--doc", "--doc-format", "markdown", "--check")).isEqualTo(Main.OK);
+		assertThat(out()).contains("The page of Library in docs/models is up to date.");
+
+		Path book = project.resolve("src/main/resources/Library.eomodeld/Book.plist");
+		String text = new String(Files.readAllBytes(book), StandardCharsets.UTF_8);
+		Files.write(book, text.replace("name = title; prototypeName = varchar100;", "name = name; prototypeName = varchar100;")
+				.replace(", title", ", name").replace("(title", "(name").getBytes(StandardCharsets.UTF_8));
+		Path orphan = project.resolve("docs/models/Catalogue.md");
+		Files.write(orphan, "<!-- Written by eogen from the Catalogue model. -->\n".getBytes(StandardCharsets.UTF_8));
+		out.reset();
+		assertThat(run("--json", "--project", project.toString(), "--classpath", reference.toString(), "--doc", "--doc-format", "markdown", "--check")).isEqualTo(Main.STALE);
+		assertThat(out()).contains("\"files\": [\n      {\n        \"file\": \"docs/models/Library.md\",\n        \"status\": \"updated\"\n      },\n      {\n        \"file\": \"docs/models/Catalogue.md\",\n        \"status\": \"orphaned\"\n      }\n    ]");
+		assertThat(err()).isEmpty();
+		out.reset();
+		assertThat(run("--project", project.toString(), "--classpath", reference.toString(), "--doc", "--doc-format", "markdown")).isEqualTo(Main.OK);
+		assertThat(out()).contains("Deleted docs/models/Catalogue.md, which eogen wrote for a model that it no longer documents.");
+		assertThat(orphan).doesNotExist();
 	}
 
 	@Test
