@@ -26,6 +26,9 @@ It also:
 * writes Project Wonder migrations for model changes, and fails a build
   when a model has changed without one (see
   [Writing migrations](#writing-migrations));
+* writes WOLips's EOModelDoc pages, with the documentation that Entity
+  Modeler keeps for each model, entity and attribute (see
+  [Documenting models](#documenting-models));
 * lints the keys in qualifiers, sort orderings and prefetching, which
   otherwise fail only when a fetch runs (see [Lint](#lint));
 * formats models as Entity Modeler writes them, and renames and removes
