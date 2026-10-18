@@ -112,6 +112,50 @@ class ModelLinterTest {
 						tuple(Finding.MISNAMED_ENTITY, "Tags", "entity Tags", null, null));
 	}
 
+	/**
+	 * The class templates can put documentation in Javadoc comments, where
+	 * Javadoc's checks fail a build on HTML that a browser would forgive.
+	 */
+	@Test
+	void findsDocumentationThatJavadocWouldReject() throws IOException {
+		documentParty("A <codwe>Party</code> places <code>Order</code>s.");
+		replace("Order.plist", "deletes its lines.", "deletes its lines & their <em>notes</p>.");
+		replace("index.eomodeld", "for testing eogen.", "for testing eogen, with fewer < 10 <tt>Tag</tt>s and <codeParty</code>.");
+		replace("Order.plist", "When the order was placed.", "When the <p>order was <code>placed.");
+		assertThat(messages()).containsExactly(
+				"Shop.eomodeld/index.eomodeld: the model: documentation has a < that starts no tag (did you mean &lt;?).",
+				"Shop.eomodeld/index.eomodeld: the model: documentation has <tt>, which HTML5 doesn't have.",
+				"Shop.eomodeld/index.eomodeld: the model: documentation has <codeParty with no >.",
+				"Shop.eomodeld/Order.plist: attribute placed: documentation has <code> with no </code>.",
+				"Shop.eomodeld/Order.plist: relationship lines: documentation has an & that starts no character reference (did you mean &amp;?).",
+				"Shop.eomodeld/Order.plist: relationship lines: documentation has </p>, which closes no <p>.",
+				"Shop.eomodeld/Order.plist: relationship lines: documentation has <em> with no </em>.",
+				"Shop.eomodeld/Party.plist: entity Party: documentation has <codwe>, which isn't an HTML tag (did you mean <code>?).");
+		assertThat(ModelLinter.lint(shop.toFile())).extracting(LintFinding::getCode).containsOnly(Finding.MALFORMED_HTML);
+		assertThat(ModelLinter.lint(shop.toFile()).get(7)).extracting(LintFinding::getEntity, LintFinding::getObject, LintFinding::getKey, LintFinding::getSuggestion)
+				.containsExactly("Party", "entity Party", "codwe", "<code>");
+	}
+
+	@Test
+	void acceptsDocumentationThatJavadocWould() throws IOException {
+		documentParty("<p>A <CODE>Party</CODE>&mdash;someone, or <a href=\\\"https://example.com\\\">something</a>, that places <em>orders</em>:</p>"
+				+ "<ul><li>one<li>two</ul><p>Its <code>name</code> &amp; <code>id</code>&#33;<br/><br>&#x21;<!-- not shown --></p><p>Or none.");
+		assertThat(messages()).isEmpty();
+	}
+
+	/**
+	 * A {@code <code>} written for a {@code </code>} leaves elements open,
+	 * which are reported once.
+	 */
+	@Test
+	void reportsElementsLeftOpenOnce() throws IOException {
+		documentParty("<p>A <code>Party</p> and <b>bold</b></i>, after <br></br>, with <code>Order<code>s and <code>Tag<code>s.");
+		assertThat(messages()).containsExactly("Shop.eomodeld/Party.plist: entity Party: documentation has <code> with no </code> before </p>.",
+				"Shop.eomodeld/Party.plist: entity Party: documentation has </i>, which closes no <i>.",
+				"Shop.eomodeld/Party.plist: entity Party: documentation has </br>, which closes no <br>.",
+				"Shop.eomodeld/Party.plist: entity Party: documentation has <code> with no </code>.");
+	}
+
 	@Test
 	void leavesUnreadableFilesToTheModelLoader() throws IOException {
 		Files.write(shop.resolve("Tag.plist"), "{ attributes = (".getBytes(StandardCharsets.UTF_8));
@@ -129,6 +173,10 @@ class ModelLinterTest {
 
 	private List<String> messages() {
 		return ModelLinter.lint(shop.toFile()).stream().map(LintFinding::toString).collect(Collectors.toList());
+	}
+
+	private void documentParty(String documentation) throws IOException {
+		replace("Party.plist", "documentation = \"Someone who places orders.\";", "documentation = \"" + documentation + "\";");
 	}
 
 	private void replace(String file, String from, String to) throws IOException {

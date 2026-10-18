@@ -23,12 +23,15 @@ import net.logicsquad.eogen.Finding;
  * name in {@code classProperties}, {@code primaryKeyAttributes} or
  * {@code attributesUsedForLocking} that matches no attribute or relationship,
  * which silently drops it; and an entity file that {@code index.eomodeld}
- * doesn't list, which the model never loads.
+ * doesn't list, which the model never loads. It also finds documentation
+ * whose HTML a Javadoc build would fail on, since the class templates can
+ * put it in Javadoc comments.
  * <p>
  * The keys it knows are the ones the model classes read and write, together
  * with the ones found in Project Wonder's models and other real models.
  * {@code userInfo} and {@code internalInfo} are free-form, and so are
- * qualifiers, so it doesn't look inside them.
+ * qualifiers, so it doesn't look inside them, apart from the documentation
+ * that Entity Modeler keeps in {@code userInfo}.
  * </p>
  */
 public final class ModelLinter {
@@ -103,6 +106,7 @@ public final class ModelLinter {
 			return;
 		}
 		unknownKeys(index, null, "the model", indexMap, INDEX_KEYS);
+		documentation(index, null, "the model", indexMap);
 		Set<String> entityNames = new LinkedHashSet<>();
 		for (Object entityObject : list(indexMap.get("entities"))) {
 			Map<?, ?> entity = map(entityObject);
@@ -173,6 +177,7 @@ public final class ModelLinter {
 			finding(file, Finding.MISNAMED_ENTITY, name, object, null, null, object + ": index.eomodeld lists it as " + fileEntityName + ".");
 		}
 		unknownKeys(file, entityName, object, entity, ENTITY_KEYS);
+		documentation(file, entityName, object, entity);
 
 		Set<String> attributes = new LinkedHashSet<>();
 		for (Object attributeObject : list(entity.get("attributes"))) {
@@ -180,6 +185,7 @@ public final class ModelLinter {
 			if (attribute != null) {
 				String attributeName = string(attribute.get("name"));
 				unknownKeys(file, entityName, "attribute " + attributeName, attribute, ATTRIBUTE_KEYS);
+				documentation(file, entityName, "attribute " + attributeName, attribute);
 				if (attributeName != null) {
 					attributes.add(attributeName);
 				}
@@ -191,6 +197,7 @@ public final class ModelLinter {
 			if (relationship != null) {
 				String relationshipName = string(relationship.get("name"));
 				unknownKeys(file, entityName, "relationship " + relationshipName, relationship, RELATIONSHIP_KEYS);
+				documentation(file, entityName, "relationship " + relationshipName, relationship);
 				for (Object join : list(relationship.get("joins"))) {
 					Map<?, ?> joinMap = map(join);
 					if (joinMap != null) {
@@ -206,6 +213,7 @@ public final class ModelLinter {
 			Map<?, ?> index = map(indexObject);
 			if (index != null) {
 				unknownKeys(file, entityName, "index " + string(index.get("name")), index, ENTITY_INDEX_KEYS);
+				documentation(file, entityName, "index " + string(index.get("name")), index);
 			}
 		}
 		lintFetchSpecifications(file, entityName, map(entity.get("fetchSpecificationDictionary")));
@@ -230,6 +238,7 @@ public final class ModelLinter {
 			}
 			String object = "fetch specification " + entry.getKey();
 			unknownKeys(file, entityName, object, fetchSpecification, FETCH_SPECIFICATION_KEYS);
+			documentation(file, entityName, object, fetchSpecification);
 			for (Object ordering : list(fetchSpecification.get("sortOrderings"))) {
 				Map<?, ?> orderingMap = map(ordering);
 				if (orderingMap != null) {
@@ -246,10 +255,12 @@ public final class ModelLinter {
 		}
 		String name = string(procedure.get("name"));
 		unknownKeys(file, null, "stored procedure " + (name == null ? fileName : name), procedure, STORED_PROCEDURE_KEYS);
+		documentation(file, null, "stored procedure " + (name == null ? fileName : name), procedure);
 		for (Object argumentObject : list(procedure.get("arguments"))) {
 			Map<?, ?> argument = map(argumentObject);
 			if (argument != null) {
 				unknownKeys(file, null, "argument " + string(argument.get("name")), argument, STORED_PROCEDURE_ARGUMENT_KEYS);
+				documentation(file, null, "argument " + string(argument.get("name")), argument);
 			}
 		}
 	}
@@ -260,6 +271,27 @@ public final class ModelLinter {
 			if (!known.contains(key)) {
 				String suggestion = suggest(key, known);
 				finding(file, Finding.UNKNOWN_KEY, entity, object, key, suggestion, object + ": unknown key " + key + (suggestion == null ? "." : " (did you mean " + suggestion + "?)."));
+			}
+		}
+	}
+
+	/**
+	 * Reports what in an object's documentation a Javadoc build would fail on,
+	 * each kind of mistake once.
+	 */
+	private void documentation(File file, String entity, String object, Map<?, ?> map) {
+		Map<?, ?> userInfo = map(map.get("userInfo"));
+		Map<?, ?> entityModeler = userInfo == null ? null : map(userInfo.get("_EntityModeler"));
+		String documentation = entityModeler == null ? null : string(entityModeler.get("documentation"));
+		if (documentation == null) {
+			return;
+		}
+		Set<String> messages = new LinkedHashSet<>();
+		for (DocumentationChecker.Problem problem : DocumentationChecker.check(documentation)) {
+			String suggestion = problem.getSuggestion();
+			String message = object + ": documentation has " + problem.getDescription() + (suggestion == null ? "." : " (did you mean " + suggestion + "?).");
+			if (messages.add(message)) {
+				finding(file, Finding.MALFORMED_HTML, entity, object, problem.getKey(), suggestion, message);
 			}
 		}
 	}

@@ -90,6 +90,12 @@ public final class Finding {
 	public static final String UNMATCHED_KEY = "unmatched-key";
 
 	/**
+	 * Documentation whose HTML a Javadoc build would fail on, such as a tag
+	 * that HTML doesn't have.
+	 */
+	public static final String MALFORMED_HTML = "malformed-html";
+
+	/**
 	 * A template reference that rendered with no value.
 	 */
 	public static final String UNRESOLVED_REFERENCE = "unresolved-reference";

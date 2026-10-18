@@ -25,6 +25,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   from the model as a Javadoc comment, or only its lines, for a
   template's own comment. The HTML stays as it is, apart from what
   would end the comment or break the source. #29
+- The lint reports documentation whose HTML a Javadoc build would fail
+  on, as `malformed-html`: a tag that HTML5 doesn't have, an end tag
+  that closes nothing, an element without the end tag that it needs,
+  and an `&` or a `<` that starts nothing. #29
 
 ## [0.4] - 2026-10-18
 ### Added

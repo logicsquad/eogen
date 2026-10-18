@@ -266,6 +266,7 @@ names the kind of finding, and keeps its meaning once released:
 | `missing-file` | an entity that `index.eomodeld` lists, but that has no file |
 | `misnamed-entity` | an entity whose `name` isn't its file's |
 | `unmatched-key` | a key in a fetch specification or a restricting qualifier that matches nothing |
+| `malformed-html` | documentation whose HTML a Javadoc build would fail on, such as a tag that HTML5 doesn't have |
 | `unresolved-reference` | a template reference that rendered with no value |
 | `format-loss` | a model that formatting leaves alone, or a rename or removal that is refused, since saving a file would change what it says |
 | `eogen-file` | an `.eogen` file that eogen can't use, such as one with no `-destination` |
@@ -434,11 +435,20 @@ project's models when it verifies. It reports:
   RawFetchAllMovies: sort key titel matches nothing in Movie (did you
   mean title?)`. These name keys as text, so a rename or a typo leaves
   them behind, and the fetch fails only when it runs. A qualifier's
-  variables, such as `$username`, are values, and aren't checked.
+  variables, such as `$username`, are values, and aren't checked;
+* documentation whose HTML a Javadoc build would fail on, since the
+  templates can put it in Javadoc comments (see
+  [In the generated classes](#in-the-generated-classes)): a tag that
+  HTML5 doesn't have, such as `entity Party: documentation has <codwe>,
+  which isn't an HTML tag (did you mean <code>?)`, an end tag that
+  closes nothing, an element such as `<code>` without its end tag, and
+  an `&` or a `<` that starts nothing, which should be `&amp;` or
+  `&lt;`.
 
 The keys it knows are the ones the model classes read and write, and
 the ones found in 116 real models, Project Wonder's among them. It
-doesn't look inside `userInfo` or `internalInfo`.
+doesn't look inside `userInfo` or `internalInfo`, apart from Entity
+Modeler's documentation.
 
 Its findings are warnings. `strict` (`eogen.strict`, `--strict`) makes
 them errors, which stop `generate` as other errors do. Use `strict`
@@ -832,7 +842,8 @@ template that already has a comment of its own:
 
 WOLips has no `$javadoc`, so there the `#if` is false, and the same
 template generates the classes without the comments, which `check` then
-catches.
+catches. The lint reports documentation that a Javadoc build would fail
+on (see [Lint](#lint)).
 
 How eogen finds templates
 -------------------------
