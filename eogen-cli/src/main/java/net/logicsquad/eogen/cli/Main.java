@@ -658,6 +658,10 @@ public final class Main {
 		}
 		if (check && !missing.isEmpty()) {
 			say(missing.size() + (missing.size() == 1 ? " model has" : " models have") + " changed with no migration.");
+			String keeping = result.describeKeeping();
+			if (keeping != null) {
+				say(keeping);
+			}
 			return STALE;
 		}
 		say((check ? "Would write " : "Wrote ") + created + (created == 1 ? " migration" : " migrations") + " for the changes since " + result.getSince() + ".");

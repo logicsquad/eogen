@@ -124,7 +124,10 @@ which doesn't compile, and reports each one. Fill each in as its comment
 says, and ask the user when the answer depends on their data, such as
 the value that existing rows get in a new column that doesn't allow
 null. Then run `mvn compile`. Never edit a migration that is already
-committed: a database may have run it.
+committed: a database may have run it. If a table or a column must stay
+after its entity or attribute goes, for its rows, list it in the
+model's `userInfo` under `eogen.keep`, rather than deleting the drops
+from a migration.
 
 ## Reading what eogen reports
 

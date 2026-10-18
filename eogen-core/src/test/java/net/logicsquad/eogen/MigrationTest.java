@@ -271,7 +271,150 @@ class MigrationTest {
 		MigrationResult result = generate();
 		assertThat(result.getFindings()).isEmpty();
 		assertThat(upgrade(result)).containsExactly("database.existingTableNamed(\"shipment\").drop();");
+		assertThat(created(result).getDropped()).containsExactly("shipment");
+		assertThat(result.describeKeeping()).isEqualTo("To keep a table or a column that a model no longer maps, such as Shop's shipment, list it in the model's userInfo under eogen.keep.");
 		assertCompilesButAtGaps(result);
+	}
+
+	/**
+	 * The earlier version has Shipment, whose table has a foreign key to the
+	 * order's, and an index. The model deletes Shipment, but keeps its table.
+	 */
+	@Test
+	void keepsATableThatTheModelNoLongerMaps() throws Exception {
+		addShipment(earlier);
+		keep(fixture.resolve("src/main/resources"), "shipment");
+		MigrationResult result = generate();
+		assertThat(result.getFindings()).isEmpty();
+		assertThat(result.getMigrations()).extracting(ModelMigration::getStatus).containsExactly(Status.UNCHANGED);
+
+		// A later change gets a migration without the drop.
+		edit(ORDER, ATTRIBUTES, ATTRIBUTES + "        {allowsNull = Y; columnName = \"gift_message\"; name = giftMessage; prototypeName = varchar100; }, \n");
+		result = generate();
+		assertThat(upgrade(result)).containsExactly(
+				"ERXMigrationTable orderTable = database.existingTableNamed(\"shop_order\");",
+				"orderTable.newStringColumn(\"gift_message\", 100, ALLOWS_NULL);");
+		assertThat(result.describeKeeping()).isNull();
+	}
+
+	/**
+	 * The earlier version keeps shipment, and a column of the order's table,
+	 * which the model now neither maps nor keeps, so they go.
+	 */
+	@Test
+	void dropsWhatTheEarlierVersionKeptAndTheModelNoLongerKeeps() throws Exception {
+		keep(earlier, "shipment", "shop_order.legacy_code");
+		MigrationResult result = generate();
+		assertThat(result.getFindings()).isEmpty();
+		assertThat(upgrade(result)).containsExactly(
+				"ERXMigrationTable orderTable = database.existingTableNamed(\"shop_order\");",
+				"orderTable.existingColumnNamed(\"legacy_code\").delete();",
+				"",
+				"database.existingTableNamed(\"shipment\").drop();");
+		assertThat(created(result).getChanges()).containsExactly("Removes legacy_code from shop_order.", "Drops shipment.");
+		assertThat(created(result).getDropped()).containsExactly("shop_order.legacy_code", "shipment");
+		assertCompilesButAtGaps(result);
+	}
+
+	/**
+	 * The model keeps the order's note, and the earlier version's index of it
+	 * stays with it.
+	 */
+	@Test
+	void keepsAColumnThatTheModelNoLongerMaps() throws Exception {
+		editEarlier(ORDER, "{columnName = note; name = note;", "{allowsNull = Y; columnName = note; name = note;");
+		editEarlier(ORDER, "    externalName = \"shop_order\"; \n",
+				"    entityIndexes = ({attributes = (note); constraint = none; indexType = clustered; name = \"order_note\"; order = asc; }); \n    externalName = \"shop_order\"; \n");
+		edit(ORDER, "        {columnName = note; name = note; prototypeName = longText; }, \n", "");
+		edit(ORDER, "lines, note, placed", "lines, placed");
+		keep(fixture.resolve("src/main/resources"), "shop_order.note");
+		MigrationResult result = generate();
+		assertThat(result.getFindings()).isEmpty();
+		assertThat(result.getMigrations()).extracting(ModelMigration::getStatus).containsExactly(Status.UNCHANGED);
+	}
+
+	/**
+	 * Order.note maps a new column, but the model keeps the old one, so the
+	 * new column is added rather than the old one renamed.
+	 */
+	@Test
+	void keepsTheOldColumnOfAnAttributeThatMapsANewOne() throws Exception {
+		editEarlier(ORDER, "{columnName = note; name = note;", "{allowsNull = Y; columnName = note; name = note;");
+		edit(ORDER, "{columnName = note; name = note;", "{allowsNull = Y; columnName = remarks; name = note;");
+		keep(fixture.resolve("src/main/resources"), "shop_order.note");
+		MigrationResult result = generate();
+		assertThat(result.getFindings()).isEmpty();
+		assertThat(created(result).getChanges()).containsExactly("Adds remarks to shop_order.");
+		assertCompilesButAtGaps(result);
+	}
+
+	/**
+	 * The earlier version keeps shipment and a column of the order's table,
+	 * which the model maps again: they are there already.
+	 */
+	@Test
+	void mapsAKeptTableAndColumnAgain() throws Exception {
+		keep(earlier, "shipment", "shop_order.legacy_code");
+		addShipment(fixture.resolve("src/main/resources"));
+		edit(ORDER, ATTRIBUTES, ATTRIBUTES + "        {allowsNull = Y; columnName = \"legacy_code\"; name = legacyCode; prototypeName = varchar100; }, \n");
+		MigrationResult result = generate();
+		assertThat(result.getFindings()).isEmpty();
+		assertThat(result.getMigrations()).extracting(ModelMigration::getStatus).containsExactly(Status.UNCHANGED);
+	}
+
+	/**
+	 * A kept column that doesn't allow null needs a value in each row that the
+	 * application inserts, which it no longer gives it.
+	 */
+	@Test
+	void leavesAGapForAKeptColumnThatDoesNotAllowNull() throws Exception {
+		editEarlier(ORDER, ATTRIBUTES, ATTRIBUTES + "        {allowsNull = N; columnName = \"legacy_code\"; name = legacyCode; prototypeName = varchar100; }, \n");
+		keep(fixture.resolve("src/main/resources"), "shop_order.legacy_code");
+		MigrationResult result = generate();
+		assertThat(upgrade(result)).containsExactly(
+				"ERXMigrationTable orderTable = database.existingTableNamed(\"shop_order\");",
+				"// TODO eogen: Shop keeps legacy_code in shop_order, which doesn't allow null, so the application",
+				"// can't insert a row into shop_order unless the column has a default. Let it allow null, as the next",
+				"// line does, or give it a default instead. Either way, delete this line.",
+				"EOGEN_GAP;",
+				"orderTable.existingColumnNamed(\"legacy_code\").setAllowsNull(ALLOWS_NULL);");
+		assertThat(result.getFindings()).extracting(Finding::getCode, Finding::getObject).containsExactly(tuple(Finding.MIGRATION_GAP, "column legacy_code"));
+		assertThat(created(result).getChanges()).containsExactly("Lets legacy_code in shop_order be null, as Shop keeps it.");
+		assertThat(created(result).getDropped()).isEmpty();
+		assertCompilesButAtGaps(result);
+	}
+
+	/**
+	 * The earlier version's order has two to-ones to Shipment. The model
+	 * deletes Shipment and both, but keeps its table and one's column, and
+	 * still maps the other's: both foreign keys stay, as does the kept table's
+	 * own, to the order's.
+	 */
+	@Test
+	void keepsTheForeignKeysOfAndIntoAKeptTable() throws Exception {
+		addShipment(earlier);
+		String lastShipment = "        {allowsNull = Y; columnName = \"last_shipment_id\"; name = lastShipmentID; prototypeName = id; }, \n";
+		String returnShipment = "        {allowsNull = Y; columnName = \"return_shipment_id\"; name = returnShipmentID; prototypeName = id; }, \n";
+		editEarlier(ORDER, ATTRIBUTES, ATTRIBUTES + lastShipment + returnShipment);
+		editEarlier(ORDER, "    relationships = (\n", "    relationships = (\n"
+				+ "        {destination = Shipment; isToMany = N; joinSemantic = EOInnerJoin; joins = ({destinationAttribute = id; sourceAttribute = lastShipmentID; }); name = lastShipment; }, \n"
+				+ "        {destination = Shipment; isToMany = N; joinSemantic = EOInnerJoin; joins = ({destinationAttribute = id; sourceAttribute = returnShipmentID; }); name = returnShipment; }, \n");
+		edit(ORDER, ATTRIBUTES, ATTRIBUTES + returnShipment);
+		keep(fixture.resolve("src/main/resources"), "shipment", "shop_order.last_shipment_id");
+		MigrationResult result = generate();
+		assertThat(result.getFindings()).isEmpty();
+		assertThat(result.getMigrations()).extracting(ModelMigration::getStatus).containsExactly(Status.UNCHANGED);
+	}
+
+	@Test
+	void warnsOfAKeptNameThatDoesNothing() throws Exception {
+		keep(fixture.resolve("src/main/resources"), "tag", "shop_order.note", "shipmnt");
+		MigrationResult result = generate();
+		assertThat(result.getMigrations()).extracting(ModelMigration::getStatus).containsExactly(Status.UNCHANGED);
+		assertThat(result.getFindings()).extracting(Finding::getSeverity, Finding::getCode, Finding::getMessage).containsExactly(
+				tuple(Finding.Severity.WARNING, Finding.UNUSED_KEEP, "Shop's eogen.keep names tag, but Tag still maps it, so it does nothing."),
+				tuple(Finding.Severity.WARNING, Finding.UNUSED_KEEP, "Shop's eogen.keep names shop_order.note, but Order.note still maps it, so it does nothing."),
+				tuple(Finding.Severity.WARNING, Finding.UNUSED_KEEP, "Shop's eogen.keep names shipmnt, but the earlier version of Shop neither maps nor keeps it, so it does nothing."));
 	}
 
 	@Test
@@ -715,6 +858,18 @@ class MigrationTest {
 				"    primaryKeyAttributes = (id); ",
 				"    relationships = ({destination = Order; isMandatory = Y; isToMany = N; joinSemantic = EOInnerJoin; joins = ({destinationAttribute = id; sourceAttribute = orderID; }); name = order; }); ",
 				"}"));
+	}
+
+	/**
+	 * Gives the Shop model in a folder a list of the tables and columns that it
+	 * keeps.
+	 */
+	private static void keep(Path resources, String... names) throws IOException {
+		List<String> quoted = new ArrayList<>();
+		for (String name : names) {
+			quoted.add("\"" + name + "\"");
+		}
+		replace(resources.resolve("Shop.eomodeld/index.eomodeld"), "    userInfo = {", "    userInfo = {\"eogen.keep\" = (" + String.join(", ", quoted) + "); ");
 	}
 
 	/**

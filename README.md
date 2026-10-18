@@ -242,6 +242,7 @@ names the kind of finding, and keeps its meaning once released:
 | `migration-gap` | what a generated migration leaves to decide, at a gap that doesn't compile |
 | `earlier-version` | an earlier version of the models that can't be read, such as a commit that doesn't exist |
 | `not-compared` | a model with migrations that the earlier version lacks, so that it gets none |
+| `unused-keep` | a name in a model's `eogen.keep` that does nothing, since the model still maps it, or the earlier version neither maps nor keeps it |
 | `failure` | anything else that stops a run |
 
 The library has the same findings, as `Finding`, in
@@ -582,6 +583,8 @@ with the code `migration-gap`. There is a gap for:
 * a primary key that changes;
 * a foreign key or an index that goes, since Wonder has no call to drop
   one;
+* a column that the model keeps, but no longer maps, and that doesn't
+  allow null, since a new row has no value for it (see below);
 * the version of another model to depend on, when eogen finds no
   migration of it.
 
@@ -664,6 +667,26 @@ with `checkMigrations`:
 It names each such model, and what changed:
 
     Library changed since Library3 (commit 1a2b3c4), with no migration: Adds isbn to book.
+
+Sometimes the rows have to outlive the code: an entity or an attribute
+leaves the model, but its table or column stays, for a client's data
+retention, say, or an audit. The model lists those in its `userInfo`,
+under `eogen.keep`, each a table, or a table and a column with a dot
+between them, which Entity Modeler's User Info editor enters as an
+array:
+
+    userInfo = {"eogen.keep" = (fine, "member.fines_owed"); };
+
+`migration` then neither drops nor changes them, and leaves their
+foreign keys, and those into a kept table, as they are. So a change
+that only stops mapping kept tables and columns needs no migration, and
+`checkMigrations` passes on it. When the data can go, taking its names
+off the list makes `migration` write the drops. A kept column that
+doesn't allow null, on a table that rows are still inserted into, gets
+a gap. A name that the model still maps, or that the earlier version
+neither maps nor keeps, does nothing, and gets an `unused-keep`
+warning. When `checkMigrations` fails on a change that drops a table or
+a column, its message says how to keep it instead.
 
 A project changes what its migrations extend, and their comments and
 imports, with its own template, which eogen finds as it finds the entity

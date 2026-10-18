@@ -1,6 +1,8 @@
 package net.logicsquad.eogen.migration;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -49,8 +51,54 @@ import net.logicsquad.eogen.utils.BooleanUtils;
  * creates its destination, so that a migration can depend on another model
  * whose table it needs.
  * </p>
+ * <p>
+ * A model's {@code userInfo} can list under {@link #KEEP} the tables and
+ * columns that its database keeps although the model no longer maps them:
+ * each a table, or a table and a column with a dot between them. A schema
+ * knows them only by name, since the model no longer says what they are.
+ * </p>
  */
 final class Schema {
+	/**
+	 * The key in a model's {@code userInfo} whose value lists the tables and
+	 * columns that the model keeps: an array, or a string with the names
+	 * separated by commas.
+	 */
+	static final String KEEP = "eogen.keep";
+
+	/**
+	 * A table or a column that a model keeps, though it no longer maps it.
+	 */
+	static final class Kept {
+		private final String table;
+
+		private final String column;
+
+		Kept(String table, String column) {
+			this.table = table;
+			this.column = column;
+		}
+
+		String getTable() {
+			return table;
+		}
+
+		/**
+		 * Returns the column, or null for a table.
+		 */
+		String getColumn() {
+			return column;
+		}
+
+		/**
+		 * Returns its name as the list has it: {@code table}, or
+		 * {@code table.column}.
+		 */
+		String getName() {
+			return column == null ? table : table + "." + column;
+		}
+	}
+
 	/**
 	 * A column.
 	 */
@@ -408,6 +456,10 @@ final class Schema {
 
 	private final Map<String, String> entityTables = new HashMap<>();
 
+	private final Map<String, Kept> kept = new TreeMap<>();
+
+	private final Map<String, String> mappedKeeps = new LinkedHashMap<>();
+
 	private Schema(String model) {
 		this.model = model;
 	}
@@ -501,7 +553,42 @@ final class Schema {
 				}
 			}
 		}
+		schema.keep(model.getUserInfo() == null ? null : model.getUserInfo().get(KEEP));
 		return schema;
+	}
+
+	/**
+	 * Reads a model's {@link #KEEP} list. A name with a dot is a column, after
+	 * its last dot, and its table. A name that the model still maps is noted
+	 * with what maps it, and kept otherwise.
+	 */
+	private void keep(Object list) {
+		List<String> names = new ArrayList<>();
+		if (list instanceof Collection) {
+			for (Object name : (Collection<?>) list) {
+				if (name != null) {
+					names.add(name.toString());
+				}
+			}
+		} else if (list != null) {
+			names.addAll(Arrays.asList(list.toString().split(",")));
+		}
+		for (String name : names) {
+			name = name.trim();
+			int dot = name.lastIndexOf('.');
+			if (name.isEmpty() || dot == 0 || dot == name.length() - 1) {
+				continue;
+			}
+			Kept entry = dot < 0 ? new Kept(name, null) : new Kept(name.substring(0, dot), name.substring(dot + 1));
+			Table table = tables.get(key(entry.getTable()));
+			if (table != null && entry.getColumn() == null) {
+				mappedKeeps.put(name, table.getEntities().get(0));
+			} else if (table != null && table.columns.containsKey(key(entry.getColumn()))) {
+				mappedKeeps.put(name, table.columns.get(key(entry.getColumn())).getAttribute());
+			} else {
+				kept.put(key(name), entry);
+			}
+		}
 	}
 
 	/**
@@ -584,6 +671,39 @@ final class Schema {
 	 */
 	Map<String, String> getEntityTables() {
 		return entityTables;
+	}
+
+	/**
+	 * Returns the tables and columns that the model keeps, though it no longer
+	 * maps them, by their names without case, in that order.
+	 */
+	Map<String, Kept> getKept() {
+		return kept;
+	}
+
+	/**
+	 * Returns whether the model keeps a table, by its name without case.
+	 */
+	boolean keepsTable(String table) {
+		Kept entry = kept.get(key(table));
+		return entry != null && entry.getColumn() == null;
+	}
+
+	/**
+	 * Returns whether the model keeps a column, or its table, by their names
+	 * without case.
+	 */
+	boolean keepsColumn(String table, String column) {
+		return kept.containsKey(key(table) + "." + key(column)) || keepsTable(table);
+	}
+
+	/**
+	 * Returns the names in the model's {@link #KEEP} list that it still maps,
+	 * each with the entity, or the attribute as {@code Entity.attribute}, that
+	 * maps it.
+	 */
+	Map<String, String> getMappedKeeps() {
+		return mappedKeeps;
 	}
 
 	/**

@@ -59,6 +59,11 @@ import net.logicsquad.eogen.velocity.WOLipsVelocityUtils;
  * migrations need, which a check fails on.
  * </p>
  * <p>
+ * A model's {@code userInfo} can list under {@code eogen.keep} the tables and
+ * columns that its database keeps although the model no longer maps them,
+ * which no migration drops or changes until they come off the list.
+ * </p>
+ * <p>
  * A migration depends on the other models whose tables it needs, so that
  * {@code ERXMigrator} migrates them first: up to the version of another
  * model's migration written in the same run, or else its latest, in the
@@ -221,6 +226,9 @@ public final class MigrationGenerator {
 					then = Schema.of(earlierModel);
 				}
 				MigrationWriter writer = new MigrationWriter(then, now);
+				for (String warning : writer.getKeepWarnings()) {
+					findings.add(Finding.builder(Finding.Severity.WARNING, Finding.UNUSED_KEEP, warning).model(name).build());
+				}
 				if (!writer.hasChanges()) {
 					outcomes.put(name, new ModelMigration(name, Status.UNCHANGED, null, null, -1, naming.isFirst(), 0, since, Collections.<String>emptyList(), "Its tables haven't changed since " + since + "."));
 					continue;
@@ -271,7 +279,8 @@ public final class MigrationGenerator {
 					findings.add(Finding.error(Finding.FAILURE, path + " exists already, and eogen never changes a migration.").file(path).model(name).build());
 				}
 				String className = naming.getPackageName() == null ? naming.getClassName() : naming.getPackageName() + "." + naming.getClassName();
-				migrations.add(new ModelMigration(name, Status.CREATED, file, className, naming.getNumber(), naming.isFirst(), migration.getGapCount(), sinces.get(name), writer.getChanges(), null));
+				migrations.add(new ModelMigration(name, Status.CREATED, file, className, naming.getNumber(), naming.isFirst(), migration.getGapCount(), sinces.get(name), writer.getChanges(),
+						writer.getDropped(), null));
 				contents.put(file, content);
 			}
 			boolean written = write && findings.stream().noneMatch(Finding::isError);

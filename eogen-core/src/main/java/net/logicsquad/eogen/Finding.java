@@ -154,6 +154,12 @@ public final class Finding {
 	public static final String NOT_COMPARED = "not-compared";
 
 	/**
+	 * A name in a model's {@code eogen.keep} list that does nothing, since the
+	 * model still maps it, or the earlier version neither maps nor keeps it.
+	 */
+	public static final String UNUSED_KEEP = "unused-keep";
+
+	/**
 	 * Anything else that stops a run, such as a file that can't be written.
 	 */
 	public static final String FAILURE = "failure";

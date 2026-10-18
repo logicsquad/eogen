@@ -43,6 +43,13 @@ import net.logicsquad.eogen.migration.Schema.Table;
  * keys, once every table they need exists; and last the dropped tables.
  * </p>
  * <p>
+ * A table or a column that the model keeps, though it no longer maps it, is
+ * neither dropped nor changed, and nor are its foreign keys and indexes, or
+ * the foreign keys into a kept table. One that the earlier version kept, and
+ * that the model now neither maps nor keeps, is dropped. A kept column that
+ * doesn't allow null leaves a gap, since a row can't be inserted without it.
+ * </p>
+ * <p>
  * It also notes the other models whose tables the calls need, for the
  * migration to depend on: the models that create the destinations of the
  * foreign keys it adds, and the model of a table that it adds a partial
@@ -123,6 +130,17 @@ final class MigrationWriter {
 	private final List<String> changes = new ArrayList<>();
 
 	/**
+	 * The tables and columns that the calls drop, as {@code table} or
+	 * {@code table.column}.
+	 */
+	private final List<String> droppedNames = new ArrayList<>();
+
+	/**
+	 * Why each name in the model's keep list that does nothing does nothing.
+	 */
+	private final List<String> keepWarnings = new ArrayList<>();
+
+	/**
 	 * The other models whose tables the calls need, with those tables' names.
 	 */
 	private final Map<String, Set<String>> needed = new TreeMap<>();
@@ -200,6 +218,23 @@ final class MigrationWriter {
 	}
 
 	/**
+	 * Returns the tables and columns that the calls drop, as {@code table} or
+	 * {@code table.column}, which the model could keep instead.
+	 */
+	List<String> getDropped() {
+		return droppedNames;
+	}
+
+	/**
+	 * Returns why each name in the model's {@code eogen.keep} list that does
+	 * nothing does nothing: the model still maps it, or the earlier version
+	 * neither maps nor keeps it.
+	 */
+	List<String> getKeepWarnings() {
+		return keepWarnings;
+	}
+
+	/**
 	 * Returns the other models whose tables the calls need, by name, with the
 	 * names of those tables.
 	 */
@@ -214,6 +249,11 @@ final class MigrationWriter {
 		created.removeAll(beforeTables.keySet());
 		Set<String> dropped = new TreeSet<>(beforeTables.keySet());
 		dropped.removeAll(afterTables.keySet());
+		// A table that the earlier version kept, and that an entity maps again,
+		// is there already, and one that the model keeps stays as it is.
+		created.removeIf(before::keepsTable);
+		dropped.removeIf(after::keepsTable);
+		warnOfKeeps();
 		for (Map.Entry<String, String> entity : new TreeMap<>(after.getEntityTables()).entrySet()) {
 			String oldKey = before.getEntityTables().get(entity.getKey());
 			String newKey = entity.getValue();
@@ -268,8 +308,20 @@ final class MigrationWriter {
 		for (Map.Entry<String, List<ForeignKey>> table : foreignKeys.entrySet()) {
 			addForeignKeys(table.getKey(), afterTables.get(table.getKey()), table.getValue());
 		}
+		// The tables that go: the earlier version's, and those that it kept and
+		// the model now neither maps nor keeps, which go by name.
+		Map<String, Table> drops = new TreeMap<>();
 		for (String key : dropped) {
-			drop(beforeTables.get(key), created);
+			drops.put(key, beforeTables.get(key));
+		}
+		for (Schema.Kept kept : before.getKept().values()) {
+			String key = Schema.key(kept.getTable());
+			if (kept.getColumn() == null && !afterTables.containsKey(key) && !after.keepsTable(key)) {
+				drops.put(key, new Table(kept.getTable(), null));
+			}
+		}
+		for (Table table : drops.values()) {
+			drop(table, created);
 		}
 		if (!lines.isEmpty() && lines.get(lines.size() - 1).isEmpty()) {
 			lines.remove(lines.size() - 1);
@@ -294,19 +346,65 @@ final class MigrationWriter {
 
 	/**
 	 * Returns the columns of a table that an attribute keeps while its column's
-	 * name changes: by the old name without case, the new name.
+	 * name changes, unless the model keeps the old column: by the old name
+	 * without case, the new name.
 	 */
-	private static Map<String, String> renameColumns(Table before, Table after) {
+	private Map<String, String> renameColumns(Table before, Table after) {
 		Map<String, String> renames = new LinkedHashMap<>();
 		for (Map.Entry<String, String> attribute : new TreeMap<>(after.getAttributeColumns()).entrySet()) {
 			String oldKey = before.getAttributeColumns().get(attribute.getKey());
 			String newKey = attribute.getValue();
 			if (oldKey != null && !oldKey.equals(newKey) && !after.getColumns().containsKey(oldKey) && !before.getColumns().containsKey(newKey) && !renames.containsKey(oldKey)
-					&& !renames.containsValue(after.getColumns().get(newKey).getName())) {
+					&& !renames.containsValue(after.getColumns().get(newKey).getName()) && !this.after.keepsColumn(after.getName(), oldKey)) {
 				renames.put(oldKey, after.getColumns().get(newKey).getName());
 			}
 		}
 		return renames;
+	}
+
+	/**
+	 * Notes each name in the model's keep list that does nothing: one that the
+	 * model still maps, or that the earlier version neither maps nor keeps, so
+	 * that eogen can't tell what it is.
+	 */
+	private void warnOfKeeps() {
+		String names = after.getModel() + "'s " + Schema.KEEP + " names ";
+		for (Map.Entry<String, String> mapped : after.getMappedKeeps().entrySet()) {
+			keepWarnings.add(names + mapped.getKey() + ", but " + mapped.getValue() + " still maps it, so it does nothing.");
+		}
+		if (before.getTables().isEmpty() && before.getKept().isEmpty()) {
+			// There is no earlier version to know them by, as for a model's
+			// first migration.
+			return;
+		}
+		for (Schema.Kept kept : after.getKept().values()) {
+			Table table = before.getTables().get(Schema.key(kept.getTable()));
+			boolean known = kept.getColumn() == null ? table != null || before.keepsTable(kept.getTable())
+					: table != null && table.getColumns().containsKey(Schema.key(kept.getColumn())) || before.keepsColumn(kept.getTable(), kept.getColumn());
+			if (!known) {
+				keepWarnings.add(names + kept.getName() + ", but the earlier version of " + after.getModel() + " neither maps nor keeps it, so it does nothing.");
+			}
+		}
+	}
+
+	/**
+	 * Returns whether a foreign key from a table stays because the model keeps
+	 * its destination, or one of its columns.
+	 */
+	private boolean kept(String table, ForeignKey foreignKey) {
+		return after.keepsTable(foreignKey.getDestinationTable()) || keepsAny(table, foreignKey.getSourceColumns());
+	}
+
+	/**
+	 * Returns whether the model keeps any of a table's columns.
+	 */
+	private boolean keepsAny(String table, List<String> columns) {
+		for (String column : columns) {
+			if (after.keepsColumn(table, column)) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/**
@@ -329,7 +427,7 @@ final class MigrationWriter {
 			oldForeignKeys.add(foreignKey.renamed(renamedTables, columnRenames, destinationRenames));
 		}
 		for (ForeignKey foreignKey : oldForeignKeys) {
-			if (!after.getForeignKeys().contains(foreignKey)) {
+			if (!after.getForeignKeys().contains(foreignKey) && !kept(key, foreignKey)) {
 				statements.add(() -> {
 					change("Drops the foreign key from " + describe(after.getName(), foreignKey.getSourceColumns()) + " to " + describe(foreignKey.getDestinationTable(), foreignKey.getDestinationColumns()) + ".");
 					gap(after.getName(), "foreign key " + foreignKey.getRelationship(), "Wonder has no call to drop the foreign key from " + describe(after.getName(), foreignKey.getSourceColumns()) + " to "
@@ -346,7 +444,8 @@ final class MigrationWriter {
 		}
 		for (Index index : before.getIndexes().values()) {
 			Index current = after.getIndexes().get(Schema.key(index.getName()));
-			if (current == null || !renamedIndex(index, columnRenames).same(current)) {
+			// An index of a kept column stays with it.
+			if (current == null ? !keepsAny(key, index.getColumns()) : !renamedIndex(index, columnRenames).same(current)) {
 				statements.add(() -> {
 					change("Drops the index " + index.getName() + " from " + after.getName() + ".");
 					gap(after.getName(), "index " + index.getName(), "Wonder has no call to drop the index " + index.getName() + " from " + after.getName() + ".",
@@ -361,16 +460,34 @@ final class MigrationWriter {
 				statement(variable + ".existingColumnNamed(" + literal(old) + ").renameTo(" + literal(rename.getValue()) + ");");
 			});
 		}
+		// A column that the earlier version kept, and that an attribute maps
+		// again, is there already.
 		List<Column> added = new ArrayList<>();
 		for (Map.Entry<String, Column> column : after.getColumns().entrySet()) {
-			if (!before.getColumns().containsKey(column.getKey()) && !columnRenames.containsValue(column.getValue().getName())) {
+			if (!before.getColumns().containsKey(column.getKey()) && !columnRenames.containsValue(column.getValue().getName()) && !this.before.keepsColumn(oldName, column.getKey())) {
 				added.add(column.getValue());
 			}
 		}
+		// A column that the model keeps stays, but one that doesn't allow null
+		// needs a value in every row inserted, which the application no longer
+		// gives it.
 		List<Column> removed = new ArrayList<>();
+		List<Column> keptNotNull = new ArrayList<>();
 		for (Map.Entry<String, Column> column : before.getColumns().entrySet()) {
 			if (!after.getColumns().containsKey(column.getKey()) && !columnRenames.containsKey(column.getKey())) {
-				removed.add(column.getValue());
+				if (!this.after.keepsColumn(key, column.getKey())) {
+					removed.add(column.getValue());
+				} else if (!column.getValue().isAllowsNull() && column.getValue().getDefaultValue() == null) {
+					keptNotNull.add(column.getValue());
+				}
+			}
+		}
+		// One that the earlier version kept, and that the model now neither
+		// maps nor keeps, goes by name.
+		for (Schema.Kept kept : this.before.getKept().values()) {
+			if (kept.getColumn() != null && Schema.key(kept.getTable()).equals(Schema.key(oldName)) && !after.getColumns().containsKey(Schema.key(kept.getColumn()))
+					&& !this.after.keepsColumn(key, kept.getColumn())) {
+				removed.add(new Column(kept.getColumn(), null, null, null, null, null, null, null, true, null));
 			}
 		}
 		for (Column column : added) {
@@ -396,6 +513,7 @@ final class MigrationWriter {
 		for (Column column : removed) {
 			statements.add(() -> {
 				change("Removes " + column.getName() + " from " + after.getName() + ".");
+				droppedNames.add(after.getName() + "." + column.getName());
 				if (!added.isEmpty()) {
 					List<String> names = new ArrayList<>();
 					for (Column candidate : added) {
@@ -408,6 +526,15 @@ final class MigrationWriter {
 									+ (names.size() == 1 ? names.get(0) : "the other") + ". Either way, delete this line.");
 				}
 				statement(variable + ".existingColumnNamed(" + literal(column.getName()) + ").delete();");
+			});
+		}
+		String model = this.after.getModel();
+		for (Column column : keptNotNull) {
+			statements.add(() -> {
+				change("Lets " + column.getName() + " in " + after.getName() + " be null, as " + model + " keeps it.");
+				gap(after.getName(), "column " + column.getName(), model + " keeps " + column.getName() + " in " + after.getName() + ", which doesn't allow null, so the application can't insert a row into "
+						+ after.getName() + " unless the column has a default.", "Let it allow null, as the next line does, or give it a default instead. Either way, delete this line.");
+				statement(variable + ".existingColumnNamed(" + literal(column.getName()) + ").setAllowsNull(ALLOWS_NULL);");
 			});
 		}
 		if (before.isOwned() && after.isOwned() && !before.getPrimaryKey().isEmpty() && !after.getPrimaryKey().isEmpty()) {
@@ -607,6 +734,7 @@ final class MigrationWriter {
 	 */
 	private void drop(Table table, Set<String> created) {
 		change("Drops " + table.getName() + ".");
+		droppedNames.add(table.getName());
 		entity = firstEntity(table, table);
 		List<String> owned = new ArrayList<>();
 		for (String key : created) {

@@ -309,6 +309,31 @@ class MainTest {
 		assertThat(out()).contains("\"status\": \"stale\",", "\"changes\": [", "\"Adds isbn to book.\"");
 	}
 
+	/**
+	 * A check that fails on a column the model no longer maps says how to keep
+	 * it, and passes once the model keeps it.
+	 */
+	@Test
+	void checksSayHowToKeepWhatAMigrationDrops() throws Exception {
+		Path earlier = copy("library/src/main/resources", temp.resolve("earlier"));
+		Path migrations = Files.createDirectories(project.resolve("src/main/java/com/example/library/migrations"));
+		Files.write(migrations.resolve("Library0.java"), Arrays.asList("package com.example.library.migrations;", "", "public class Library0 {", "}"));
+		Path book = earlier.resolve("Library.eomodeld/Book.plist");
+		String blurb = "        {allowsNull = Y; columnName = blurb; name = blurb; prototypeName = varchar100; }, \n";
+		Files.write(book, new String(Files.readAllBytes(book), StandardCharsets.UTF_8).replace("    attributes = (\n", "    attributes = (\n" + blurb).getBytes(StandardCharsets.UTF_8));
+		assertThat(run("--project", project.toString(), "--classpath", reference.toString(), "--migration", "--check", "--from", earlier.toString())).isEqualTo(Main.STALE);
+		assertThat(out()).contains("with no migration: Removes blurb from book.", "1 model has changed with no migration.",
+				"To keep a table or a column that a model no longer maps, such as Library's book.blurb, list it in the model's userInfo under eogen.keep.");
+
+		Path index = project.resolve("src/main/resources/Library.eomodeld/index.eomodeld");
+		String contents = new String(Files.readAllBytes(index), StandardCharsets.UTF_8);
+		assertThat(contents).containsOnlyOnce("    ); \n}");
+		Files.write(index, contents.replace("    ); \n}", "    ); \n    userInfo = {\"eogen.keep\" = (\"book.blurb\"); }; \n}").getBytes(StandardCharsets.UTF_8));
+		out.reset();
+		assertThat(run("--project", project.toString(), "--classpath", reference.toString(), "--migration", "--check", "--from", earlier.toString())).isEqualTo(Main.OK);
+		assertThat(out()).contains("Library: Its tables haven't changed since the models in ");
+	}
+
 	@Test
 	void writesMigrations() throws Exception {
 		Path earlier = copy("library/src/main/resources", temp.resolve("earlier"));

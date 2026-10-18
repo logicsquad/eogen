@@ -36,6 +36,11 @@ import net.logicsquad.eogen.migration.MigrationResult.ModelMigration;
  * goal reports as a warning. Nothing changes an existing migration.
  * </p>
  * <p>
+ * A model's {@code userInfo} can list under {@code eogen.keep} the tables and
+ * columns that its database keeps although the model no longer maps them,
+ * which no migration drops or changes until they come off the list.
+ * </p>
+ * <p>
  * With {@code checkMigrations}, it writes nothing, and fails the build if a
  * model with migrations has changed without one, which a project can bind to
  * {@code verify}.
@@ -140,7 +145,9 @@ public class MigrationMojo extends AbstractEOGenMojo {
 		}
 		if (checkMigrations) {
 			if (!missing.isEmpty()) {
-				throw new MojoFailureException(missing.size() + (missing.size() == 1 ? " model has" : " models have") + " changed with no migration. Run mvn eogen:migration, and commit what it writes.");
+				String keeping = result.describeKeeping();
+				throw new MojoFailureException(missing.size() + (missing.size() == 1 ? " model has" : " models have") + " changed with no migration. Run mvn eogen:migration, and commit what it writes."
+						+ (keeping == null ? "" : " " + keeping));
 			}
 			getLog().info("No model with migrations has changed without one.");
 			return;

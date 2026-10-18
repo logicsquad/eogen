@@ -57,6 +57,8 @@ public final class MigrationResult {
 
 		private final List<String> changes;
 
+		private final List<String> dropped;
+
 		private final String reason;
 
 		/**
@@ -91,6 +93,28 @@ public final class MigrationResult {
 		 */
 		public ModelMigration(String model, Status status, File file, String className, int number, boolean first, int gaps, String since, List<String> changes,
 				String reason) {
+			this(model, status, file, className, number, first, gaps, since, changes, Collections.<String>emptyList(), reason);
+		}
+
+		/**
+		 * Constructor, for a model that was compared with an earlier version,
+		 * and whose migration drops tables or columns.
+		 *
+		 * @param model the model's name
+		 * @param status what happens for it
+		 * @param file the migration's file, or null
+		 * @param className the migration's class, with its package, or null
+		 * @param number the migration's number, or -1
+		 * @param first whether it is the model's first migration
+		 * @param gaps how many gaps it leaves
+		 * @param since the earlier version it was compared with, or null
+		 * @param changes a sentence for each change to its tables
+		 * @param dropped the tables and columns that it drops, as {@code table}
+		 *        or {@code table.column}
+		 * @param reason why there is none, or null
+		 */
+		public ModelMigration(String model, Status status, File file, String className, int number, boolean first, int gaps, String since, List<String> changes,
+				List<String> dropped, String reason) {
 			this.model = model;
 			this.status = status;
 			this.file = file;
@@ -100,6 +124,7 @@ public final class MigrationResult {
 			this.gaps = gaps;
 			this.since = since;
 			this.changes = Collections.unmodifiableList(new ArrayList<>(changes));
+			this.dropped = Collections.unmodifiableList(new ArrayList<>(dropped));
 			this.reason = reason;
 		}
 
@@ -185,6 +210,18 @@ public final class MigrationResult {
 		 */
 		public List<String> getChanges() {
 			return changes;
+		}
+
+		/**
+		 * Returns the tables and columns that the migration drops, as
+		 * {@code table} or {@code table.column}, which the model could keep
+		 * instead, by listing them in its {@code userInfo} under
+		 * {@code eogen.keep}.
+		 *
+		 * @return names, or empty
+		 */
+		public List<String> getDropped() {
+			return dropped;
 		}
 
 		/**
@@ -276,6 +313,24 @@ public final class MigrationResult {
 			}
 		}
 		return missing;
+	}
+
+	/**
+	 * Returns how to keep a table or a column that a missing migration drops,
+	 * with its rows, for a check to say after the missing migrations, such as
+	 * {@code To keep a table or a column that a model no longer maps, such as Shop's shipment, list it in the model's userInfo under eogen.keep.}
+	 *
+	 * @return the hint, or null if no missing migration drops a table or a
+	 *         column
+	 */
+	public String describeKeeping() {
+		for (ModelMigration migration : getMissing()) {
+			if (!migration.getDropped().isEmpty()) {
+				return "To keep a table or a column that a model no longer maps, such as " + migration.getModel() + "'s " + migration.getDropped().get(0) + ", list it in the model's userInfo under "
+						+ Schema.KEEP + ".";
+			}
+		}
+		return null;
 	}
 
 	/**

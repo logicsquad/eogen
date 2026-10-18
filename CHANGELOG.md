@@ -25,7 +25,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   that model's latest migration, so that `ERXMigrator` migrates that
   model first. With `checkMigrations` (`--migration --check`), it writes
   nothing, and fails if a model with migrations has changed without one,
-  so that a build bound to it catches a missing migration. #24, #26, #27
+  so that a build bound to it catches a missing migration. A model can
+  list in its `userInfo`, under `eogen.keep`, the tables and columns
+  that its database keeps although the model no longer maps them, which
+  no migration drops or changes until they come off the list.
+  #24, #26, #27, #28
 
 ## [0.3] - 2026-10-18
 ### Changed
