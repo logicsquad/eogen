@@ -405,6 +405,9 @@ class MainTest {
 	 */
 	@Test
 	void writesAndChecksMarkdownPages() throws Exception {
+		// The temporary folder may be on another drive, as on Windows in CI, so the
+		// project goes in the module's target folder, on the current folder's.
+		project = copy("library", Files.createTempDirectory(Paths.get("target").toAbsolutePath(), "relative").resolve("library"));
 		String relativeProject = Paths.get("").toAbsolutePath().relativize(project).toString();
 		Path page = project.resolve("docs/models/Library.md");
 		assertThat(run("--project", relativeProject, "--classpath", reference.toString(), "--doc", "--doc-format", "markdown", "--check")).isEqualTo(Main.STALE);

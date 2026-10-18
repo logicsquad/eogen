@@ -10,7 +10,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.attribute.FileTime;
-import java.util.Arrays;
 import java.util.Collections;
 
 import org.junit.jupiter.api.AfterEach;
@@ -195,7 +194,9 @@ class MarkdownDocTest {
 	@Test
 	void usesTheProjectsOwnTemplate() throws Exception {
 		Path templates = Files.createDirectories(temp.resolve("templates"));
-		Files.write(templates.resolve("model.md.vm"), Arrays.asList("# $model.name", "", "#foreach ($entity in $entities)", "- $md.link($entity, $model, $documented)", "#end"));
+		// With LF line endings, as .gitattributes checks out the bundled ones, on
+		// every platform.
+		write(templates.resolve("model.md.vm"), String.join("\n", "# $model.name", "", "#foreach ($entity in $entities)", "- $md.link($entity, $model, $documented)", "#end", ""));
 		DocOptions options = options();
 		options.setTemplateFolder(templates.toFile());
 		DocResult result = fixture.generator().generateDoc(options);
