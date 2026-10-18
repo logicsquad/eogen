@@ -35,7 +35,7 @@ a model without regenerating its classes:
     <plugin>
       <groupId>net.logicsquad</groupId>
       <artifactId>eogen-maven-plugin</artifactId>
-      <version>0.2</version>
+      <version>0.3</version>
       <executions>
         <execution>
           <goals>
@@ -101,16 +101,16 @@ They take these parameters:
 
 `mvn eogen:generate` works in any project whose POM declares the
 plugin. Elsewhere, use the full name,
-`mvn net.logicsquad:eogen-maven-plugin:0.2:generate`, or add
+`mvn net.logicsquad:eogen-maven-plugin:0.3:generate`, or add
 `net.logicsquad` to the `pluginGroups` in `~/.m2/settings.xml`.
 
 Using the command line
 ----------------------
 `eogen-cli`'s jar contains everything it needs:
 
-    java -jar eogen-cli-0.2.jar [options] <file.eogen>...
-    java -jar eogen-cli-0.2.jar [options] --all
-    java -jar eogen-cli-0.2.jar [options] --verify
+    java -jar eogen-cli-0.3.jar [options] <file.eogen>...
+    java -jar eogen-cli-0.3.jar [options] --all
+    java -jar eogen-cli-0.3.jar [options] --verify
 
     --project <folder>      The folder that the .eogen files' paths are
                             relative to. Default: the current folder.
@@ -155,7 +155,7 @@ To give it a Maven project's dependencies, run it from the project's
 folder with the classpath that Maven resolves:
 
     mvn dependency:build-classpath -Dmdep.outputFile=cp.txt
-    java -jar eogen-cli-0.2.jar --classpath "$(cat cp.txt)" --all
+    java -jar eogen-cli-0.3.jar --classpath "$(cat cp.txt)" --all
 
 With `--json`, it writes one JSON object to standard output, which a
 script or a coding agent can read instead of the text. `status` is
