@@ -1,7 +1,6 @@
 package net.logicsquad.eogen;
 
 import java.io.BufferedReader;
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.MalformedInputException;
@@ -57,6 +56,7 @@ import net.logicsquad.eogen.refactor.RefactorResult;
 import net.logicsquad.eogen.model.EOEntity;
 import net.logicsquad.eogen.model.EOStoredProcedure;
 import net.logicsquad.eogen.runtime.NullProgressMonitor;
+import net.logicsquad.eogen.utils.LineEndings;
 import net.logicsquad.eogen.utils.URLUtils;
 
 /**
@@ -1131,13 +1131,11 @@ public class EOGenerator {
 				status = Status.CREATED;
 			} else {
 				byte[] existing = Files.readAllBytes(target);
-				if (Arrays.equals(contents, existing) || Arrays.equals(toLF(contents), toLF(existing))) {
+				if (LineEndings.same(contents, existing)) {
 					status = Status.UNCHANGED;
 				} else {
 					status = Status.UPDATED;
-					if (usesCRLF(existing)) {
-						contents = toCRLF(contents);
-					}
+					contents = LineEndings.like(contents, existing);
 				}
 			}
 			if (write && status != Status.UNCHANGED) {
@@ -1165,46 +1163,6 @@ public class EOGenerator {
 			listings.put(folder, names);
 		}
 		return names;
-	}
-
-	/**
-	 * Returns contents with each CRLF line ending as an LF.
-	 */
-	static byte[] toLF(byte[] contents) {
-		ByteArrayOutputStream out = new ByteArrayOutputStream(contents.length);
-		for (int i = 0; i < contents.length; i++) {
-			if (!(contents[i] == '\r' && i + 1 < contents.length && contents[i + 1] == '\n')) {
-				out.write(contents[i]);
-			}
-		}
-		return out.toByteArray();
-	}
-
-	/**
-	 * Returns contents with each LF line ending as a CRLF.
-	 */
-	static byte[] toCRLF(byte[] contents) {
-		byte[] lf = toLF(contents);
-		ByteArrayOutputStream out = new ByteArrayOutputStream(lf.length + lf.length / 20);
-		for (byte b : lf) {
-			if (b == '\n') {
-				out.write('\r');
-			}
-			out.write(b);
-		}
-		return out.toByteArray();
-	}
-
-	/**
-	 * Returns whether contents end their first line with a CRLF.
-	 */
-	static boolean usesCRLF(byte[] contents) {
-		for (int i = 0; i < contents.length; i++) {
-			if (contents[i] == '\n') {
-				return i > 0 && contents[i - 1] == '\r';
-			}
-		}
-		return false;
 	}
 
 	private static boolean isHidden(Path relativePath) {
