@@ -795,9 +795,11 @@ class MigrationTest {
 	@Test
 	void rendersAProjectsOwnTemplate() throws Exception {
 		Path template = fixture.resolve("src/main/templates/ShopMigration.java");
-		Files.write(template, Arrays.asList("package ${migration.packageName};", "", "#foreach ($line in $migration.importLines([\"com.example.shop.Base\"]))", "$line", "#end", "",
+		// With LF line endings, as .gitattributes checks out the bundled
+		// templates, on Windows too.
+		Files.write(template, (String.join("\n", "package ${migration.packageName};", "", "#foreach ($line in $migration.importLines([\"com.example.shop.Base\"]))", "$line", "#end", "",
 				"public class ${migration.className} extends Base {", "\t@Override", "\tpublic void upgrade(EOEditingContext editingContext, ERXMigrationDatabase database) throws Throwable {",
-				"#foreach ($line in $migration.upgradeLines)", "$line", "#end", "\t}", "", "\t// $migration.gapCount gaps, $migration.notAProperty", "}"));
+				"#foreach ($line in $migration.upgradeLines)", "$line", "#end", "\t}", "", "\t// $migration.gapCount gaps, $migration.notAProperty", "}") + "\n").getBytes(StandardCharsets.UTF_8));
 		edit(ORDER, ATTRIBUTES, ATTRIBUTES + "        {allowsNull = Y; columnName = \"gift_message\"; name = giftMessage; prototypeName = varchar100; }, \n");
 		MigrationOptions options = options();
 		options.setTemplate("src/main/templates/ShopMigration.java");
