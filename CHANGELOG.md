@@ -10,6 +10,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   keeps for them, as a Javadoc comment. A superclass that they generate
   changes only where its entity, or one of its attributes or
   relationships, has documentation. #29
+- `rename` looks for the old name in an entity's `userInfo` without its
+  documentation, where a property's name, such as `status`, is often a
+  word in the text. Documentation is reported only where a `<code>`
+  element names it. #31
 
 ### Added
 - `doc` (the goal, `--doc`, and `EOGenerator.generateDoc`) writes
@@ -38,6 +42,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   nothing, and fails if a page would change, or if the folder has a
   page that eogen wrote for a model that it no longer documents, which
   writing the pages deletes. #30
+- `rename` and `remove` report the documentation in the project's
+  models that names what they rename or remove in a `<code>` element,
+  as left to do by hand: an entity's name anywhere, and a property's in
+  the documentation of its entity and its properties, or after its
+  entity's name and a dot. #31
 
 ## [0.4] - 2026-10-18
 ### Added

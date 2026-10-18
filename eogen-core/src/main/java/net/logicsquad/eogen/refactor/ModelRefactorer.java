@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -18,6 +19,7 @@ import net.logicsquad.eogen.model.EOModelGroup;
 import net.logicsquad.eogen.model.EOModelReferenceFailure;
 import net.logicsquad.eogen.model.EORelationship;
 import net.logicsquad.eogen.model.IEOAttribute;
+import net.logicsquad.eogen.model.UserInfoableEOModelObject;
 
 /**
  * Renames and removes entities, attributes and relationships in a loaded and
@@ -31,6 +33,11 @@ import net.logicsquad.eogen.model.IEOAttribute;
  * change, and changes an entity's class name only if asked. A removal is
  * refused while anything else uses what it would remove: nothing is removed
  * by cascade.
+ * </p>
+ * <p>
+ * It changes no documentation, since only the words around a name say
+ * whether it means what was renamed, but reports, as left to do by hand, the
+ * documentation that names it in a {@code <code>} element.
  * </p>
  */
 public final class ModelRefactorer {
@@ -150,6 +157,7 @@ public final class ModelRefactorer {
 					+ " under their old names. Rename them there too, as with git mv " + oldName + ".plist " + newName + ".plist.", found.modelName(), newName, "entity " + newName);
 		}
 		textThatNames(projectModels, oldName, change);
+		documentationThatNames(projectModels, Collections.singletonList(entity), null, oldName, newName, change);
 		return change;
 	}
 
@@ -197,6 +205,7 @@ public final class ModelRefactorer {
 		change.byHand("Code that uses the " + kind + "'s accessors, or names " + oldName + " as text, such as in a qualifier, needs changing for " + newName
 				+ ". Compile to find the accessors.", found.modelName(), entity.getName(), kind + " " + newName);
 		textThatNames(projectModels, oldName, change);
+		documentationThatNames(projectModels, entities, oldName, oldName, newName, change);
 		return change;
 	}
 
@@ -252,6 +261,11 @@ public final class ModelRefactorer {
 			change.byHand("Code that uses the relationship's accessors, " + found.property.getName() + "() and the others, needs changing. Compile to find it.",
 					found.modelName(), found.entity.getName(), "relationship " + found.property.getName());
 		}
+		if (found.property == null) {
+			documentationThatNames(projectModels, Collections.singletonList(found.entity), null, found.entity.getName(), null, change);
+		} else {
+			documentationThatNames(projectModels, family(found.entity), found.property.getName(), found.property.getName(), null, change);
+		}
 		for (EOEntity entity : found.model.getEntities()) {
 			entity.setEntityDirty(true);
 		}
@@ -272,11 +286,64 @@ public final class ModelRefactorer {
 								+ ". Check it by hand.", model.getName(), entity.getName(), "fetch specification " + fetchSpecification.getName());
 					}
 				}
-				if (mentions(entity.getUserInfo(), oldName)) {
+				if (mentions(withoutDocumentation(entity.getUserInfo()), oldName)) {
 					change.byHand("The userInfo of " + entity.getName() + " names " + oldName + ". Check it by hand.", model.getName(), entity.getName(), "entity " + entity.getName());
 				}
 			}
 		}
+	}
+
+	/**
+	 * Reports the documentation in the project's models that names a renamed
+	 * or removed entity, attribute or relationship in a {@code <code>} element:
+	 * an entity's name anywhere, and a property's in the documentation of its
+	 * entity, the entity's subentities and their properties, or after one of
+	 * their names and a dot, as in {@code Book.title}.
+	 *
+	 * @param entities the entity, or the property's entity and its subentities
+	 * @param property the property's old name, or null for an entity
+	 * @param oldName the old name
+	 * @param newName the new name, or null for a removal
+	 */
+	private static void documentationThatNames(Collection<EOModel> projectModels, List<EOEntity> entities, String property, String oldName, String newName,
+			Change change) {
+		Set<String> entityNames = new TreeSet<>();
+		for (EOEntity entity : entities) {
+			entityNames.add(entity.getName());
+		}
+		List<EOModel> models = new ArrayList<>(projectModels);
+		models.sort(Comparator.comparing(EOModel::getName));
+		for (EOModel model : models) {
+			for (DocumentedNames.Documented documented : DocumentedNames.of(model)) {
+				boolean names;
+				if (property == null) {
+					names = documented.names(oldName);
+				} else {
+					names = entities.stream().anyMatch(entity -> entity == documented.getEntity()) && documented.names(property)
+							|| documented.namesProperty(entityNames, property);
+				}
+				if (names) {
+					change.byHand("The documentation of " + documented.getDescription() + " names " + oldName
+							+ (newName == null ? ", which is removed. Change it by hand." : ". Change it to " + newName + " by hand."), model.getName(),
+							documented.getEntity() == null ? null : documented.getEntity().getName(), documented.getObject());
+				}
+			}
+		}
+	}
+
+	/**
+	 * Returns a userInfo without the documentation that Entity Modeler keeps
+	 * in it, which {@link #documentationThatNames} looks at instead.
+	 */
+	private static Map<Object, Object> withoutDocumentation(Map<?, ?> userInfo) {
+		Map<Object, Object> copy = new LinkedHashMap<>(userInfo);
+		Object entityModeler = copy.get(UserInfoableEOModelObject.ENTITY_MODELER_KEY);
+		if (entityModeler instanceof Map) {
+			Map<Object, Object> rest = new LinkedHashMap<>((Map<?, ?>) entityModeler);
+			rest.remove(UserInfoableEOModelObject.DOCUMENTATION_KEY);
+			copy.put(UserInfoableEOModelObject.ENTITY_MODELER_KEY, rest);
+		}
+		return copy;
 	}
 
 	private static boolean mentions(Object value, String word) {
