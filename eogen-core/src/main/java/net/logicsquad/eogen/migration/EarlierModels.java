@@ -21,8 +21,9 @@ import java.util.List;
  */
 public final class EarlierModels {
 	/**
-	 * The earlier version that a migration compares with by default: the last
-	 * commit.
+	 * The earlier version that a model with no migrations is compared with by
+	 * default: the last commit. A model with migrations is compared with the
+	 * commit that added its latest.
 	 */
 	public static final String DEFAULT_VERSION = "HEAD";
 
@@ -78,12 +79,7 @@ public final class EarlierModels {
 		if (folder.isDirectory()) {
 			return new EarlierModels(Collections.singletonList(folder.getAbsoluteFile()), "the models in " + from.replace(File.separatorChar, '/'));
 		}
-		Path root;
-		try {
-			root = Paths.get(git(projectDirectory, "rev-parse", "--show-toplevel").trim()).toRealPath();
-		} catch (IOException e) {
-			throw new IOException(projectDirectory + " is not in a git repository, so give a folder with the earlier version of the models.", e);
-		}
+		Path root = root(projectDirectory);
 		String commit;
 		try {
 			commit = git(root.toFile(), "rev-parse", "--verify", "--quiet", from + "^{commit}").trim();
@@ -116,6 +112,42 @@ public final class EarlierModels {
 			extract(root.toFile(), commit, files, prefix, target.toPath());
 		}
 		return new EarlierModels(folders, "commit " + abbreviated);
+	}
+
+	/**
+	 * Returns the commit that added a file at its path, or null if no commit
+	 * has it, as for a file that isn't committed yet. It doesn't follow the
+	 * file back through renames, since git takes a migration that began as a
+	 * copy of the one before for a copy of it.
+	 *
+	 * @param projectDirectory the project folder
+	 * @param file a file in the project
+	 * @return the commit's full name, or null
+	 * @throws IOException if the project isn't in a git repository, or git
+	 *         fails
+	 */
+	public static String commitAdding(File projectDirectory, File file) throws IOException {
+		Path root = root(projectDirectory);
+		Path path = file.toPath().toRealPath();
+		if (!path.startsWith(root)) {
+			return null;
+		}
+		String relative = root.relativize(path).toString().replace(File.separatorChar, '/');
+		String commit = git(root.toFile(), "log", "-1", "--format=%H", "--no-renames", "--diff-filter=A", "--", relative).trim();
+		return commit.isEmpty() ? null : commit;
+	}
+
+	/**
+	 * Returns the top of the git repository that a folder is in.
+	 *
+	 * @throws IOException if it isn't in one
+	 */
+	private static Path root(File directory) throws IOException {
+		try {
+			return Paths.get(git(directory, "rev-parse", "--show-toplevel").trim()).toRealPath();
+		} catch (IOException e) {
+			throw new IOException(directory + " is not in a git repository, so give a folder with the earlier version of the models.", e);
+		}
 	}
 
 	/**

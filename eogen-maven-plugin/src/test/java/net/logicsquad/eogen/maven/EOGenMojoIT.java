@@ -295,6 +295,19 @@ public class EOGenMojoIT {
 	}
 
 	/**
+	 * With checkMigrations, the Library model, which has a migration, has two
+	 * new columns since the earlier version, but no migration for them, so the
+	 * build fails, and nothing is written.
+	 */
+	@MavenTest
+	void migrationCheck(MavenExecutionResult result) {
+		assertThat(result).isFailure();
+		assertThat(result).out().error().anyMatch(line -> line.startsWith("Library changed since the models in earlier, with no migration: ") && line.contains("Adds isbn to book."))
+				.anyMatch(line -> line.contains("1 model has changed with no migration. Run mvn eogen:migration, and commit what it writes."));
+		assertThat(result.getMavenProjectResult().getTargetProjectDirectory().resolve("src/main/java/com/example/library/migrations/Library1.java")).doesNotExist();
+	}
+
+	/**
 	 * Book.authorID is the source of the author relationship's join, so it
 	 * isn't removed.
 	 */

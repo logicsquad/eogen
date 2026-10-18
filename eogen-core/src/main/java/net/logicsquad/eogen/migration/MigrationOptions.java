@@ -20,7 +20,7 @@ public final class MigrationOptions {
 	 */
 	public static final String DEFAULT_SOURCE_FOLDER = "src/main/java";
 
-	private String from = EarlierModels.DEFAULT_VERSION;
+	private String from;
 
 	private List<File> sourceFolders = Collections.emptyList();
 
@@ -33,7 +33,7 @@ public final class MigrationOptions {
 	/**
 	 * Returns the earlier version of the models.
 	 *
-	 * @return a commit, or a folder
+	 * @return a commit, or a folder, or null for each model's own
 	 */
 	public String getFrom() {
 		return from;
@@ -41,15 +41,17 @@ public final class MigrationOptions {
 
 	/**
 	 * Sets the earlier version of the models, which a migration changes the
-	 * tables from: a git commit, such as a branch, a tag or {@code HEAD~2}, or
-	 * a folder of models, relative to the project. The default is
-	 * {@code HEAD}, the last commit, so that a migration is for the changes
-	 * that aren't committed yet.
+	 * tables from, for every model: a git commit, such as a branch, a tag or
+	 * {@code HEAD~2}, or a folder of models, relative to the project. By
+	 * default, each model with migrations is compared with the commit that
+	 * added its latest, so that a migration is for every change since, however
+	 * many commits it took, and a model with none with the last commit,
+	 * {@code HEAD}.
 	 *
-	 * @param from a commit, or a folder
+	 * @param from a commit, or a folder, or null for each model's own
 	 */
 	public void setFrom(String from) {
-		this.from = from == null || from.trim().isEmpty() ? EarlierModels.DEFAULT_VERSION : from;
+		this.from = from == null || from.trim().isEmpty() ? null : from;
 	}
 
 	/**

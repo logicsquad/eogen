@@ -57,13 +57,16 @@ final class MigrationNaming {
 
 	private final boolean placed;
 
-	private MigrationNaming(String prefix, String packageName, int number, boolean first, File sourceFolder, boolean placed) {
+	private final File latestFile;
+
+	private MigrationNaming(String prefix, String packageName, int number, boolean first, File sourceFolder, boolean placed, File latestFile) {
 		this.prefix = prefix;
 		this.packageName = packageName;
 		this.number = number;
 		this.first = first;
 		this.sourceFolder = sourceFolder;
 		this.placed = placed;
+		this.latestFile = latestFile;
 	}
 
 	/**
@@ -88,6 +91,7 @@ final class MigrationNaming {
 		boolean found = false;
 		File latestFolder = null;
 		String latestPackage = null;
+		File latestFile = null;
 		for (File sourceFolder : sourceFolders) {
 			if (!sourceFolder.isDirectory()) {
 				continue;
@@ -122,6 +126,7 @@ final class MigrationNaming {
 					highest = Math.max(highest, number);
 					latestFolder = sourceFolder;
 					latestPackage = filePackage;
+					latestFile = file.toFile();
 				}
 			}
 		}
@@ -149,7 +154,7 @@ final class MigrationNaming {
 			packageName = entityPackage(model);
 			placed = false;
 		}
-		return new MigrationNaming(prefix, packageName, next, !found, found ? latestFolder : sourceFolders.get(0), placed);
+		return new MigrationNaming(prefix, packageName, next, !found, found ? latestFolder : sourceFolders.get(0), placed, latestFile);
 	}
 
 	/**
@@ -181,7 +186,7 @@ final class MigrationNaming {
 		for (Map.Entry<String, MigrationNaming> entry : namings.entrySet()) {
 			MigrationNaming naming = entry.getValue();
 			if (!naming.placed && best != null) {
-				naming = new MigrationNaming(naming.prefix, best.isEmpty() ? null : best, naming.number, naming.first, folders.get(best), true);
+				naming = new MigrationNaming(naming.prefix, best.isEmpty() ? null : best, naming.number, naming.first, folders.get(best), true, naming.latestFile);
 			}
 			placed.put(entry.getKey(), naming);
 		}
@@ -401,6 +406,22 @@ final class MigrationNaming {
 	 */
 	boolean isFirst() {
 		return first;
+	}
+
+	/**
+	 * Returns the file of the model's latest migration, or null if it has
+	 * none.
+	 */
+	File getLatestFile() {
+		return latestFile;
+	}
+
+	/**
+	 * Returns the class name of the model's latest migration, such as
+	 * {@code Shop2}, or null if it has none.
+	 */
+	String getLatestName() {
+		return latestFile == null ? null : latestFile.getName().substring(0, latestFile.getName().length() - ".java".length());
 	}
 
 	/**

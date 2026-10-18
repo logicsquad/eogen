@@ -53,6 +53,10 @@ public final class MigrationResult {
 
 		private final int gaps;
 
+		private final String since;
+
+		private final List<String> changes;
+
 		private final String reason;
 
 		/**
@@ -68,6 +72,25 @@ public final class MigrationResult {
 		 * @param reason why there is none, or null
 		 */
 		public ModelMigration(String model, Status status, File file, String className, int number, boolean first, int gaps, String reason) {
+			this(model, status, file, className, number, first, gaps, null, Collections.<String>emptyList(), reason);
+		}
+
+		/**
+		 * Constructor, for a model that was compared with an earlier version.
+		 *
+		 * @param model the model's name
+		 * @param status what happens for it
+		 * @param file the migration's file, or null
+		 * @param className the migration's class, with its package, or null
+		 * @param number the migration's number, or -1
+		 * @param first whether it is the model's first migration
+		 * @param gaps how many gaps it leaves
+		 * @param since the earlier version it was compared with, or null
+		 * @param changes a sentence for each change to its tables
+		 * @param reason why there is none, or null
+		 */
+		public ModelMigration(String model, Status status, File file, String className, int number, boolean first, int gaps, String since, List<String> changes,
+				String reason) {
 			this.model = model;
 			this.status = status;
 			this.file = file;
@@ -75,6 +98,8 @@ public final class MigrationResult {
 			this.number = number;
 			this.first = first;
 			this.gaps = gaps;
+			this.since = since;
+			this.changes = Collections.unmodifiableList(new ArrayList<>(changes));
 			this.reason = reason;
 		}
 
@@ -143,12 +168,44 @@ public final class MigrationResult {
 		}
 
 		/**
+		 * Returns the earlier version that the model was compared with, such as
+		 * {@code Shop2 (commit 1a2b3c4)}, its latest migration's.
+		 *
+		 * @return description, or null if it wasn't compared
+		 */
+		public String getSince() {
+			return since;
+		}
+
+		/**
+		 * Returns a sentence for each change to the model's tables, such as
+		 * {@code Adds isbn to book.}
+		 *
+		 * @return changes, or empty
+		 */
+		public List<String> getChanges() {
+			return changes;
+		}
+
+		/**
 		 * Returns why the model has no migration.
 		 *
 		 * @return reason, or null
 		 */
 		public String getReason() {
 			return reason;
+		}
+
+		/**
+		 * Returns what a check says of a model with migrations that needs
+		 * another: that it changed since the version it was compared with, and
+		 * how, such as
+		 * {@code Shop changed since Shop2 (commit 1a2b3c4), with no migration: Adds isbn to book.}
+		 *
+		 * @return description
+		 */
+		public String describeMissing() {
+			return model + " changed since " + since + ", with no migration: " + String.join(" ", changes);
 		}
 
 		@Override
@@ -205,6 +262,23 @@ public final class MigrationResult {
 	}
 
 	/**
+	 * Returns the migrations that models with migrations need, for the changes
+	 * since the versions they were compared with, which a check fails on: all
+	 * that are, or would be, written, but models' first ones.
+	 *
+	 * @return migrations
+	 */
+	public List<ModelMigration> getMissing() {
+		List<ModelMigration> missing = new ArrayList<>();
+		for (ModelMigration migration : getCreated()) {
+			if (!migration.isFirst()) {
+				missing.add(migration);
+			}
+		}
+		return missing;
+	}
+
+	/**
 	 * Returns the errors, which stop anything being written, and a warning for
 	 * each gap that a migration leaves to fill in.
 	 *
@@ -216,7 +290,8 @@ public final class MigrationResult {
 
 	/**
 	 * Returns the earlier version of the models, such as
-	 * {@code commit 1a2b3c4}.
+	 * {@code commit 1a2b3c4}, or {@code each model's latest migration}, when
+	 * each was compared with its own.
 	 *
 	 * @return description, or null if it wasn't read
 	 */

@@ -112,9 +112,12 @@ public final class Main {
 			"                          models, beside its latest migration. A model's first",
 			"                          migration creates its tables. Where eogen can't decide,",
 			"                          it leaves a gap that doesn't compile, and warns. With",
-			"                          --check, write nothing.",
-			"  --from <commit|folder>  With --migration, the earlier version: a git commit,",
-			"                          or a folder of models. Default: HEAD.",
+			"                          --check, write nothing, and exit with status 1 if a",
+			"                          model with migrations has changed without one.",
+			"  --from <commit|folder>  With --migration, the earlier version of every model: a",
+			"                          git commit, or a folder of models. Default: for a model",
+			"                          with migrations, the commit that added its latest, and",
+			"                          for one with none, HEAD.",
 			"  --sources <folders>     With --migration, the folders of the Java sources,",
 			"                          separated by '" + File.pathSeparator + "'. Default: <project>/src/main/java.",
 			"  --package <name>        With --migration, the package for new migrations.",
@@ -614,6 +617,10 @@ public final class Main {
 				map.put("first", model.isFirst());
 				map.put("gaps", model.getGaps());
 			}
+			put(map, "since", model.getSince());
+			if (!model.getChanges().isEmpty()) {
+				map.put("changes", model.getChanges());
+			}
 			put(map, "reason", model.getReason());
 			migrations.add(map);
 		}
@@ -630,9 +637,12 @@ public final class Main {
 			problem("there are errors, so no migration was written.");
 			return FAILED;
 		}
+		List<ModelMigration> missing = result.getMissing();
 		int created = 0;
 		for (ModelMigration model : result.getMigrations()) {
-			if (model.getStatus() == MigrationResult.Status.CREATED) {
+			if (check && missing.contains(model)) {
+				say(model.describeMissing());
+			} else if (model.getStatus() == MigrationResult.Status.CREATED) {
 				created++;
 				int gaps = model.getGaps();
 				say((check ? "Would create " : "Created ") + relative(model.getFile()) + (gaps == 0 ? "." : ", with " + gaps + (gaps == 1 ? " gap" : " gaps") + " to fill in."));
@@ -644,6 +654,10 @@ public final class Main {
 			if (!finding.isError()) {
 				warn(finding.getMessage());
 			}
+		}
+		if (check && !missing.isEmpty()) {
+			say(missing.size() + (missing.size() == 1 ? " model has" : " models have") + " changed with no migration.");
+			return STALE;
 		}
 		say((check ? "Would write " : "Wrote ") + created + (created == 1 ? " migration" : " migrations") + " for the changes since " + result.getSince() + ".");
 		return OK;

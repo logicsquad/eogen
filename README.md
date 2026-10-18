@@ -145,9 +145,14 @@ Using the command line
     --migration             Write the next Project Wonder migration for
                             each model whose tables changed since an
                             earlier version of the models. With
-                            --check, write nothing.
-    --from <commit|folder>  With --migration, the earlier version: a git
-                            commit, or a folder of models. Default: HEAD.
+                            --check, write nothing, and exit with
+                            status 1 if a model with migrations has
+                            changed without one.
+    --from <commit|folder>  With --migration, the earlier version of
+                            every model: a git commit, or a folder of
+                            models. Default: for a model with
+                            migrations, the commit that added its
+                            latest, and for one with none, HEAD.
     --sources <folders>     With --migration, the folders of the Java
                             sources. Default: <project>/src/main/java.
     --package <name>        With --migration, the package for new
@@ -184,10 +189,11 @@ with a `kind` (`superclass` or `subclass`) and a `status` (`created`,
 there when `--all` and `--verify` are; `migration`, with `--migration`,
 has the earlier version it compared with, as `since`, whether it was
 `written`, its `errors` and `warnings`, and `migrations`, each with its
-`model` and a `status` (`created`, `unchanged` or `skipped`), and for a
-created one its `file`, `class`, `number`, whether it is the `first`,
-and how many `gaps` it has, or else the `reason`; and `problems` has any
-failure that stopped it. Problems still go to standard error, as text.
+`model`, a `status` (`created`, `unchanged` or `skipped`), the `since`
+it was compared with, and for a created one its `file`, `class`,
+`number`, whether it is the `first`, how many `gaps` it has, and its
+`changes`, or else the `reason`; and `problems` has any failure that
+stopped it. Problems still go to standard error, as text.
 
 Each error, warning and problem is a finding, the same object wherever
 it appears:
@@ -519,10 +525,13 @@ already. `migration` writes it:
 
     mvn eogen:migration
 
-It compares the project's models with an earlier version of them, by
-default the last commit, so that a migration is for the changes not yet
-committed, and writes the next migration for each model whose tables
-changed. After `Library2.java`, it writes `Library3.java` beside it:
+It compares each of the project's models with an earlier version of
+it, and writes the next migration for each model whose tables changed.
+By default, a model with migrations is compared with the commit that
+added its latest migration, so that the next one is for every change
+since, however many commits it took, and a model with none with the
+last commit. After `Library2.java`, it writes `Library3.java` beside
+it:
 
     public class Library3 extends ERXMigrationDatabase.Migration {
         ...
@@ -612,9 +621,13 @@ dependency.
 
 The parameters are:
 
-* `from` (`eogen.migration.from`): the earlier version, a git commit,
-  such as `HEAD~1`, a branch or a tag, or a folder of models, relative
-  to the project. The default is `HEAD`.
+* `from` (`eogen.migration.from`): the earlier version of every model,
+  a git commit, such as `HEAD~1`, a branch or a tag, or a folder of
+  models, relative to the project. By default, a model with migrations
+  is compared with the commit that added its latest, at the path it
+  has, and a model with none with `HEAD`. A model whose latest
+  migration isn't committed yet isn't compared, and gets a
+  `not-compared` warning.
 * `packageName` (`eogen.migration.package`): the package for new
   migrations.
 * `template` (`eogen.migration.template`): the migration template. The
@@ -624,24 +637,46 @@ The parameters are:
 * `models` (`eogen.migration.models`): the models to write migrations
   for. The default is every model whose tables changed.
 * `dryRun` (`eogen.dryRun`): writes nothing, and only reports.
+* `checkMigrations` (`eogen.checkMigrations`): writes nothing, and
+  fails the build if a model with migrations has changed without one.
+
+So that a build fails when a model changes with no migration, as it
+does with `check` when a class is stale, bind `migration` to `verify`
+with `checkMigrations`:
+
+    <execution>
+      <id>check-migrations</id>
+      <phase>verify</phase>
+      <goals>
+        <goal>migration</goal>
+      </goals>
+      <configuration>
+        <checkMigrations>true</checkMigrations>
+      </configuration>
+    </execution>
+
+It names each such model, and what changed:
+
+    Library changed since Library3 (commit 1a2b3c4), with no migration: Adds isbn to book.
 
 A project changes what its migrations extend, and their comments and
-imports, with its own template, which eogen finds as it finds the
-entity templates (see [How eogen finds templates](#how-eogen-finds-templates)),
+imports, with its own template, which eogen finds as it finds the entity
+templates (see [How eogen finds templates](#how-eogen-finds-templates)),
 so that a team can share one in a jar. A template sees `$migration`,
 with its `className`, `packageName`, `modelName` and `number`, whether
 it is the `first`, `since`, the earlier version, such as
-`commit 1a2b3c4`, `changes`, a sentence for each change, `upgradeLines`,
-the body of `upgrade`, which uses its `database` argument,
-`dependencies`, each with its `modelName`, its `version`, whether it is
-`known`, and its `tables`, `dependencyLines`, the body of
+`Library2 (commit 1a2b3c4)`, `changes`, a sentence for each change,
+`upgradeLines`, the body of `upgrade`, which uses its `database`
+argument, `dependencies`, each with its `modelName`, its `version`,
+whether it is `known`, and its `tables`, `dependencyLines`, the body of
 `modelDependencies`, or none, and `importLines`, the imports that the
 bodies need, or with `importLines(["com.example.Base"])`, those and
 others; and `$model`, the model. A reference with no value is an error,
 as it is for the classes.
 The command line does the same with `--migration`, `--from`,
 `--sources`, `--package`, `--template`, `--migration-models`, and
-`--check` for a dry run.
+`--check`, which writes nothing, and exits with status 1 if a model with
+migrations has changed without one.
 
 In a real project's recent history, 42 migrations came with a model
 change. Regenerated from that change, eogen wrote 28 of them whole, 4

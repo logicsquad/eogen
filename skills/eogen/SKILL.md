@@ -114,8 +114,11 @@ to a model's tables needs one too. After the loop, before committing:
     mvn eogen:migration
 
 It writes the next migration for each model whose tables changed since
-the last commit, beside its latest one; `-Deogen.migration.from=<commit>`
-compares with another. Where it can't decide, it leaves a gap, a
+its latest migration was committed, beside it, or for a model with
+none, since the last commit; `-Deogen.migration.from=<commit>` compares
+every model with another. `mvn eogen:migration -Deogen.checkMigrations`
+writes nothing, and fails if a model with migrations has changed
+without one. Where it can't decide, it leaves a gap, a
 `// TODO eogen:` comment and `EOGEN_GAP`, which doesn't compile, and
 reports each one. Fill each in as its comment says, and ask the user
 when the answer depends on their data, such as the value that existing

@@ -20,26 +20,35 @@ import net.logicsquad.eogen.migration.MigrationResult.ModelMigration;
 
 /**
  * Writes the next Project Wonder migration for each of the project's models
- * whose tables changed since an earlier version of the models: by default
- * the last commit, so that the migration is for the changes not yet
- * committed. A migration is named as {@code ERXMigrator} looks for it, from
- * the model's {@code MigrationClassPrefix} and the number after its highest
- * migration, and goes beside its latest one. A model's first migration
- * creates its tables.
+ * whose tables changed since an earlier version of the models: by default,
+ * for a model with migrations, the commit that added its latest, so that the
+ * migration is for every change since, however many commits it took, and for
+ * a model with none, the last commit. A migration is named as
+ * {@code ERXMigrator} looks for it, from the model's
+ * {@code MigrationClassPrefix} and the number after its highest migration,
+ * and goes beside its latest one. A model's first migration creates its
+ * tables.
  * <p>
  * Where it can't decide, such as on the value that a new column that doesn't
  * allow null needs in the rows a table already has, a migration has a gap, a
  * {@code // TODO eogen:} comment and a line that doesn't compile, which the
  * goal reports as a warning. Nothing changes an existing migration.
  * </p>
+ * <p>
+ * With {@code checkMigrations}, it writes nothing, and fails the build if a
+ * model with migrations has changed without one, which a project can bind to
+ * {@code verify}.
+ * </p>
  */
 @Mojo(name = "migration", requiresDependencyResolution = ResolutionScope.COMPILE_PLUS_RUNTIME, threadSafe = true)
 public class MigrationMojo extends AbstractEOGenMojo {
 	/**
-	 * The earlier version of the models: a git commit, such as {@code HEAD}, a
-	 * branch or a tag, or a folder of models, relative to the project.
+	 * The earlier version of every model: a git commit, such as {@code HEAD}, a
+	 * branch or a tag, or a folder of models, relative to the project. By
+	 * default, each model with migrations is compared with the commit that
+	 * added its latest, and a model with none with {@code HEAD}.
 	 */
-	@Parameter(property = "eogen.migration.from", defaultValue = "HEAD")
+	@Parameter(property = "eogen.migration.from")
 	private String from;
 
 	/**
@@ -75,6 +84,13 @@ public class MigrationMojo extends AbstractEOGenMojo {
 	@Parameter(property = "eogen.dryRun", defaultValue = "false")
 	private boolean dryRun;
 
+	/**
+	 * Writes nothing, and fails the build if a model with migrations has
+	 * changed without one.
+	 */
+	@Parameter(property = "eogen.checkMigrations", defaultValue = "false")
+	private boolean checkMigrations;
+
 	@Override
 	protected void execute(EOGenerator generator) throws MojoExecutionException, MojoFailureException {
 		MigrationOptions options = new MigrationOptions();
@@ -87,9 +103,10 @@ public class MigrationMojo extends AbstractEOGenMojo {
 			sourceFolders.add(new File(root));
 		}
 		options.setSourceFolders(sourceFolders);
+		boolean write = !dryRun && !checkMigrations;
 		MigrationResult result;
 		try {
-			result = generator.generateMigrations(options, !dryRun);
+			result = generator.generateMigrations(options, write);
 		} catch (EOGeneratorException e) {
 			throw new MojoExecutionException(e.getMessage(), e);
 		}
@@ -101,12 +118,15 @@ public class MigrationMojo extends AbstractEOGenMojo {
 		if (result.hasErrors()) {
 			throw new MojoFailureException("There are errors, so no migration was written.");
 		}
+		List<ModelMigration> missing = result.getMissing();
 		int created = 0;
 		for (ModelMigration migration : result.getMigrations()) {
-			if (migration.getStatus() == MigrationResult.Status.CREATED) {
+			if (checkMigrations && missing.contains(migration)) {
+				getLog().error(migration.describeMissing());
+			} else if (migration.getStatus() == MigrationResult.Status.CREATED) {
 				created++;
 				int gaps = migration.getGaps();
-				getLog().info((dryRun ? "Would create " : "Created ") + relative(migration.getFile()) + (gaps == 0 ? "." : ", with " + gaps + (gaps == 1 ? " gap" : " gaps") + " to fill in."));
+				getLog().info((write ? "Created " : "Would create ") + relative(migration.getFile()) + (gaps == 0 ? "." : ", with " + gaps + (gaps == 1 ? " gap" : " gaps") + " to fill in."));
 			} else {
 				getLog().info(migration.getModel() + ": " + migration.getReason());
 			}
@@ -116,6 +136,13 @@ public class MigrationMojo extends AbstractEOGenMojo {
 				getLog().warn(finding.getMessage());
 			}
 		}
-		getLog().info((dryRun ? "Would write " : "Wrote ") + created + (created == 1 ? " migration" : " migrations") + " for the changes since " + result.getSince() + ".");
+		if (checkMigrations) {
+			if (!missing.isEmpty()) {
+				throw new MojoFailureException(missing.size() + (missing.size() == 1 ? " model has" : " models have") + " changed with no migration. Run mvn eogen:migration, and commit what it writes.");
+			}
+			getLog().info("No model with migrations has changed without one.");
+			return;
+		}
+		getLog().info((write ? "Wrote " : "Would write ") + created + (created == 1 ? " migration" : " migrations") + " for the changes since " + result.getSince() + ".");
 	}
 }

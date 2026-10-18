@@ -8,7 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `migration` (the goal, `--migration`, and
   `EOGenerator.generateMigrations`) writes the next Project Wonder
   migration for each model whose tables changed since an earlier version
-  of the models: the last commit by default, or another, or a folder. It
+  of the models: by default, for a model with migrations, the commit
+  that added its latest, so that the next one is for every change since,
+  or else another commit, or a folder. It
   creates and drops tables, with their primary keys; adds, drops and
   renames columns, with their types, widths, precision and scale, and
   whether they allow null; and adds foreign keys and entity indexes,
@@ -20,7 +22,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   template, which a project can replace. It depends, in
   `modelDependencies()`, on each other model whose tables it needs, at
   that model's latest migration, so that `ERXMigrator` migrates that
-  model first. #24, #26
+  model first. With `checkMigrations` (`--migration --check`), it writes
+  nothing, and fails if a model with migrations has changed without one,
+  so that a build bound to it catches a missing migration. #24, #26, #27
 
 ## [0.3] - 2026-10-18
 ### Changed

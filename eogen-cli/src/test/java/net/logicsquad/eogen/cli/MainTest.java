@@ -12,6 +12,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -281,6 +282,31 @@ class MainTest {
 		assertThat(new String(Files.readAllBytes(project.resolve(LIBRARY + "_Book.java")), StandardCharsets.UTF_8)).isEqualTo("// shared\npublic class _Book {}\n");
 		// The folder has no Entity.java, so the subclass comes from the bundled one.
 		assertThat(new String(Files.readAllBytes(project.resolve(LIBRARY + "Book.java")), StandardCharsets.UTF_8)).contains("public class Book extends");
+	}
+
+	/**
+	 * With --check, a model with migrations that has changed since the
+	 * earlier version, but has no migration for it, gives the exit status 1.
+	 */
+	@Test
+	void checksForModelChangesWithNoMigration() throws Exception {
+		Path earlier = copy("library/src/main/resources", temp.resolve("earlier"));
+		Path migrations = Files.createDirectories(project.resolve("src/main/java/com/example/library/migrations"));
+		Files.write(migrations.resolve("Library0.java"), Arrays.asList("package com.example.library.migrations;", "", "public class Library0 {", "}"));
+		assertThat(run("--project", project.toString(), "--classpath", reference.toString(), "--migration", "--check", "--from", earlier.toString())).isEqualTo(Main.OK);
+
+		Path book = project.resolve("src/main/resources/Library.eomodeld/Book.plist");
+		String isbn = "        {allowsNull = Y; columnName = isbn; name = isbn; prototypeName = varchar100; }, \n";
+		Files.write(book, new String(Files.readAllBytes(book), StandardCharsets.UTF_8).replace("    attributes = (\n", "    attributes = (\n" + isbn).getBytes(StandardCharsets.UTF_8));
+		out.reset();
+		assertThat(run("--project", project.toString(), "--classpath", reference.toString(), "--migration", "--check", "--from", earlier.toString())).isEqualTo(Main.STALE);
+		assertThat(out()).contains("Library changed since the models in " + earlier.toString().replace(File.separatorChar, '/') + ", with no migration: Adds isbn to book.",
+				"1 model has changed with no migration.");
+		assertThat(migrations.resolve("Library1.java")).doesNotExist();
+
+		out.reset();
+		assertThat(run("--json", "--project", project.toString(), "--classpath", reference.toString(), "--migration", "--check", "--from", earlier.toString())).isEqualTo(Main.STALE);
+		assertThat(out()).contains("\"status\": \"stale\",", "\"changes\": [", "\"Adds isbn to book.\"");
 	}
 
 	@Test

@@ -513,27 +513,88 @@ class MigrationTest {
 		assertThat(result.getFindings()).extracting(Finding::getLine).doesNotContainNull();
 	}
 
+	/**
+	 * By default, a model with migrations is compared with the commit that
+	 * added its latest, here the last commit, which has Shop0.
+	 */
 	@Test
-	void comparesWithTheLastCommit() throws Exception {
-		Path project = fixture.resolve(".");
-		git(project, "init", "-q");
-		git(project, "add", ".");
-		git(project, "-c", "user.name=eogen", "-c", "user.email=eogen@example.com", "commit", "-q", "-m", "Shop.");
-		String commit = git(project, "rev-parse", "--short", "HEAD").trim();
+	void comparesWithTheCommitOfTheLatestMigration() throws Exception {
+		String commit = commit("Shop.");
 		edit(ORDER, ATTRIBUTES, ATTRIBUTES + "        {allowsNull = Y; columnName = \"gift_message\"; name = giftMessage; prototypeName = varchar100; }, \n");
 		MigrationOptions options = new MigrationOptions();
 		MigrationResult result = fixture.generator().generateMigrations(options, true);
 		assertThat(result.getFindings()).isEmpty();
-		assertThat(result.getSince()).isEqualTo("commit " + commit);
+		assertThat(result.getSince()).isEqualTo("each model's latest migration");
+		assertThat(created(result).getSince()).isEqualTo("Shop0 (commit " + commit + ")");
 		assertThat(upgrade(result)).containsExactly(
 				"ERXMigrationTable orderTable = database.existingTableNamed(\"shop_order\");",
 				"orderTable.newStringColumn(\"gift_message\", 100, ALLOWS_NULL);");
-		assertThat(read(result)).contains(" * Changes the tables of the Shop model as it changed since commit " + commit + ":");
+		assertThat(read(result)).contains(" * Changes the tables of the Shop model as it changed since Shop0 (commit " + commit + "):");
 
 		options.setFrom("no-such-branch");
 		Finding error = fixture.generator().generateMigrations(options, true).getFindings().get(0);
 		assertThat(error.getCode()).isEqualTo(Finding.EARLIER_VERSION);
 		assertThat(error.getMessage()).startsWith("no-such-branch is neither a folder nor a commit in ");
+	}
+
+	/**
+	 * A model change committed with no migration, and then another commit,
+	 * which a comparison with HEAD can't see.
+	 */
+	@Test
+	void findsAModelChangeCommittedWithNoMigration() throws Exception {
+		String shop0 = commit("Shop.");
+		edit(ORDER, ATTRIBUTES, ATTRIBUTES + "        {allowsNull = Y; columnName = \"gift_message\"; name = giftMessage; prototypeName = varchar100; }, \n");
+		commit("Gift messages.");
+		Files.write(fixture.resolve("NOTES.txt"), Collections.singletonList("Something else."));
+		commit("Something else.");
+		MigrationOptions options = new MigrationOptions();
+		MigrationResult check = fixture.generator().generateMigrations(options, false);
+		assertThat(check.getMissing()).extracting(ModelMigration::describeMissing)
+				.containsExactly("Shop changed since Shop0 (commit " + shop0 + "), with no migration: Adds gift_message to shop_order.");
+
+		ModelMigration shop1 = created(fixture.generator().generateMigrations(options, true));
+		assertThat(shop1.getClassName()).isEqualTo("com.example.shop.migrations.Shop1");
+		// Until Shop1 is committed, eogen can't tell what has changed since it.
+		check = fixture.generator().generateMigrations(options, false);
+		assertThat(check.getMissing()).isEmpty();
+		assertThat(check.getFindings()).extracting(Finding::getCode, Finding::getMessage)
+				.containsExactly(tuple(Finding.NOT_COMPARED, "Shop's latest migration, Shop1, isn't committed yet, so eogen can't tell what changed since it."));
+
+		String commit = commit("Shop1.");
+		check = fixture.generator().generateMigrations(options, false);
+		assertThat(check.getFindings()).isEmpty();
+		assertThat(check.getMigrations()).extracting(ModelMigration::getStatus, ModelMigration::getReason)
+				.containsExactly(tuple(Status.UNCHANGED, "Its tables haven't changed since Shop1 (commit " + commit + ")."));
+	}
+
+	/**
+	 * Shop0 and Notes0 came in different commits, and each model changed after
+	 * its own. Notes0 is so like Shop0 that git takes it for a copy, which eogen
+	 * mustn't follow back to Shop0's commit. Labels has no migrations, so it is
+	 * compared with the last commit.
+	 */
+	@Test
+	void comparesEachModelWithTheCommitOfItsOwnLatestMigration() throws Exception {
+		String shop0 = commit("Shop.");
+		addNotes(fixture.resolve("src/main/resources"));
+		Files.write(fixture.resolve("src/main/java/com/example/shop/migrations/Notes0.java"), Arrays.asList("package com.example.shop.migrations;", "", "public class Notes0 {", "}"));
+		String notes0 = commit("Notes.");
+		edit(ORDER, ATTRIBUTES, ATTRIBUTES + "        {allowsNull = Y; columnName = \"gift_message\"; name = giftMessage; prototypeName = varchar100; }, \n");
+		addModel(fixture.resolve("src/main/resources"), "Labels", "Label", "label", "");
+		commit("Gift messages, and labels.");
+		replace(fixture.resolve("src/main/resources/Notes.eomodeld/Note.plist"), "attributes = ({",
+				"attributes = ({allowsNull = Y; columnName = body; name = body; prototypeName = longText; }, {");
+		String last = commit("Note bodies.");
+		MigrationResult result = fixture.generator().generateMigrations(new MigrationOptions(), false);
+		assertThat(result.getFindings()).isEmpty();
+		assertThat(result.getMigrations()).extracting(ModelMigration::getModel, ModelMigration::getStatus, ModelMigration::getSince).containsExactly(
+				tuple("Labels", Status.UNCHANGED, "commit " + last),
+				tuple("Notes", Status.CREATED, "Notes0 (commit " + notes0 + ")"),
+				tuple("Shop", Status.CREATED, "Shop0 (commit " + shop0 + ")"));
+		assertThat(result.getMissing()).extracting(ModelMigration::getModel, ModelMigration::getChanges).containsExactly(
+				tuple("Notes", Collections.singletonList("Adds body to note.")),
+				tuple("Shop", Collections.singletonList("Adds gift_message to shop_order.")));
 	}
 
 	@Test
@@ -629,12 +690,37 @@ class MigrationTest {
 	 * folder.
 	 */
 	private static void addNotes(Path resources) throws IOException {
-		Path notes = Files.createDirectories(resources.resolve("Notes.eomodeld"));
-		Files.write(notes.resolve("index.eomodeld"), Arrays.asList("{", "    EOModelVersion = \"2.1\"; ", "    adaptorName = JDBC; ", "    connectionDictionary = {}; ",
-				"    entities = ({className = \"com.example.notes.Note\"; name = Note; }); ", "}"));
-		Files.write(notes.resolve("Note.plist"), Arrays.asList("{", "    attributes = ({allowsNull = N; columnName = id; name = id; prototypeName = id; }); ",
-				"    attributesUsedForLocking = (id); ", "    className = \"com.example.notes.Note\"; ", "    classProperties = (); ", "    externalName = note; ", "    name = Note; ",
+		addModel(resources, "Notes", "Note", "note", "");
+	}
+
+	/**
+	 * Adds a model with one entity, whose table has an id column, and others,
+	 * to a folder.
+	 */
+	private static void addModel(Path resources, String model, String entity, String table, String attributes) throws IOException {
+		Path folder = Files.createDirectories(resources.resolve(model + ".eomodeld"));
+		String className = "com.example." + model.toLowerCase(Locale.ROOT) + "." + entity;
+		Files.write(folder.resolve("index.eomodeld"), Arrays.asList("{", "    EOModelVersion = \"2.1\"; ", "    adaptorName = JDBC; ", "    connectionDictionary = {}; ",
+				"    entities = ({className = \"" + className + "\"; name = " + entity + "; }); ", "}"));
+		Files.write(folder.resolve(entity + ".plist"), Arrays.asList("{", "    attributes = (" + attributes + "{allowsNull = N; columnName = id; name = id; prototypeName = id; }); ",
+				"    attributesUsedForLocking = (id); ", "    className = \"" + className + "\"; ", "    classProperties = (); ", "    externalName = " + table + "; ", "    name = " + entity + "; ",
 				"    primaryKeyAttributes = (id); ", "}"));
+	}
+
+	/**
+	 * Commits everything in the fixture's copy, in a new repository the first
+	 * time.
+	 *
+	 * @return the commit's short name
+	 */
+	private String commit(String message) throws IOException, InterruptedException {
+		Path project = fixture.resolve(".");
+		if (!Files.isDirectory(project.resolve(".git"))) {
+			git(project, "init", "-q");
+		}
+		git(project, "add", "-A");
+		git(project, "-c", "user.name=eogen", "-c", "user.email=eogen@example.com", "commit", "-q", "-m", message);
+		return git(project, "rev-parse", "--short", "HEAD").trim();
 	}
 
 	/**
