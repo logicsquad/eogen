@@ -890,12 +890,13 @@ public class EOGenerator {
 	 * Generates the next Project Wonder migration for each of the project's
 	 * models whose tables changed since an earlier version of the models, with
 	 * {@link MigrationGenerator}: by default, for a model with migrations, the
-	 * commit that added its latest, and for one with none, the last commit. A
-	 * model's first migration creates its tables. Where it can't decide, such
-	 * as on the value that a new column that doesn't allow null needs in the
-	 * rows a table already has, a migration has a gap that doesn't compile,
-	 * which a warning reports. Nothing changes an existing migration, and
-	 * nothing is written if there are errors.
+	 * last commit that changed its latest migration with the model, or else
+	 * the one that added it, and for one with none, the last commit. A model's
+	 * first migration creates its tables. Where it can't decide, such as on
+	 * the value that a new column that doesn't allow null needs in the rows a
+	 * table already has, a migration has a gap that doesn't compile, which a
+	 * warning reports. Nothing changes an existing migration, and nothing is
+	 * written if there are errors.
 	 *
 	 * @param options what to compare, and where to write
 	 * @param write whether to write the migrations, or only report them

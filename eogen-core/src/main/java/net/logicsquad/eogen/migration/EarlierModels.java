@@ -12,7 +12,9 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * The earlier version of a project's models, which a migration changes the
@@ -23,7 +25,8 @@ public final class EarlierModels {
 	/**
 	 * The earlier version that a model with no migrations is compared with by
 	 * default: the last commit. A model with migrations is compared with the
-	 * commit that added its latest.
+	 * commit that its latest is up to date with, as
+	 * {@link #commitOfMigration(File, File, File)} finds it.
 	 */
 	public static final String DEFAULT_VERSION = "HEAD";
 
@@ -115,26 +118,53 @@ public final class EarlierModels {
 	}
 
 	/**
-	 * Returns the commit that added a file at its path, or null if no commit
-	 * has it, as for a file that isn't committed yet. It doesn't follow the
-	 * file back through renames, since git takes a migration that began as a
-	 * copy of the one before for a copy of it.
+	 * Returns the commit that a model's latest migration is up to date with:
+	 * the last that changed the migration and the model together, as when a
+	 * migration that isn't released yet is edited with a change to its model,
+	 * or else the commit that added the migration at its path. A commit that
+	 * changes only the migration, such as one that changes the Javadoc of
+	 * every migration, doesn't count. It returns null if no commit has the
+	 * migration, as for one that isn't committed yet. It doesn't follow the
+	 * migration back through renames, since git takes a migration that began
+	 * as a copy of the one before for a copy of it.
 	 *
 	 * @param projectDirectory the project folder
-	 * @param file a file in the project
+	 * @param migration the model's latest migration
+	 * @param model the model's folder
 	 * @return the commit's full name, or null
 	 * @throws IOException if the project isn't in a git repository, or git
 	 *         fails
 	 */
-	public static String commitAdding(File projectDirectory, File file) throws IOException {
+	public static String commitOfMigration(File projectDirectory, File migration, File model) throws IOException {
 		Path root = root(projectDirectory);
-		Path path = file.toPath().toRealPath();
-		if (!path.startsWith(root)) {
+		String migrationPath = relative(root, migration);
+		if (migrationPath == null) {
 			return null;
 		}
-		String relative = root.relativize(path).toString().replace(File.separatorChar, '/');
-		String commit = git(root.toFile(), "log", "-1", "--format=%H", "--no-renames", "--diff-filter=A", "--", relative).trim();
-		return commit.isEmpty() ? null : commit;
+		String added = git(root.toFile(), "log", "-1", "--format=%H", "--no-renames", "--diff-filter=A", "--", migrationPath).trim();
+		if (added.isEmpty()) {
+			return null;
+		}
+		String modelPath = relative(root, model);
+		if (modelPath == null) {
+			return added;
+		}
+		Set<String> modelCommits = new HashSet<>(Arrays.asList(git(root.toFile(), "log", "--format=%H", added + "..HEAD", "--", modelPath).split("\n")));
+		for (String commit : git(root.toFile(), "log", "--format=%H", added + "..HEAD", "--", migrationPath).split("\n")) {
+			if (!commit.isEmpty() && modelCommits.contains(commit)) {
+				return commit;
+			}
+		}
+		return added;
+	}
+
+	/**
+	 * Returns a file's path relative to the top of the git repository, with
+	 * '/' between its folders, or null if it isn't in the repository.
+	 */
+	private static String relative(Path root, File file) throws IOException {
+		Path path = file.toPath().toRealPath();
+		return path.startsWith(root) ? root.relativize(path).toString().replace(File.separatorChar, '/') : null;
 	}
 
 	/**

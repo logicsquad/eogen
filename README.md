@@ -151,8 +151,10 @@ Using the command line
     --from <commit|folder>  With --migration, the earlier version of
                             every model: a git commit, or a folder of
                             models. Default: for a model with
-                            migrations, the commit that added its
-                            latest, and for one with none, HEAD.
+                            migrations, the last commit that changed
+                            its latest migration with the model, or
+                            else added it, and for one with none,
+                            HEAD.
     --sources <folders>     With --migration, the folders of the Java
                             sources. Default: <project>/src/main/java.
     --package <name>        With --migration, the package for new
@@ -528,10 +530,12 @@ already. `migration` writes it:
 It compares each of the project's models with an earlier version of
 it, and writes the next migration for each model whose tables changed.
 By default, a model with migrations is compared with the commit that
-added its latest migration, so that the next one is for every change
-since, however many commits it took, and a model with none with the
-last commit. After `Library2.java`, it writes `Library3.java` beside
-it:
+its latest migration is up to date with: the last that changed the
+migration and the model together, as when a migration that isn't
+released yet is edited with its model, or else the one that added it.
+The next migration is then for every change since, however many
+commits it took. A model with none is compared with the last commit.
+After `Library2.java`, it writes `Library3.java` beside it:
 
     public class Library3 extends ERXMigrationDatabase.Migration {
         ...
@@ -624,10 +628,12 @@ The parameters are:
 * `from` (`eogen.migration.from`): the earlier version of every model,
   a git commit, such as `HEAD~1`, a branch or a tag, or a folder of
   models, relative to the project. By default, a model with migrations
-  is compared with the commit that added its latest, at the path it
-  has, and a model with none with `HEAD`. A model whose latest
-  migration isn't committed yet isn't compared, and gets a
-  `not-compared` warning.
+  is compared with the last commit that changed its latest migration
+  with the model, or else the one that added it at the path it has, and
+  a model with none with `HEAD`. A commit that changes only migrations,
+  such as one that tidies the Javadoc of every one, doesn't count. A
+  model whose latest migration isn't committed yet isn't compared, and
+  gets a `not-compared` warning.
 * `packageName` (`eogen.migration.package`): the package for new
   migrations.
 * `template` (`eogen.migration.template`): the migration template. The

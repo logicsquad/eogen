@@ -114,17 +114,17 @@ to a model's tables needs one too. After the loop, before committing:
     mvn eogen:migration
 
 It writes the next migration for each model whose tables changed since
-its latest migration was committed, beside it, or for a model with
-none, since the last commit; `-Deogen.migration.from=<commit>` compares
-every model with another. `mvn eogen:migration -Deogen.checkMigrations`
-writes nothing, and fails if a model with migrations has changed
-without one. Where it can't decide, it leaves a gap, a
-`// TODO eogen:` comment and `EOGEN_GAP`, which doesn't compile, and
-reports each one. Fill each in as its comment says, and ask the user
-when the answer depends on their data, such as the value that existing
-rows get in a new column that doesn't allow null. Then run
-`mvn compile`. Never edit a migration that is already committed: a
-database may have run it.
+its latest migration was committed, or last committed with a change to
+the model, beside it, or for a model with none, since the last commit;
+`-Deogen.migration.from=<commit>` compares every model with another.
+`mvn eogen:migration -Deogen.checkMigrations` writes nothing, and fails
+if a model with migrations has changed without one. Where it can't
+decide, it leaves a gap, a `// TODO eogen:` comment and `EOGEN_GAP`,
+which doesn't compile, and reports each one. Fill each in as its comment
+says, and ask the user when the answer depends on their data, such as
+the value that existing rows get in a new column that doesn't allow
+null. Then run `mvn compile`. Never edit a migration that is already
+committed: a database may have run it.
 
 ## Reading what eogen reports
 

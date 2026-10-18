@@ -10,6 +10,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -515,7 +516,8 @@ class MigrationTest {
 
 	/**
 	 * By default, a model with migrations is compared with the commit that
-	 * added its latest, here the last commit, which has Shop0.
+	 * added its latest, unless a later one changed it with the model, here the
+	 * last commit, which has Shop0.
 	 */
 	@Test
 	void comparesWithTheCommitOfTheLatestMigration() throws Exception {
@@ -566,6 +568,36 @@ class MigrationTest {
 		assertThat(check.getFindings()).isEmpty();
 		assertThat(check.getMigrations()).extracting(ModelMigration::getStatus, ModelMigration::getReason)
 				.containsExactly(tuple(Status.UNCHANGED, "Its tables haven't changed since Shop1 (commit " + commit + ")."));
+	}
+
+	/**
+	 * A migration that isn't released yet may be edited with a change to its
+	 * model, so the last commit that changed both is the one to compare with,
+	 * and not one that changes only the migration, as a commit that tidies the
+	 * Javadoc of every migration does.
+	 */
+	@Test
+	void comparesWithTheLastCommitThatChangedTheLatestMigrationWithItsModel() throws Exception {
+		commit("Shop.");
+		Path shop0 = fixture.resolve("src/main/java/com/example/shop/migrations/Shop0.java");
+		edit(ORDER, ATTRIBUTES, ATTRIBUTES + "        {allowsNull = Y; columnName = \"gift_message\"; name = giftMessage; prototypeName = varchar100; }, \n");
+		Files.write(shop0, Collections.singletonList("// Adds gift_message to shop_order."), StandardOpenOption.APPEND);
+		String both = commit("Gift messages, in Shop0.");
+		Files.write(shop0, Collections.singletonList("// Tidied."), StandardOpenOption.APPEND);
+		commit("Tidies Shop0.");
+		MigrationOptions options = new MigrationOptions();
+		MigrationResult check = fixture.generator().generateMigrations(options, false);
+		assertThat(check.getFindings()).isEmpty();
+		assertThat(check.getMigrations()).extracting(ModelMigration::getStatus, ModelMigration::getReason)
+				.containsExactly(tuple(Status.UNCHANGED, "Its tables haven't changed since Shop0 (commit " + both + ")."));
+
+		edit(ORDER, "{allowsNull = Y; columnName = \"gift_message\";", "{allowsNull = N; columnName = \"gift_message\";");
+		commit("Gift messages are mandatory.");
+		Files.write(shop0, Collections.singletonList("// Tidied again."), StandardOpenOption.APPEND);
+		commit("Tidies Shop0 again.");
+		check = fixture.generator().generateMigrations(options, false);
+		assertThat(check.getMissing()).extracting(ModelMigration::describeMissing)
+				.containsExactly("Shop changed since Shop0 (commit " + both + "), with no migration: Makes gift_message in shop_order not allow null.");
 	}
 
 	/**

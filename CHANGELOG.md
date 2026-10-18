@@ -8,8 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `migration` (the goal, `--migration`, and
   `EOGenerator.generateMigrations`) writes the next Project Wonder
   migration for each model whose tables changed since an earlier version
-  of the models: by default, for a model with migrations, the commit
-  that added its latest, so that the next one is for every change since,
+  of the models: by default, for a model with migrations, the last
+  commit that changed its latest migration with the model, or else the
+  one that added it, so that the next one is for every change since,
   or else another commit, or a folder. It
   creates and drops tables, with their primary keys; adds, drops and
   renames columns, with their types, widths, precision and scale, and

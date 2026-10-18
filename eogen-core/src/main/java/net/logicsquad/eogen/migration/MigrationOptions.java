@@ -43,9 +43,10 @@ public final class MigrationOptions {
 	 * Sets the earlier version of the models, which a migration changes the
 	 * tables from, for every model: a git commit, such as a branch, a tag or
 	 * {@code HEAD~2}, or a folder of models, relative to the project. By
-	 * default, each model with migrations is compared with the commit that
-	 * added its latest, so that a migration is for every change since, however
-	 * many commits it took, and a model with none with the last commit,
+	 * default, each model with migrations is compared with the last commit
+	 * that changed its latest migration with the model, or else the one that
+	 * added it, so that a migration is for every change since, however many
+	 * commits it took, and a model with none with the last commit,
 	 * {@code HEAD}.
 	 *
 	 * @param from a commit, or a folder, or null for each model's own

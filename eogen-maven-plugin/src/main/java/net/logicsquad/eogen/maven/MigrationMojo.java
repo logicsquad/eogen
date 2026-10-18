@@ -21,7 +21,8 @@ import net.logicsquad.eogen.migration.MigrationResult.ModelMigration;
 /**
  * Writes the next Project Wonder migration for each of the project's models
  * whose tables changed since an earlier version of the models: by default,
- * for a model with migrations, the commit that added its latest, so that the
+ * for a model with migrations, the last commit that changed its latest
+ * migration with the model, or else the one that added it, so that the
  * migration is for every change since, however many commits it took, and for
  * a model with none, the last commit. A migration is named as
  * {@code ERXMigrator} looks for it, from the model's
@@ -45,8 +46,9 @@ public class MigrationMojo extends AbstractEOGenMojo {
 	/**
 	 * The earlier version of every model: a git commit, such as {@code HEAD}, a
 	 * branch or a tag, or a folder of models, relative to the project. By
-	 * default, each model with migrations is compared with the commit that
-	 * added its latest, and a model with none with {@code HEAD}.
+	 * default, each model with migrations is compared with the last commit
+	 * that changed its latest migration with the model, or else the one that
+	 * added it, and a model with none with {@code HEAD}.
 	 */
 	@Parameter(property = "eogen.migration.from")
 	private String from;

@@ -51,9 +51,10 @@ import net.logicsquad.eogen.velocity.WOLipsVelocityUtils;
  * there are errors.
  * <p>
  * By default, a model with migrations is compared with the models as of the
- * commit that added its latest migration, so that its next one is for every
- * change since, however many commits it took, and a model with none with the
- * last commit. A model whose latest migration isn't committed isn't compared.
+ * last commit that changed its latest migration with the model, or else the
+ * one that added it, so that its next migration is for every change since,
+ * however many commits it took, and a model with none with the last commit.
+ * A model whose latest migration isn't committed isn't compared.
  * {@link MigrationResult#getMissing()} has the migrations that models with
  * migrations need, which a check fails on.
  * </p>
@@ -133,8 +134,8 @@ public final class MigrationGenerator {
 		try {
 			// Each earlier version that a model is compared with, read and loaded
 			// once: the one that from gives, or else, for a model with migrations,
-			// the commit that added its latest, and for one with none, the last
-			// commit.
+			// the commit that its latest is up to date with, and for one with
+			// none, the last commit.
 			Map<String, Earlier> versions = new LinkedHashMap<>();
 			Earlier given = null;
 			if (options.getFrom() != null) {
@@ -182,7 +183,7 @@ public final class MigrationGenerator {
 					try {
 						if (!naming.isFirst()) {
 							latest = naming.getLatestName();
-							version = EarlierModels.commitAdding(projectDirectory, naming.getLatestFile());
+							version = EarlierModels.commitOfMigration(projectDirectory, naming.getLatestFile(), URLUtils.cheatAndTurnIntoFile(model.getModelURL()));
 							latestMigrations = true;
 						}
 						if (version == null) {
