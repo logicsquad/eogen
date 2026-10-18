@@ -100,14 +100,15 @@ class DocTest {
 		Path model = fixture.resolve("src/main/resources/Shop.eomodeld");
 		replace(model.resolve("Order.plist"), "{columnName = note; name = note; prototypeName = longText; }",
 				"{columnName = note; name = note; prototypeName = longText; userInfo = {\"_EntityModeler\" = {documentation = \"What the customer asked for.\"; }; }; }");
-		replace(model.resolve("Order.plist"), "            name = lines; \n", "            name = lines; \n            userInfo = {\"_EntityModeler\" = {documentation = \"The order's lines.\"; }; }; \n");
 		replace(model.resolve("Order.fspec"), "    recent = {\n", "    recent = {\n        userInfo = {\"_EntityModeler\" = {documentation = \"The latest orders.\"; }; }; \n");
 		DocResult result = fixture.generator().generateDoc(options());
 		assertThat(result.getFindings()).isEmpty();
 		assertThat(read("content.html")).contains("A small shop, for testing eogen.");
 		assertThat(read("Shop/content.html")).contains("Someone who places orders.");
 		assertThat(read("Shop/entities/Party.html")).contains("<div class = \"documentation\">Someone who places orders.</div>");
-		assertThat(read("Shop/entities/Order.html")).contains("<div class = \"documentation\">What the customer asked for.</div>", "<div class = \"documentation\">The order's lines.</div>",
+		assertThat(read("Shop/entities/Order.html")).contains("<div class = \"documentation\">What the customer asked for.</div>",
+				"<div class = \"documentation\">The <code>Party</code> who placed the order.</div>",
+				"<div class = \"documentation\">What was ordered, one line for each <code>Product</code>.\n\nDeleting an order deletes its lines.</div>",
 				"<div class = \"documentation\">The latest orders.</div>");
 	}
 

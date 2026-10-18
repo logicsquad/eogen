@@ -1,13 +1,16 @@
 Where eogen's bundled templates deliberately differ from WOLips's, run.sh
-applies this patch to WOLips's output in src/test/resources/corpus/expected.
+applies this patch, from src/test/resources, to WOLips's output in
+fixtures/expected and corpus/expected.
 
 - A to-many relationship to a partial entity takes its inverse key from the
   partial's class, which declares it, rather than the class of the entity
   that the partial extends, which doesn't compile (#18).
+- Where the model has documentation for them, the class, and each
+  attribute's and relationship's getter, have it as a Javadoc comment (#29).
 
-diff -ru a/ERXPartialExampleWonder/er/example/erxpartials/model/_Department.java b/ERXPartialExampleWonder/er/example/erxpartials/model/_Department.java
---- a/ERXPartialExampleWonder/er/example/erxpartials/model/_Department.java
-+++ b/ERXPartialExampleWonder/er/example/erxpartials/model/_Department.java
+diff -ru a/corpus/expected/ERXPartialExampleWonder/er/example/erxpartials/model/_Department.java b/corpus/expected/ERXPartialExampleWonder/er/example/erxpartials/model/_Department.java
+--- a/corpus/expected/ERXPartialExampleWonder/er/example/erxpartials/model/_Department.java
++++ b/corpus/expected/ERXPartialExampleWonder/er/example/erxpartials/model/_Department.java
 @@ -101,7 +101,7 @@
      NSArray<er.example.erxpartials.model.Person> results;
      if (fetch) {
@@ -17,9 +20,9 @@ diff -ru a/ERXPartialExampleWonder/er/example/erxpartials/model/_Department.java
  
        if (qualifier == null) {
          fullQualifier = inverseQualifier;
-diff -ru a/ERXPartialExampleWonder/er/example/erxpartials/model/_EmployeeType.java b/ERXPartialExampleWonder/er/example/erxpartials/model/_EmployeeType.java
---- a/ERXPartialExampleWonder/er/example/erxpartials/model/_EmployeeType.java
-+++ b/ERXPartialExampleWonder/er/example/erxpartials/model/_EmployeeType.java
+diff -ru a/corpus/expected/ERXPartialExampleWonder/er/example/erxpartials/model/_EmployeeType.java b/corpus/expected/ERXPartialExampleWonder/er/example/erxpartials/model/_EmployeeType.java
+--- a/corpus/expected/ERXPartialExampleWonder/er/example/erxpartials/model/_EmployeeType.java
++++ b/corpus/expected/ERXPartialExampleWonder/er/example/erxpartials/model/_EmployeeType.java
 @@ -65,7 +65,7 @@
      NSArray<er.example.erxpartials.model.Person> results;
      if (fetch) {
@@ -29,3 +32,99 @@ diff -ru a/ERXPartialExampleWonder/er/example/erxpartials/model/_EmployeeType.ja
  
        if (qualifier == null) {
          fullQualifier = inverseQualifier;
+diff -ru a/fixtures/expected/ShopClassic/com/example/shop/_Order.java b/fixtures/expected/ShopClassic/com/example/shop/_Order.java
+--- a/fixtures/expected/ShopClassic/com/example/shop/_Order.java
++++ b/fixtures/expected/ShopClassic/com/example/shop/_Order.java
+@@ -55,6 +55,9 @@
+     takeStoredValueForKey(value, "note");
+   }
+ 
++  /**
++   * When the order was placed.
++   */
+   public NSTimestamp placed() {
+     return (NSTimestamp) storedValueForKey("placed");
+   }
+@@ -95,6 +98,9 @@
+     }
+   }
+   
++  /**
++   * The <code>Party</code> who placed the order.
++   */
+   public com.example.shop.Party customer() {
+     return (com.example.shop.Party)storedValueForKey("customer");
+   }
+@@ -113,6 +119,11 @@
+     }
+   }
+   
++  /**
++   * What was ordered, one line for each <code>Product</code>.
++   *
++   * Deleting an order deletes its lines.
++   */
+   public NSArray<com.example.shop.OrderLine> lines() {
+     return (NSArray<com.example.shop.OrderLine>)storedValueForKey("lines");
+   }
+diff -ru a/fixtures/expected/ShopClassic/com/example/shop/_Party.java b/fixtures/expected/ShopClassic/com/example/shop/_Party.java
+--- a/fixtures/expected/ShopClassic/com/example/shop/_Party.java
++++ b/fixtures/expected/ShopClassic/com/example/shop/_Party.java
+@@ -8,6 +8,9 @@
+ import java.util.*;
+ import org.apache.log4j.Logger;
+ 
++/**
++ * Someone who places orders.
++ */
+ @SuppressWarnings("all")
+ public abstract class _Party extends  EOGenericRecord {
+ 	public static final String ENTITY_NAME = "Party";
+diff -ru a/fixtures/expected/ShopWonder/com/example/shop/_Order.java b/fixtures/expected/ShopWonder/com/example/shop/_Order.java
+--- a/fixtures/expected/ShopWonder/com/example/shop/_Order.java
++++ b/fixtures/expected/ShopWonder/com/example/shop/_Order.java
+@@ -68,6 +68,9 @@
+     takeStoredValueForKey(value, _Order.NOTE_KEY);
+   }
+ 
++  /**
++   * When the order was placed.
++   */
+   public NSTimestamp placed() {
+     return (NSTimestamp) storedValueForKey(_Order.PLACED_KEY);
+   }
+@@ -109,6 +112,9 @@
+     }
+   }
+ 
++  /**
++   * The <code>Party</code> who placed the order.
++   */
+   public com.example.shop.Party customer() {
+     return (com.example.shop.Party)storedValueForKey(_Order.CUSTOMER_KEY);
+   }
+@@ -132,6 +138,11 @@
+     }
+   }
+ 
++  /**
++   * What was ordered, one line for each <code>Product</code>.
++   *
++   * Deleting an order deletes its lines.
++   */
+   public NSArray<com.example.shop.OrderLine> lines() {
+     return (NSArray<com.example.shop.OrderLine>)storedValueForKey(_Order.LINES_KEY);
+   }
+diff -ru a/fixtures/expected/ShopWonder/com/example/shop/_Party.java b/fixtures/expected/ShopWonder/com/example/shop/_Party.java
+--- a/fixtures/expected/ShopWonder/com/example/shop/_Party.java
++++ b/fixtures/expected/ShopWonder/com/example/shop/_Party.java
+@@ -14,6 +14,9 @@
+ import org.slf4j.Logger;
+ import org.slf4j.LoggerFactory;
+ 
++/**
++ * Someone who places orders.
++ */
+ @SuppressWarnings("all")
+ public abstract class _Party extends com.example.shop.ShopRecord {
+   public static final String ENTITY_NAME = "Party";

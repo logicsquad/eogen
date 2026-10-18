@@ -14,6 +14,9 @@ import er.extensions.foundation.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * Someone who places orders.
+ */
 @SuppressWarnings("all")
 public abstract class _Party extends com.example.shop.ShopRecord {
   public static final String ENTITY_NAME = "Party";

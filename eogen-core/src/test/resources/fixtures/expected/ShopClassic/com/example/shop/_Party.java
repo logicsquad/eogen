@@ -8,6 +8,9 @@ import java.math.*;
 import java.util.*;
 import org.apache.log4j.Logger;
 
+/**
+ * Someone who places orders.
+ */
 @SuppressWarnings("all")
 public abstract class _Party extends  EOGenericRecord {
 	public static final String ENTITY_NAME = "Party";

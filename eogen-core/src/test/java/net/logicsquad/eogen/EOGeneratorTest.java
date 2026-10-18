@@ -30,6 +30,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import net.logicsquad.eogen.model.EOModelVerificationFailure;
 
@@ -60,6 +61,35 @@ class EOGeneratorTest {
 		assertThat(result.count(SUPERCLASS, CREATED)).isEqualTo(7);
 		assertThat(result.count(SUBCLASS, CREATED)).isEqualTo(7);
 		assertSameFiles(FixtureProject.expected(name), project.resolve(destination));
+	}
+
+	/**
+	 * Each bundled template gives the superclass, and each attribute's and
+	 * relationship's getter, the documentation that the model has for them as
+	 * a Javadoc comment, and nothing else one.
+	 */
+	@ParameterizedTest
+	@ValueSource(strings = { "_Entity.java", "_Entity14.java", "_WonderEntity.java" })
+	void commentsWhatTheModelDocuments(String template) throws Exception {
+		FixtureProject project = FixtureProject.copyTo(temp);
+		Path eogenFile = project.resolve("src/main/resources/Documented.eogen");
+		write(eogenFile, String.join("\n", "-destination generated/documented", "-extension java", "-java", "-javaTemplate " + template,
+				"-model src/main/resources/Shop.eomodeld", "-packagedirs", "-subclassDestination generated/documented",
+				"-subclassJavaTemplate " + template.substring(1), "-loadModelGroup", ""));
+		GenerationResult result = project.forcedGenerator().generate(eogenFile.toFile());
+		assertThat(modelErrors(result)).isEmpty();
+		assertThat(result.isWritten()).isTrue();
+
+		Path classes = project.resolve("generated/documented/" + PACKAGE);
+		assertThat(read(classes.resolve("_Party.java")))
+				.containsPattern("\n\n/\\*\\*\n \\* Someone who places orders\\.\n \\*/\n(@SuppressWarnings\\(\"all\"\\)\n)?public abstract class _Party ");
+		assertThat(read(classes.resolve("_Order.java"))).contains("\n  /**\n   * When the order was placed.\n   */\n  public NSTimestamp placed() {")
+				.contains("\n  /**\n   * The <code>Party</code> who placed the order.\n   */\n  public com.example.shop.Party customer() {")
+				.contains("\n  /**\n   * What was ordered, one line for each <code>Product</code>.\n   *\n   * Deleting an order deletes its lines.\n   */\n  public NSArray");
+		for (String undocumented : new String[] { "_Company.java", "_OrderLine.java", "_Person.java", "_Product.java", "_Tag.java" }) {
+			assertThat(read(classes.resolve(undocumented))).as(undocumented).doesNotContain("/**");
+		}
+		assertThat(read(classes.resolve("Party.java"))).doesNotContain("/**");
 	}
 
 	@Test

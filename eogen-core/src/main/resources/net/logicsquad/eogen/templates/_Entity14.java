@@ -9,6 +9,9 @@ import com.webobjects.foundation.*;
 import java.math.*;
 import java.util.*;
 
+#if ($javadoc.has($entity))
+$javadoc.comment($entity, "")
+#end
 public abstract class ${entity.prefixClassNameWithoutPackage} extends #if ($entity.parentClassNameSet)${entity.parentClassName}#elseif ($entity.partialEntitySet)er.extensions.partials.ERXPartial#elseif ($entity.parentSet)${entity.parent.classNameWithDefault}#elseif ($EOGenericRecord)${EOGenericRecord}#else EOGenericRecord#end {
 #if ($entity.partialEntitySet)
 	public static final String ENTITY_NAME = "$entity.partialEntity.name";
@@ -38,6 +41,9 @@ public abstract class ${entity.prefixClassNameWithoutPackage} extends #if ($enti
 #end
 #foreach ($attribute in $entity.sortedClassAttributes)
 #if (!$attribute.inherited)
+#if ($javadoc.has($attribute))
+$javadoc.comment($attribute, "  ")
+#end
 #if ($attribute.userInfo.ERXConstantClassName)
   public $attribute.userInfo.ERXConstantClassName ${attribute.name}() {
     Number value = (Number)storedValueForKey("$attribute.name");
@@ -61,6 +67,9 @@ public abstract class ${entity.prefixClassNameWithoutPackage} extends #if ($enti
 #end
 #foreach ($relationship in $entity.sortedClassToOneRelationships)
 #if (!$relationship.inherited) 
+#if ($javadoc.has($relationship))
+$javadoc.comment($relationship, "  ")
+#end
   public $relationship.actualDestination.classNameWithDefault ${relationship.name}() {
     return ($relationship.actualDestination.classNameWithDefault)storedValueForKey("$relationship.name");
   }
@@ -80,6 +89,9 @@ public abstract class ${entity.prefixClassNameWithoutPackage} extends #if ($enti
 #end
 #foreach ($relationship in $entity.sortedClassToManyRelationships)
 #if (!$relationship.inherited) 
+#if ($javadoc.has($relationship))
+$javadoc.comment($relationship, "  ")
+#end
   public NSArray ${relationship.name}() {
     return (NSArray)storedValueForKey("${relationship.name}");
   }

@@ -67,6 +67,7 @@ import java.util.Set;
 import org.apache.velocity.VelocityContext;
 import org.apache.velocity.app.VelocityEngine;
 import org.apache.velocity.runtime.resource.loader.ResourceLoader;
+import net.logicsquad.eogen.velocity.JavadocTool;
 import net.logicsquad.eogen.velocity.ListTool;
 import net.logicsquad.eogen.velocity.SetTool;
 import net.logicsquad.eogen.velocity.UnresolvedReference;
@@ -390,6 +391,7 @@ public class VelocityEOGeneratorRunner {
 					}
 					context.put("list", new ListTool());
 					context.put("set", new SetTool());
+					context.put("javadoc", new JavadocTool());
 					//context.put("sorter", new SortTool());
 					context.put("model", model);
 

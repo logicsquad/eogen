@@ -4,6 +4,13 @@ The format here is based on [Keep a Changelog](https://keepachangelog.com/en/1.0
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Changed
+- The bundled templates give the superclass, and the getter of each
+  attribute and relationship, the documentation that Entity Modeler
+  keeps for them, as a Javadoc comment. A superclass that they generate
+  changes only where its entity, or one of its attributes or
+  relationships, has documentation. #29
+
 ### Added
 - `doc` (the goal, `--doc`, and `EOGenerator.generateDoc`) writes
   WOLips's EOModelDoc pages for the project's models, and with
@@ -14,6 +21,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `outputDirectory`; a folder of templates comes before the bundled
   ones; and `entityURL` links each entity's class name, such as to its
   Javadoc. WOLips 5.0.3 doesn't ship EOModelDoc. #25
+- `$javadoc`, in the class templates, writes an object's documentation
+  from the model as a Javadoc comment, or only its lines, for a
+  template's own comment. The HTML stays as it is, apart from what
+  would end the comment or break the source. #29
 
 ## [0.4] - 2026-10-18
 ### Added

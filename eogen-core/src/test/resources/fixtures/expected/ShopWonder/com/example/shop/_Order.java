@@ -68,6 +68,9 @@ public abstract class _Order extends com.example.shop.ShopRecord {
     takeStoredValueForKey(value, _Order.NOTE_KEY);
   }
 
+  /**
+   * When the order was placed.
+   */
   public NSTimestamp placed() {
     return (NSTimestamp) storedValueForKey(_Order.PLACED_KEY);
   }
@@ -109,6 +112,9 @@ public abstract class _Order extends com.example.shop.ShopRecord {
     }
   }
 
+  /**
+   * The <code>Party</code> who placed the order.
+   */
   public com.example.shop.Party customer() {
     return (com.example.shop.Party)storedValueForKey(_Order.CUSTOMER_KEY);
   }
@@ -132,6 +138,11 @@ public abstract class _Order extends com.example.shop.ShopRecord {
     }
   }
 
+  /**
+   * What was ordered, one line for each <code>Product</code>.
+   *
+   * Deleting an order deletes its lines.
+   */
   public NSArray<com.example.shop.OrderLine> lines() {
     return (NSArray<com.example.shop.OrderLine>)storedValueForKey(_Order.LINES_KEY);
   }

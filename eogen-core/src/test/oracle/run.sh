@@ -10,8 +10,8 @@
 # file in the test fixture project and the corpus. Each file's output replaces
 # src/test/resources/fixtures/expected/<name of the .eogen file>, or, for the
 # corpus, src/test/resources/corpus/expected/<name>, which keeps only the
-# superclasses. differences.patch then changes the corpus's output where
-# eogen's bundled templates differ from WOLips's on purpose.
+# superclasses. differences.patch then changes the output where eogen's
+# bundled templates differ from WOLips's on purpose.
 set -euo pipefail
 
 here=$(cd "$(dirname "$0")" && pwd)
@@ -72,7 +72,7 @@ for eogen in "$corpus"/project/src/main/resources/*.eogen; do
 	find "$out" -type f ! -name '_*' -delete
 done
 # Where eogen's bundled templates differ from WOLips's on purpose.
-patch -s -p1 -d "$corpus/expected" < "$here/differences.patch"
+patch -s -p1 -d "$core/src/test/resources" < "$here/differences.patch"
 
 # Velocity 1.5's output for each compatibility template, as <template>.v15.
 echo "Velocity 1.5 compatibility templates"

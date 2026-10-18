@@ -193,7 +193,7 @@ class MigrationTest {
 	@Test
 	void changesWhetherAColumnAllowsNull() throws Exception {
 		edit(ORDER, "{columnName = note; name = note;", "{allowsNull = Y; columnName = note; name = note;");
-		editEarlier(ORDER, "{allowsNull = N; columnName = placed;", "{allowsNull = Y; columnName = placed;");
+		editEarlier(ORDER, "allowsNull = N; \n            columnName = placed; ", "allowsNull = Y; \n            columnName = placed; ");
 		MigrationResult result = generate();
 		assertThat(upgrade(result)).containsExactly(
 				"ERXMigrationTable orderTable = database.existingTableNamed(\"shop_order\");",

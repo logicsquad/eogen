@@ -27,7 +27,8 @@ It also:
   when a model has changed without one (see
   [Writing migrations](#writing-migrations));
 * writes WOLips's EOModelDoc pages, with the documentation that Entity
-  Modeler keeps for each model, entity and attribute (see
+  Modeler keeps for each model, entity and attribute, and puts that
+  documentation in the generated classes' Javadoc (see
   [Documenting models](#documenting-models));
 * lints the keys in qualifiers, sort orderings and prefetching, which
   otherwise fail only when a fetch runs (see [Lint](#lint));
@@ -792,6 +793,47 @@ does the same with `--doc`, `--output`, `--doc-templates`,
 `doc` has no OmniGraffle export, whose diagrams placed entities at
 random.
 
+### In the generated classes
+
+The bundled templates put the documentation in the superclasses too,
+as Javadoc comments on the class and on the getter of each attribute
+and relationship, where an IDE shows it, and a coding agent reads it
+with the class:
+
+    /**
+     * The <code>Party</code> who placed the order.
+     */
+    public com.example.shop.Party customer() {
+
+The documentation stays the HTML it is, apart from what would end the
+comment or break the source: `*/`; a backslash, since a backslash and a
+`u` start a Unicode escape even in a comment; and an `@` at the start
+of a line, which would start a block tag. Each becomes a character
+reference. A template of your own does the same with `$javadoc`,
+wherever it wants a comment:
+
+    #if ($javadoc.has($attribute))
+    $javadoc.comment($attribute, "  ")
+    #end
+
+`$javadoc.has` says whether a model, entity, attribute, relationship or
+other object has documentation. `$javadoc.comment` returns it as a
+comment, with each line after the indent that its second argument
+gives, and `$javadoc.lines` returns only the comment's lines, for a
+template that already has a comment of its own:
+
+    /**
+    #if ($javadoc.has($entity))
+    $javadoc.lines($entity, "")
+     *
+    #end
+     * Generated from the model. DO NOT EDIT.
+     */
+
+WOLips has no `$javadoc`, so there the `#if` is false, and the same
+template generates the classes without the comments, which `check` then
+catches.
+
 How eogen finds templates
 -------------------------
 eogen looks for each template in:
@@ -875,6 +917,11 @@ options, with these differences:
   `${relationship.actualDestination.classNameWithDefault}` to
   `${relationship.destination.classNameWithDefault}` in the line that
   sets `inverseQualifier` from the inverse relationship's `_KEY`.
+* The bundled templates give the superclass, and the getter of each
+  attribute and relationship, their documentation from the model as a
+  Javadoc comment (see
+  [In the generated classes](#in-the-generated-classes)). WOLips's
+  leave it out.
 
 WOLips renders templates with Velocity 1.5, and eogen with Velocity
 2.4.1. eogen sets Velocity 2 up to behave as 1.5 does: `bc` space
@@ -916,11 +963,12 @@ Testing
 `mvn install` builds everything and runs:
 
 * `eogen-core`'s tests, which compare eogen's output for a test model
-  with WOLips's. The model has inheritance, flattened attributes and
-  relationships, a fetch specification with bindings and prototypes
-  from a jar. `src/test/oracle/run.sh` produced the expected output
-  with WOLips 5.0.3's own jars and Velocity 1.5, and can produce it
-  again from an Eclipse install with WOLips.
+  with WOLips's, apart from where eogen's templates differ on purpose.
+  The model has inheritance, flattened attributes and relationships, a
+  fetch specification with bindings and prototypes from a jar.
+  `src/test/oracle/run.sh` produced the expected output with WOLips
+  5.0.3's own jars and Velocity 1.5, and can produce it again from an
+  Eclipse install with WOLips.
 * `eogen-core`'s corpus tests, which do the same for eleven models, ten
   of them Project Wonder's: every superclass must be byte for byte what
   WOLips generates, with no errors and no lint findings, apart from

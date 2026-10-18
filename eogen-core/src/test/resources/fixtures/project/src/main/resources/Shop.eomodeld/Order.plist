@@ -15,7 +15,13 @@
         {definition = "customer.name"; name = customerName; }, 
         {allowsNull = N; columnName = id; name = id; prototypeName = id; }, 
         {columnName = note; name = note; prototypeName = longText; }, 
-        {allowsNull = N; columnName = placed; name = placed; prototypeName = dateTime; }, 
+        {
+            allowsNull = N; 
+            columnName = placed; 
+            name = placed; 
+            prototypeName = dateTime; 
+            userInfo = {"_EntityModeler" = {documentation = "When the order was placed."; }; }; 
+        }, 
         {allowsNull = N; columnName = total; name = total; prototypeName = amount; }
     ); 
     attributesUsedForLocking = (currencyCode, customerID, id, placed, total); 
@@ -41,6 +47,9 @@
             joinSemantic = EOInnerJoin; 
             joins = ({destinationAttribute = id; sourceAttribute = customerID; }); 
             name = customer; 
+            userInfo = {
+                "_EntityModeler" = {documentation = "The <code>Party</code> who placed the order."; }; 
+            }; 
         }, 
         {
             deleteRule = EODeleteRuleCascade; 
@@ -50,6 +59,11 @@
             joins = ({destinationAttribute = orderID; sourceAttribute = id; }); 
             name = lines; 
             ownsDestination = Y; 
+            userInfo = {
+                "_EntityModeler" = {
+                    documentation = "What was ordered, one line for each <code>Product</code>.\n\nDeleting an order deletes its lines."; 
+                }; 
+            }; 
         }
     ); 
 }

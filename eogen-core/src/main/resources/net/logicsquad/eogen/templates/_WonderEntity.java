@@ -16,6 +16,9 @@ import er.extensions.foundation.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+#if ($javadoc.has($entity))
+$javadoc.comment($entity, "")
+#end
 @SuppressWarnings("all")
 public abstract class ${entity.prefixClassNameWithoutPackage} extends #if ($entity.parentClassNameSet)${entity.parentClassName}#elseif ($entity.partialEntitySet)er.extensions.partials.ERXPartial<${entity.partialEntity.className}>#elseif ($entity.parentSet)${entity.parent.classNameWithDefault}#elseif ($EOGenericRecord)${EOGenericRecord}#else ERXGenericRecord#end {
 #if ($entity.partialEntitySet)
@@ -69,6 +72,9 @@ public abstract class ${entity.prefixClassNameWithoutPackage} extends #if ($enti
 #end
 #foreach ($attribute in $entity.sortedClassAttributes)
 #if (!$attribute.inherited)
+#if ($javadoc.has($attribute))
+$javadoc.comment($attribute, "  ")
+#end
 #if ($attribute.userInfo.ERXConstantClassName)
   public $attribute.userInfo.ERXConstantClassName ${attribute.name}() {
     Number value = (Number)storedValueForKey(${entity.prefixClassNameWithoutPackage}.${attribute.uppercaseUnderscoreName}_KEY);
@@ -94,6 +100,9 @@ public abstract class ${entity.prefixClassNameWithoutPackage} extends #if ($enti
 #end
 #foreach ($relationship in $entity.sortedClassToOneRelationships)
 #if (!$relationship.inherited)
+#if ($javadoc.has($relationship))
+$javadoc.comment($relationship, "  ")
+#end
   public $relationship.actualDestination.classNameWithDefault ${relationship.name}() {
     return ($relationship.actualDestination.classNameWithDefault)storedValueForKey(${entity.prefixClassNameWithoutPackage}.${relationship.uppercaseUnderscoreName}_KEY);
   }
@@ -121,6 +130,9 @@ public abstract class ${entity.prefixClassNameWithoutPackage} extends #if ($enti
 #end
 #foreach ($relationship in $entity.sortedClassToManyRelationships)
 #if (!$relationship.inherited)
+#if ($javadoc.has($relationship))
+$javadoc.comment($relationship, "  ")
+#end
   public NSArray<${relationship.actualDestination.classNameWithDefault}> ${relationship.name}() {
     return (NSArray<${relationship.actualDestination.classNameWithDefault}>)storedValueForKey(${entity.prefixClassNameWithoutPackage}.${relationship.uppercaseUnderscoreName}_KEY);
   }

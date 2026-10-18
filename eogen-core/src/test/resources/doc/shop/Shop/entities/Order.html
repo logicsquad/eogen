@@ -148,6 +148,7 @@
 				placed
 								</div>
 						
+						<div class = "documentation">When the order was placed.</div>
 						<table class = "details" style = "display: none">
 								<tr>
 					<th>External Type</th>
@@ -239,7 +240,8 @@
 			<div class = "name">customer</div>
 						<div class = "mainDetail">
 				<a href = "../../Shop/entities/Party.html">Party</a>							</div>
-							
+									<div class = "documentation">The <code>Party</code> who placed the order.</div>
+				
 			<table class = "details" style = "display: none">
 				<tr>
 					<th>Type</th>
@@ -273,7 +275,10 @@
 			<div class = "name">lines</div>
 						<div class = "mainDetail">
 				<a href = "../../Shop/entities/OrderLine.html">OrderLine</a>							</div>
-							
+									<div class = "documentation">What was ordered, one line for each <code>Product</code>.
+
+Deleting an order deletes its lines.</div>
+				
 			<table class = "details" style = "display: none">
 				<tr>
 					<th>Type</th>

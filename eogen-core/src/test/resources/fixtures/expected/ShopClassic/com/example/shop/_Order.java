@@ -55,6 +55,9 @@ public abstract class _Order extends  EOGenericRecord {
     takeStoredValueForKey(value, "note");
   }
 
+  /**
+   * When the order was placed.
+   */
   public NSTimestamp placed() {
     return (NSTimestamp) storedValueForKey("placed");
   }
@@ -95,6 +98,9 @@ public abstract class _Order extends  EOGenericRecord {
     }
   }
   
+  /**
+   * The <code>Party</code> who placed the order.
+   */
   public com.example.shop.Party customer() {
     return (com.example.shop.Party)storedValueForKey("customer");
   }
@@ -113,6 +119,11 @@ public abstract class _Order extends  EOGenericRecord {
     }
   }
   
+  /**
+   * What was ordered, one line for each <code>Product</code>.
+   *
+   * Deleting an order deletes its lines.
+   */
   public NSArray<com.example.shop.OrderLine> lines() {
     return (NSArray<com.example.shop.OrderLine>)storedValueForKey("lines");
   }
