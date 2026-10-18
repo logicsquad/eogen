@@ -4,7 +4,7 @@
   <parent>
     <groupId>net.logicsquad</groupId>
     <artifactId>eogen-parent</artifactId>
-    <version>0.4</version>
+    <version>0.5-SNAPSHOT</version>
   </parent>
   <artifactId>eogen-maven-plugin</artifactId>
   <packaging>maven-plugin</packaging>
