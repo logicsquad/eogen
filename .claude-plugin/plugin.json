@@ -1,6 +1,6 @@
 {
   "name": "eogen",
-  "version": "0.3",
+  "version": "0.4",
   "description": "A skill for editing EOModels, and keeping their classes in sync with eogen.",
   "author": {
     "name": "Logic Squad"
