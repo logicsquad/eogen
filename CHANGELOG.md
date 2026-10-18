@@ -47,6 +47,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   as left to do by hand: an entity's name anywhere, and a property's in
   the documentation of its entity and its properties, or after its
   entity's name and a dot. #31
+- The agent skill tells an agent to read the documentation of what it
+  changes, to document each entity, attribute and relationship that it
+  adds, as HTML in Entity Modeler's `documentation`, to change the
+  documentation that `rename` and `remove` report, and to write a
+  project's Markdown pages again. #31
 
 ## [0.4] - 2026-10-18
 ### Added

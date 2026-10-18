@@ -303,9 +303,9 @@ Using eogen with a coding agent
 [`skills/eogen/SKILL.md`](skills/eogen/SKILL.md) is a
 [Claude Code](https://claude.com/claude-code) skill for editing
 EOModels with eogen. It covers the model files, how to add, rename and
-remove entities, attributes and relationships, the loop of `format`,
-`verify` and `generate` with `strict` on, and what eogen's messages
-mean.
+remove entities, attributes and relationships, and document them, the
+loop of `format`, `verify` and `generate` with `strict` on, and what
+eogen's messages mean.
 
 The repository is also a Claude Code plugin marketplace, whose one
 plugin has the skill, so you can install it rather than copy it. In

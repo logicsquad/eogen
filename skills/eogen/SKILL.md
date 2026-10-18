@@ -54,6 +54,12 @@ Maven stops at the first goal that fails.
    suggests, `mvn verify` then confirms that nothing is stale. Otherwise
    run `mvn eogen:check`.
 
+If the project commits Markdown pages of its models, such as
+`docs/models/Library.md`, whose first line says that eogen wrote them,
+write them again too, and commit them with the model:
+
+    mvn eogen:doc -Deogen.doc.format=markdown
+
 Without the plugin in the POM, give the goal in full:
 `mvn net.logicsquad:eogen-maven-plugin:<version>:<goal>`. The command
 line, `eogen-cli`, does the same with `--format`, `--verify`, `--all`,
@@ -84,6 +90,17 @@ module's folder, so that Maven can find the framework's models.
   `{className = "..."; name = <Entity>; }` to the `entities` in
   `index.eomodeld`. The model ignores an entity file that the index
   doesn't list.
+- Read the documentation of what you change first: it says what the
+  model's authors meant. Entity Modeler keeps it in each object's
+  `userInfo`, as `userInfo = {"_EntityModeler" = {documentation =
+  "..."; }; };`, and eogen puts it in the superclasses' Javadoc.
+- Document each entity, attribute and relationship that you add, there.
+  Documentation is HTML: put names in `<code>`, such as
+  `<code>Book</code>`, and write `&amp;` and `&lt;` for `&` and `<`.
+  Say what the thing means and why it is there, rather than its type,
+  which the model already says. If the request doesn't say what it
+  means, ask. When a change alters what something means, change its
+  documentation too.
 - Don't rename or remove by hand: a name appears in many places, such
   as joins in other entities, `classProperties`, flattened definitions
   and fetch specifications. Use the goals, which change them all:
@@ -98,9 +115,9 @@ module's folder, so that Maven can find the framework's models.
   would write says something that Entity Modeler's writer would drop
   or change, and they name it: fix that by hand, and run them again.
   Add `-Deogen.dryRun` to see what would change. Then do what they
-  report as left to do by hand, such as renaming a subclass, and run
-  the loop. `mvn eogen:generate -Deogen.deleteOrphans` deletes an old
-  superclass.
+  report as left to do by hand, such as renaming a subclass, or changing
+  documentation that names the old name, and run the loop.
+  `mvn eogen:generate -Deogen.deleteOrphans` deletes an old superclass.
 - The plugin looks for orphans only when it uses every `.eogen` file
   under the model folders, as it does unless `eogenFiles` names some.
   Otherwise, delete the old `_<Entity>.java` by hand.
@@ -149,6 +166,15 @@ from a migration.
   username`: a fetch specification's qualifier compares a key that
   matches nothing with that variable. Fix the key, which eogen reports
   first.
+- `entity Book: documentation has <codwe>, which isn't an HTML tag (did
+  you mean <code>?)`: documentation that a Javadoc build would fail on,
+  now that it can go in Javadoc comments. Fix the HTML in its
+  `documentation`. If you didn't write it, it was wrong before: fix it
+  in a commit of its own.
+- `The documentation of Loan's relationship book names Book. Change it
+  to Volume by hand.`: after a rename, documentation that still names
+  the old name in `<code>`. Read it, and change the name where it means
+  what you renamed.
 - `Library failed to load: Library.eomodeld/Book.plist:12:58: ...`: a
   syntax error, at that line and column.
 - `_Book.java is an orphan: no .eogen file generates it any more.`: its
