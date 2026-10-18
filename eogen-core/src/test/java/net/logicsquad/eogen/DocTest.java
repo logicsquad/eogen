@@ -143,8 +143,10 @@ class DocTest {
 	@Test
 	void usesTheExtraTemplatesFirst() throws Exception {
 		Path templates = Files.createDirectories(temp.resolve("templates"));
-		Files.write(templates.resolve("indexModels.html.vm"), Arrays.asList("<ul>", "#foreach ($model in $models)", "<li>${model.name}, ${model.entities.size()} entities</li>", "#end", "</ul>"));
-		Files.write(templates.resolve("eomodeldoc.css"), Collections.singletonList("body { color: green; }"));
+		// With LF line endings, as .gitattributes checks out the bundled ones, on
+		// every platform.
+		writeLines(templates.resolve("indexModels.html.vm"), "<ul>", "#foreach ($model in $models)", "<li>${model.name}, ${model.entities.size()} entities</li>", "#end", "</ul>");
+		writeLines(templates.resolve("eomodeldoc.css"), "body { color: green; }");
 		DocOptions options = options();
 		options.setTemplateFolder(templates.toFile());
 		DocResult result = fixture.generator().generateDoc(options);
@@ -226,6 +228,10 @@ class DocTest {
 			}
 		}
 		assertThat(pages).containsExactlyInAnyOrderElementsOf(FixtureProject.files(expected));
+	}
+
+	private static void writeLines(Path file, String... lines) throws IOException {
+		Files.write(file, (String.join("\n", lines) + "\n").getBytes(StandardCharsets.UTF_8));
 	}
 
 	private static void replace(Path file, String from, String to) throws IOException {
