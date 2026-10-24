@@ -12,6 +12,9 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.attribute.FileTime;
 import java.util.Collections;
+import java.util.Comparator;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -56,15 +59,17 @@ class MarkdownDocTest {
 		assertThat(result.getFindings()).isEmpty();
 		assertThat(result.isWritten()).isTrue();
 		assertThat(result.getModels()).containsExactly("Shop");
-		assertThat(result.getPages()).extracting(page -> page.getFile().getName(), DocResult.Page::getStatus).containsExactly(tuple("Shop.md", Status.CREATED));
+		assertThat(result.getPages()).extracting(page -> page.getFile().getName(), DocResult.Page::getStatus).containsExactly(tuple("README.md", Status.CREATED),
+				tuple("Shop.md", Status.CREATED));
 		assertThat(read("Shop.md")).isEqualTo(expected("Shop.md")).startsWith(ModelDocGenerator.MARKDOWN_MARKER);
+		assertThat(read("README.md")).isEqualTo(expected("README.md")).startsWith(ModelDocGenerator.MARKDOWN_MARKER);
 
 		// The same model gives the same page, which isn't written again.
 		Path page = output.resolve("Shop.md");
 		FileTime old = FileTime.fromMillis(1_000_000_000_000L);
 		Files.setLastModifiedTime(page, old);
 		DocResult again = fixture.generator().generateDoc(options());
-		assertThat(again.getPages()).extracting(DocResult.Page::getStatus).containsExactly(Status.UNCHANGED);
+		assertThat(again.getPages()).extracting(DocResult.Page::getStatus).containsExactly(Status.UNCHANGED, Status.UNCHANGED);
 		assertThat(again.isStale()).isFalse();
 		assertThat(Files.getLastModifiedTime(page)).isEqualTo(old);
 		assertThat(read("Shop.md")).isEqualTo(expected("Shop.md"));
@@ -86,7 +91,7 @@ class MarkdownDocTest {
 	@Test
 	void writesToDocsModelsByDefault() throws Exception {
 		DocResult result = fixture.generator().generateDoc(new DocOptions());
-		assertThat(result.getFiles()).containsExactly(fixture.resolve("docs/models/Shop.md").toFile());
+		assertThat(result.getFiles()).containsExactly(fixture.resolve("docs/models/README.md").toFile(), fixture.resolve("docs/models/Shop.md").toFile());
 		assertThat(fixture.resolve("docs/models/Shop.md")).exists();
 	}
 
@@ -108,6 +113,28 @@ class MarkdownDocTest {
 		fixture.generator().generateDoc(options);
 		assertThat(read("Shop.md")).isEqualTo(expected("Shop.md"));
 		assertThatThrownBy(() -> options.setModelDiagramLimit(-1)).isInstanceOf(IllegalArgumentException.class);
+	}
+
+	/**
+	 * The index has a line for each model, with the first paragraph of its
+	 * documentation, and changes when that does.
+	 */
+	@Test
+	void indexesTheModelsWithTheFirstParagraphOfTheirDocumentation() throws Exception {
+		replace(model.resolve("index.eomodeld"), "A small shop, for testing eogen.", "A small shop | store,\nfor testing eogen.\n\nIt sells things.");
+		fixture.generator().generateDoc(options());
+		assertThat(read("README.md")).contains("| [Shop](Shop.md) | 8 | A small shop \\| store, for testing eogen. |\n").doesNotContain("It sells things.");
+
+		// With no model to document, the index is an orphan too.
+		try (Stream<Path> paths = Files.walk(model)) {
+			for (Path path : paths.sorted(Comparator.reverseOrder()).collect(Collectors.toList())) {
+				Files.delete(path);
+			}
+		}
+		DocResult none = fixture.generator().generateDoc(options());
+		assertThat(none.getPages()).isEmpty();
+		assertThat(none.getOrphans()).containsExactly(output.resolve("README.md").toFile(), output.resolve("Shop.md").toFile());
+		assertThat(output.resolve("README.md")).doesNotExist();
 	}
 
 	/**
@@ -164,7 +191,7 @@ class MarkdownDocTest {
 		DocResult missing = fixture.generator().generateDoc(options(), false);
 		assertThat(missing.isWritten()).isFalse();
 		assertThat(missing.isStale()).isTrue();
-		assertThat(missing.getStalePages()).extracting(DocResult.Page::getStatus).containsExactly(Status.CREATED);
+		assertThat(missing.getStalePages()).extracting(DocResult.Page::getStatus).containsExactly(Status.CREATED, Status.CREATED);
 		assertThat(output).doesNotExist();
 
 		fixture.generator().generateDoc(options());
@@ -200,8 +227,11 @@ class MarkdownDocTest {
 		fixture.generator().generateDoc(options());
 		DocResult check = fixture.generator().generateDoc(options(), false);
 		assertThat(check.getOrphans()).isEmpty();
+		assertThat(check.getKept()).containsExactly(output.resolve("README.md").toFile());
+		assertThat(check.getFiles()).containsExactly(output.resolve("Shop.md").toFile());
+		assertThat(check.isStale()).isFalse();
 		assertThat(output.resolve("Sales.md")).doesNotExist();
-		assertThat(output.resolve("README.md")).exists();
+		assertThat(read("README.md")).isEqualTo("These pages describe the models.\n");
 
 		write(output.resolve("Sales.md"), ModelDocGenerator.MARKDOWN_MARKER + " from the Sales model. -->\n");
 		DocResult orphaned = fixture.generator().generateDoc(options(), false);

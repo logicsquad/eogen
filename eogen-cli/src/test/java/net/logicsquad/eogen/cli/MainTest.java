@@ -386,7 +386,7 @@ class MainTest {
 		// By default, the project's own models, in Markdown.
 		out.reset();
 		assertThat(run("--project", project.toString(), "--classpath", reference.toString(), "--doc")).isEqualTo(Main.OK);
-		assertThat(out()).contains("Documented Library in docs/models: 1 file, 1 written.");
+		assertThat(out()).contains("Documented Library in docs/models: 2 files, 2 written.");
 
 		// In HTML, in its site.
 		out.reset();
@@ -424,11 +424,11 @@ class MainTest {
 
 		out.reset();
 		assertThat(run("--project", relativeProject, "--classpath", reference.toString(), "--doc", "--doc-format", "markdown")).isEqualTo(Main.OK);
-		assertThat(out()).contains("Documented Library in docs/models: 1 file, 1 written.");
+		assertThat(out()).contains("Documented Library in docs/models: 2 files, 2 written.");
 		assertThat(new String(Files.readAllBytes(page), StandardCharsets.UTF_8)).contains("```mermaid\nerDiagram\n    Author\n    Book\n");
 		out.reset();
 		assertThat(run("--project", relativeProject, "--classpath", reference.toString(), "--doc", "--doc-format", "markdown", "--check")).isEqualTo(Main.OK);
-		assertThat(out()).contains("The page of Library in docs/models is up to date.");
+		assertThat(out()).contains("All 2 pages of Library in docs/models are up to date.");
 
 		Path book = project.resolve("src/main/resources/Library.eomodeld/Book.plist");
 		String text = new String(Files.readAllBytes(book), StandardCharsets.UTF_8);
@@ -438,7 +438,7 @@ class MainTest {
 		Files.write(orphan, "<!-- Written by eogen from the Catalogue model. -->\n".getBytes(StandardCharsets.UTF_8));
 		out.reset();
 		assertThat(run("--json", "--project", project.toString(), "--classpath", reference.toString(), "--doc", "--doc-format", "markdown", "--check")).isEqualTo(Main.STALE);
-		assertThat(out()).contains("\"files\": [\n      {\n        \"file\": \"docs/models/Library.md\",\n        \"status\": \"updated\"\n      },\n      {\n        \"file\": \"docs/models/Catalogue.md\",\n        \"status\": \"orphaned\"\n      }\n    ]");
+		assertThat(out()).contains("\"files\": [\n      {\n        \"file\": \"docs/models/README.md\",\n        \"status\": \"unchanged\"\n      },\n      {\n        \"file\": \"docs/models/Library.md\",\n        \"status\": \"updated\"\n      },\n      {\n        \"file\": \"docs/models/Catalogue.md\",\n        \"status\": \"orphaned\"\n      }\n    ]");
 		assertThat(err()).isEmpty();
 		out.reset();
 		assertThat(run("--project", project.toString(), "--classpath", reference.toString(), "--doc", "--doc-format", "markdown")).isEqualTo(Main.OK);

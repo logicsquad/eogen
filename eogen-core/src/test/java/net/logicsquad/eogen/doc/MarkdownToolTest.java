@@ -20,6 +20,14 @@ class MarkdownToolTest {
 	}
 
 	@Test
+	void summarisesDocumentationWithItsFirstParagraph() {
+		assertThat(md.summary("\r\n  First | line\r\nof one.  \r\n \r\nSecond.\n")).isEqualTo("First \\| line of one.");
+		assertThat(md.summary("Only one.")).isEqualTo("Only one.");
+		assertThat(md.summary(null)).isEmpty();
+		assertThat(md.summary(new EOEntity("Party"))).isEmpty();
+	}
+
+	@Test
 	void keepsDocumentationsLinesOutsideATable() {
 		assertThat(md.block("\n\nFirst | line  \r\nSecond line.\n\n")).isEqualTo("First | line\nSecond line.");
 		assertThat(md.has(" \n ")).isFalse();

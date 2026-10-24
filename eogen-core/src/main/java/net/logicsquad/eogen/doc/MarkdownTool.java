@@ -34,6 +34,25 @@ public final class MarkdownTool {
 	}
 
 	/**
+	 * Returns the first paragraph of an object's documentation, where a blank
+	 * line ends it, for a table's cell: its lines joined with a space, with
+	 * {@code |} escaped.
+	 *
+	 * @param object a model object, its documentation, or null
+	 * @return the paragraph, or an empty string
+	 */
+	public String summary(Object object) {
+		List<String> paragraph = new ArrayList<>();
+		for (String line : lines(object)) {
+			if (line.trim().isEmpty()) {
+				break;
+			}
+			paragraph.add(line.trim());
+		}
+		return escapeBars(String.join(" ", paragraph));
+	}
+
+	/**
 	 * Returns an object's documentation, to stand on its own: with each line
 	 * end an LF, no space at the end of a line, and no blank line at either
 	 * end.
@@ -215,6 +234,30 @@ public final class MarkdownTool {
 			names.add(code(object instanceof EOModelObject ? ((EOModelObject<?>) object).getName() : object));
 		}
 		return String.join(", ", names);
+	}
+
+	/**
+	 * Returns a model's entities, other than its prototypes, in name order.
+	 *
+	 * @param model a model
+	 * @return entities
+	 */
+	public List<EOEntity> entities(EOModel model) {
+		return documentedEntities(model);
+	}
+
+	/**
+	 * Returns a model's entities, other than its prototypes, in name order: the
+	 * ones that its pages document.
+	 */
+	static List<EOEntity> documentedEntities(EOModel model) {
+		List<EOEntity> entities = new ArrayList<>();
+		for (EOEntity entity : model.getSortedEntities()) {
+			if (!entity.isPrototype()) {
+				entities.add(entity);
+			}
+		}
+		return entities;
 	}
 
 	/**

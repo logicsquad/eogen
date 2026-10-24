@@ -299,14 +299,15 @@ public class EOGenMojoIT {
 	@MavenGoal("verify")
 	void docMarkdown(MavenExecutionResult result) throws IOException {
 		assertThat(result).isSuccessful();
-		assertThat(result).out().info().contains("Documented Library in docs/models: 1 file, 1 written.", "The page of Library in docs/models is up to date.");
+		assertThat(result).out().info().contains("Documented Library in docs/models: 2 files, 2 written.", "All 2 pages of Library in docs/models are up to date.");
 		Path page = result.getMavenProjectResult().getTargetProjectDirectory().resolve("docs/models/Library.md");
 		assertThat(read(page)).contains("```mermaid\nerDiagram\n    Author\n    Book\n", "    Book }o--|| Currency : \"currency\"");
 	}
 
 	/**
 	 * Fails on a page that is out of date, and on an orphan, but leaves a page
-	 * of the project's own, and changes nothing.
+	 * of the project's own, its README.md, which stands for the index, and
+	 * changes nothing.
 	 */
 	@MavenTest
 	@MavenGoal("verify")
@@ -315,9 +316,11 @@ public class EOGenMojoIT {
 		assertThat(result).out().error().contains("docs/models/Library.md is out of date.",
 				"docs/models/Catalogue.md is an orphan: eogen wrote it for a model that it no longer documents.")
 				.anyMatch(line -> line.contains("2 pages are stale. Run mvn eogen:doc, and commit the result."));
+		assertThat(result).out().info().contains("docs/models/README.md is the project's own, not eogen's, so the models have no index.");
 		Path docs = result.getMavenProjectResult().getTargetProjectDirectory().resolve("docs/models");
 		assertThat(read(docs.resolve("Library.md"))).endsWith("Library\n=======\n");
 		assertThat(docs.resolve("Catalogue.md")).exists();
+		assertThat(read(docs.resolve("README.md"))).isEqualTo("These pages describe the project's models.\n");
 	}
 
 	/**

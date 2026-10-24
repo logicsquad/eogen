@@ -838,11 +838,18 @@ or 0 none.
 Documentation stays the HTML it is, which Markdown keeps, but goes on
 one line in a table, with `|` escaped.
 
+`doc` also writes an index of the pages, `README.md`, which GitHub and
+GitLab show with the folder: a table of the models, each with a link to
+its page, its number of entities, and the first paragraph of its
+documentation. If the folder has a `README.md` of its own, which eogen
+didn't write, `doc` leaves it alone, and writes no index.
+
 With `checkDoc` (`eogen.checkDoc`, `--doc --check`), `doc` writes
 nothing, and fails if a page would change, or if the folder has a page
 that eogen wrote for a model that it no longer documents, which writing
 the pages deletes. A page's first line marks it as eogen's, so `doc`
-leaves the folder's other files alone. Bind the check to `verify`, so
+leaves the folder's other files alone, and a template of a project's
+own must keep it. Bind the check to `verify`, so
 that a build fails when someone changes a model without writing its
 page again:
 
@@ -864,9 +871,9 @@ documented. The other parameters are:
 
 * `outputDirectory` (`eogen.doc.output`): the folder of the pages.
 * `templateDirectory` (`eogen.doc.templates`): a folder of templates,
-  which come before the bundled ones: a page's, such as `model.md.vm`
-  or `entityContent.html.vm`, or a file that is copied, such as
-  `eomodeldoc.css`.
+  which come before the bundled ones: a page's, such as `model.md.vm`,
+  `index.md.vm` or `entityContent.html.vm`, or a file that is copied,
+  such as `eomodeldoc.css`.
 * `entityURL` (`eogen.doc.entityURL`): a Velocity template for the link
   from each entity's class name, such as to its Javadoc, which sees
   `$entity` and `$model`. It is relative to the page that links it.

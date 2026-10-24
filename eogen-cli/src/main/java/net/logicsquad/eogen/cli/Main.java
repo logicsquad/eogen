@@ -696,6 +696,12 @@ public final class Main {
 			map.put("status", "orphaned");
 			files.add(map);
 		}
+		for (File kept : result.getKept()) {
+			Map<String, Object> map = new LinkedHashMap<>();
+			map.put("file", relative(kept));
+			map.put("status", "kept");
+			files.add(map);
+		}
 		docReport.put("files", files);
 		docReport.put("errors", findings(result.getFindings(), true));
 		report.put("doc", docReport);
@@ -712,6 +718,9 @@ public final class Main {
 		}
 		String folder = relative(options.getOutput());
 		int pages = result.getPages().size();
+		for (File kept : result.getKept()) {
+			say(relative(kept) + " is the project's own, not eogen's, so the models have no index.");
+		}
 		if (check) {
 			for (DocResult.Page page : result.getStalePages()) {
 				say(relative(page.getFile()) + (page.getStatus() == DocResult.Status.CREATED ? " is missing." : " is out of date."));

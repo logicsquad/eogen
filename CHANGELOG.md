@@ -26,6 +26,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   model, which is too wide to read for a large one, is only for a model
   with at most `modelDiagramLimit` (`eogen.doc.modelDiagramLimit`,
   `--model-diagram-limit`) entities, 10 by default, or 0 for none. #33
+- `doc` writes an index of the Markdown pages, `README.md`, which GitHub
+  and GitLab show with the folder: a table of the models, with a link to
+  each one's page, its number of entities, and the first paragraph of
+  its documentation. A `README.md` of the project's own, which eogen
+  didn't write, is left alone, and reported, as `kept` in `--json`, and
+  `DocResult.getKept()`. #36
 
 ## [0.5] - 2026-10-19
 ### Changed
