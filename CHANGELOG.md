@@ -3,6 +3,42 @@
 The format here is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6] - 2026-10-24
+### Changed
+- The HTML pages that `doc` writes are frozen: they reproduce WOLips's
+  EOModelDoc pages, and get bug fixes, but no new content. New
+  documentation goes in the Markdown pages. #34
+- `doc` writes Markdown by default: `format` (`eogen.doc.format`,
+  `--doc-format`) is `markdown` unless set to `html`. A project that
+  runs `doc` without setting it gets a page for each model in
+  `docs/models`, not EOModelDoc's pages in `target/site/eomodeldoc`,
+  and one that wants those sets `format` to `html`. #35
+
+### Added
+- The Markdown pages give each attribute the Java class of its values,
+  beside its column's type, as the bundled templates write it in its
+  accessors: its `ERXConstantClassName`, or else its value class, such
+  as an `enum`, and for a flattened attribute, the class of the one
+  that it flattens. A project that checks its pages writes them again.
+  #32
+- Each entity's section of a Markdown page has a diagram of the
+  entities that it reaches and that reach it. The diagram of the whole
+  model, which is too wide to read for a large one, is only for a model
+  with at most `modelDiagramLimit` (`eogen.doc.modelDiagramLimit`,
+  `--model-diagram-limit`) entities, 10 by default, or 0 for none. #33
+- `doc` writes an index of the Markdown pages, `README.md`, which GitHub
+  and GitLab show with the folder: a table of the models, with a link to
+  each one's page, its number of entities, and the first paragraph of
+  its documentation. A `README.md` of the project's own, which eogen
+  didn't write, is left alone, and reported, as `kept` in `--json`, and
+  `DocResult.getKept()`. #36
+- With `reportUndocumented` (`eogen.reportUndocumented`,
+  `--report-undocumented`, `EOGenerator.setReportUndocumented`), the
+  lint reports what has no documentation, as `undocumented`: each
+  model, entity, and attribute and relationship that is a class
+  property, apart from what a subentity inherits. Its findings are
+  warnings, or errors with `strict`. It is off by default. #37
+
 ## [0.5] - 2026-10-19
 ### Changed
 - The bundled templates give the superclass, and the getter of each

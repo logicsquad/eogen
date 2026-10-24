@@ -27,12 +27,13 @@ It also:
   when a model has changed without one (see
   [Writing migrations](#writing-migrations));
 * writes the documentation that Entity Modeler keeps for each model,
-  entity and attribute as WOLips's EOModelDoc pages, or as Markdown
-  pages with a diagram of each model, to commit, and puts it in the
-  generated classes' Javadoc (see
+  entity and attribute as Markdown pages to commit, with an index and
+  diagrams of the entities and their relationships, or as WOLips's
+  EOModelDoc pages, and puts it in the generated classes' Javadoc (see
   [Documenting models](#documenting-models));
 * lints the keys in qualifiers, sort orderings and prefetching, which
-  otherwise fail only when a fetch runs (see [Lint](#lint));
+  otherwise fail only when a fetch runs, and, if asked, reports what
+  has no documentation (see [Lint](#lint));
 * formats models as Entity Modeler writes them, and renames and removes
   entities, attributes and relationships through Entity Modeler's own
   classes (see [Formatting models](#formatting-models) and
@@ -57,7 +58,7 @@ a model without regenerating its classes:
     <plugin>
       <groupId>net.logicsquad</groupId>
       <artifactId>eogen-maven-plugin</artifactId>
-      <version>0.5</version>
+      <version>0.6</version>
       <executions>
         <execution>
           <goals>
@@ -99,8 +100,8 @@ The goals are:
 * `migration` (no default phase): writes the next Project Wonder
   migration for each model whose tables changed (see
   [Writing migrations](#writing-migrations)).
-* `doc` (default phase `pre-site`): writes EOModelDoc's HTML pages for
-  the project's models, or a Markdown page for each, and with
+* `doc` (default phase `pre-site`): writes a Markdown page for each of
+  the project's models, or EOModelDoc's HTML pages, and with
   `checkDoc` fails the build if the pages are stale (see
   [Documenting models](#documenting-models)).
 
@@ -117,6 +118,8 @@ They take these parameters:
 * `force` (`eogen.force`): generates despite errors, as WOLips does.
 * `strict` (`eogen.strict`): makes the lint's findings errors (see
   [Lint](#lint)).
+* `reportUndocumented` (`eogen.reportUndocumented`): makes the lint
+  report what has no documentation (see [Lint](#lint)).
 * For `generate`, `deleteOrphans` (`eogen.deleteOrphans`) deletes
   orphaned superclasses.
 * For `check`, `checkOrphans` (`eogen.check.orphans`): set it to false,
@@ -130,18 +133,18 @@ They take these parameters:
 
 `mvn eogen:generate` works in any project whose POM declares the
 plugin. Elsewhere, use the full name,
-`mvn net.logicsquad:eogen-maven-plugin:0.5:generate`, or add
+`mvn net.logicsquad:eogen-maven-plugin:0.6:generate`, or add
 `net.logicsquad` to the `pluginGroups` in `~/.m2/settings.xml`.
 
 Using the command line
 ----------------------
 `eogen-cli`'s jar contains everything it needs:
 
-    java -jar eogen-cli-0.5.jar [options] <file.eogen>...
-    java -jar eogen-cli-0.5.jar [options] --all
-    java -jar eogen-cli-0.5.jar [options] --verify
-    java -jar eogen-cli-0.5.jar [options] --migration
-    java -jar eogen-cli-0.5.jar [options] --doc
+    java -jar eogen-cli-0.6.jar [options] <file.eogen>...
+    java -jar eogen-cli-0.6.jar [options] --all
+    java -jar eogen-cli-0.6.jar [options] --verify
+    java -jar eogen-cli-0.6.jar [options] --migration
+    java -jar eogen-cli-0.6.jar [options] --doc
 
     --project <folder>      The folder that the .eogen files' paths are
                             relative to. Default: the current folder.
@@ -190,22 +193,25 @@ Using the command line
     --migration-models <names>
                             With --migration, the models to write
                             migrations for, separated by ','.
-    --doc                   Write EOModelDoc's HTML pages for the
-                            project's models. With --check, write
-                            nothing, and exit with status 1 if a page
-                            would change, or an orphan would be
-                            deleted.
-    --doc-format <format>   With --doc, html, or markdown for a page
-                            for each model, with a Mermaid diagram, to
-                            commit. Default: html.
+    --doc                   Write a Markdown page for each of the
+                            project's models, with a Mermaid diagram,
+                            to commit. With --check, write nothing, and
+                            exit with status 1 if a page would change,
+                            or an orphan would be deleted.
+    --doc-format <format>   With --doc, markdown, or html for
+                            EOModelDoc's pages. Default: markdown.
     --output <folder>       With --doc, the folder of the pages.
-                            Default: <project>/target/site/eomodeldoc,
-                            or for Markdown, <project>/docs/models.
+                            Default: <project>/docs/models, or for
+                            HTML, <project>/target/site/eomodeldoc.
     --doc-templates <folder>
                             With --doc, a folder of templates and files,
                             which come before the bundled ones.
     --entity-url <template> With --doc, a Velocity template for the link
                             from each entity's class name.
+    --model-diagram-limit <n>
+                            With --doc in Markdown, the most entities a
+                            model can have and still have a diagram of
+                            them all: 0 for none. Default: 10.
     --delete-orphans        With --all, delete the orphaned superclasses.
     --force                 Write the classes even when there are
                             errors, as WOLips does. Without it, errors
@@ -213,6 +219,8 @@ Using the command line
                             status is 2.
     --strict                Make the lint's findings in the models
                             errors rather than warnings.
+    --report-undocumented   Make the lint report what in the models
+                            has no documentation.
     --json                  Report in JSON on standard output.
     --debug                 Show stack traces.
 
@@ -223,7 +231,7 @@ To give it a Maven project's dependencies, run it from the project's
 folder with the classpath that Maven resolves:
 
     mvn dependency:build-classpath -Dmdep.outputFile=cp.txt
-    java -jar eogen-cli-0.5.jar --classpath "$(cat cp.txt)" --all
+    java -jar eogen-cli-0.6.jar --classpath "$(cat cp.txt)" --all
 
 With `--json`, it writes one JSON object to standard output, which a
 script or a coding agent can read instead of the text. `status` is
@@ -279,6 +287,7 @@ names the kind of finding, and keeps its meaning once released:
 | `misnamed-entity` | an entity whose `name` isn't its file's |
 | `unmatched-key` | a key in a fetch specification or a restricting qualifier that matches nothing |
 | `malformed-html` | documentation whose HTML a Javadoc build would fail on, such as a tag that HTML5 doesn't have |
+| `undocumented` | with `reportUndocumented`, a model, an entity, or an attribute or relationship that is a class property, with no documentation |
 | `unresolved-reference` | a template reference that rendered with no value |
 | `format-loss` | a model that formatting leaves alone, or a rename or removal that is refused, since saving a file would change what it says |
 | `eogen-file` | an `.eogen` file that eogen can't use, such as one with no `-destination` |
@@ -328,7 +337,7 @@ eogen that the project uses:
           "source": {
             "source": "github",
             "repo": "logicsquad/eogen",
-            "ref": "release/0.5"
+            "ref": "release/0.6"
           }
         }
       },
@@ -461,6 +470,15 @@ The keys it knows are the ones the model classes read and write, and
 the ones found in 116 real models, Project Wonder's among them. It
 doesn't look inside `userInfo` or `internalInfo`, apart from Entity
 Modeler's documentation.
+
+With `reportUndocumented` (`eogen.reportUndocumented`,
+`--report-undocumented`), it also reports what has no documentation,
+for a team that wants everything documented: each model, each entity,
+and each attribute and relationship that is a class property, such as
+`attribute price: no documentation`. What a subentity inherits is its
+parent's to document, and an attribute that isn't a class property,
+such as a foreign key, isn't in the classes, so neither is reported.
+It is off by default, since most models have little documentation.
 
 Its findings are warnings. `strict` (`eogen.strict`, `--strict`) makes
 them errors, which stop `generate` as other errors do. Use `strict`
@@ -780,52 +798,13 @@ Documenting models
 ------------------
 Entity Modeler keeps documentation for each model, entity, attribute,
 relationship, fetch specification, entity index and stored procedure,
-as HTML in its `userInfo`. `doc` writes it as WOLips's EOModelDoc did,
-as a set of HTML pages: an index of every model and entity, in frames,
-and a page for each model, entity and stored procedure, which has its
-attributes, relationships, fetch specifications and entity indexes:
+as HTML in its `userInfo`. `doc` writes a page for each model,
+`<Model>.md`, in `docs/models`, to commit beside the code:
 
     mvn eogen:doc
 
-The pages go in `target/site/eomodeldoc`, and the goal's default phase
-is `pre-site`, so that a project that binds it has them in its Maven
-site:
-
-    <execution>
-      <goals>
-        <goal>doc</goal>
-      </goals>
-    </execution>
-
-It documents the project's own models, and with `includeDependencies`
-(`eogen.doc.includeDependencies`) its dependencies' too, but no
-prototype entity. A page links only to the pages of the models that are
-documented. The other parameters are:
-
-* `outputDirectory` (`eogen.doc.output`): the folder of the pages.
-* `templateDirectory` (`eogen.doc.templates`): a folder of templates,
-  which come before the bundled ones: a page's, such as
-  `entityContent.html.vm` or `model.md.vm`, or a file that is copied,
-  such as `eomodeldoc.css`.
-* `entityURL` (`eogen.doc.entityURL`): a Velocity template for the link
-  from each entity's class name, such as to its Javadoc, which sees
-  `$entity` and `$model`. It is relative to the entity's page, which is
-  `<Model>/entities/<Entity>.html`:
-  `../../../apidocs/${entity.className.replace(".", "/")}.html`.
-
-As for the classes, a reference that renders with no value is an
-error, and nothing is written unless `force` is set. The command line
-does the same with `--doc`, `--output`, `--doc-templates`,
-`--entity-url` and `--include-dependencies`. Unlike WOLips's EOModelDoc,
-`doc` has no OmniGraffle export, whose diagrams placed entities at
-random.
-
-### In Markdown
-
-With `format` (`eogen.doc.format`, `--doc-format`) set to `markdown`,
-`doc` writes a page for each model instead, `<Model>.md`, in
-`docs/models`, to commit beside the code. GitHub and GitLab render it,
-and a pull request that changes a model shows the change in its page:
+GitHub and GitLab render it, and a pull request that changes a model
+shows the change in its page:
 
     Shop
     ====
@@ -847,28 +826,45 @@ and a pull request that changes a model shows the change in its page:
     - Table: `shop_order`
     - Class: `com.example.shop.Order`
 
-    | Attribute | Column | Type | Allows null | Documentation |
-    |---|---|---|---|---|
-    | `placed` | `placed` | `timestamp` | no | When the order was placed. |
+    | Attribute | Column | Column type | Java type | Allows null | Documentation |
+    |---|---|---|---|---|---|
+    | `placed` | `placed` | `timestamp` | `NSTimestamp` | no | When the order was placed. |
 
 A page has the model's documentation, a
 [Mermaid](https://mermaid.js.org) diagram of its entities and their
 relationships, and a section for each entity, with its documentation,
-its table and class, and tables of its attributes and relationships,
-fetch specifications and entity indexes, each with its documentation.
-The diagram draws a relationship and its inverse as one line, whose ends
+a diagram of the entities that it reaches and that reach it, its table
+and class, and tables of its attributes and relationships, fetch
+specifications and entity indexes, each with its documentation.
+An attribute has its column's type and the Java class of its values, as
+the bundled templates write it in its accessors, such as an `enum` for
+a `varchar(50)`: its `ERXConstantClassName`, or else its value class,
+and for a flattened attribute, the class of the one that it flattens.
+A diagram draws a relationship and its inverse as one line, whose ends
 say how many of each entity the other reaches. It has the entities of
 other models that relationships reach, but no attributes or flattened
 relationships. GitHub and GitLab draw it from its text, so a page has no
-date or layout in it, and changes only when its model does.
+date or layout in it, and changes only when its model does. They lay a
+diagram out in rows, so that one of a large model's entities is too
+wide to read: a model with more than 10 entities has only the
+diagrams of its entities, unless `modelDiagramLimit`
+(`eogen.doc.modelDiagramLimit`, `--model-diagram-limit`) allows more,
+or 0 none.
 Documentation stays the HTML it is, which Markdown keeps, but goes on
 one line in a table, with `|` escaped.
+
+`doc` also writes an index of the pages, `README.md`, which GitHub and
+GitLab show with the folder: a table of the models, each with a link to
+its page, its number of entities, and the first paragraph of its
+documentation. If the folder has a `README.md` of its own, which eogen
+didn't write, `doc` leaves it alone, and writes no index.
 
 With `checkDoc` (`eogen.checkDoc`, `--doc --check`), `doc` writes
 nothing, and fails if a page would change, or if the folder has a page
 that eogen wrote for a model that it no longer documents, which writing
 the pages deletes. A page's first line marks it as eogen's, so `doc`
-leaves the folder's other files alone. Bind the check to `verify`, so
+leaves the folder's other files alone, and a template of a project's
+own must keep it. Bind the check to `verify`, so
 that a build fails when someone changes a model without writing its
 page again:
 
@@ -879,18 +875,59 @@ page again:
         <goal>doc</goal>
       </goals>
       <configuration>
-        <format>markdown</format>
         <checkDoc>true</checkDoc>
       </configuration>
     </execution>
 
-and write the pages again with:
+It documents the project's own models, and with `includeDependencies`
+(`eogen.doc.includeDependencies`) its dependencies' too, but no
+prototype entity. A page links only to the pages of the models that are
+documented. The other parameters are:
 
-    mvn eogen:doc -Deogen.doc.format=markdown
+* `outputDirectory` (`eogen.doc.output`): the folder of the pages.
+* `templateDirectory` (`eogen.doc.templates`): a folder of templates,
+  which come before the bundled ones: a page's, such as `model.md.vm`,
+  `index.md.vm` or `entityContent.html.vm`, or a file that is copied,
+  such as `eomodeldoc.css`.
+* `entityURL` (`eogen.doc.entityURL`): a Velocity template for the link
+  from each entity's class name, such as to its Javadoc, which sees
+  `$entity` and `$model`. It is relative to the page that links it.
 
-The pages render from `model.md.vm`, which a folder of templates can
-replace, as for the HTML pages. The command line does the same with
-`--doc-format markdown` and `--check`.
+As for the classes, a reference that renders with no value is an
+error, and nothing is written unless `force` is set. The command line
+does the same with `--doc`, `--check`, `--output`, `--doc-templates`,
+`--entity-url` and `--include-dependencies`.
+
+### In HTML
+
+With `format` (`eogen.doc.format`, `--doc-format`) set to `html`, `doc`
+writes the documentation as WOLips's EOModelDoc did, as a set of HTML
+pages: an index of every model and entity, in frames, and a page for
+each model, entity and stored procedure, which has its attributes,
+relationships, fetch specifications and entity indexes. The pages go in
+`target/site/eomodeldoc`, and the goal's default phase is `pre-site`,
+so that a project that binds it has them in its Maven site:
+
+    <execution>
+      <goals>
+        <goal>doc</goal>
+      </goals>
+      <configuration>
+        <format>html</format>
+      </configuration>
+    </execution>
+
+An entity's page is `<Model>/entities/<Entity>.html`, so an `entityURL`
+to the Javadoc is
+`../../../apidocs/${entity.className.replace(".", "/")}.html`. Unlike
+WOLips's EOModelDoc, `doc` has no OmniGraffle export, whose diagrams
+placed entities at random.
+
+The HTML pages are frozen. They reproduce WOLips's EOModelDoc pages,
+and get bug fixes, but no new content: what eogen adds to its
+documentation goes in the Markdown pages. A project that wants more in
+its HTML pages can put its own templates, such as
+`entityContent.html.vm`, in `templateDirectory`.
 
 ### In the generated classes
 
@@ -964,7 +1001,7 @@ in a parent POM, rather than copy them into each project's
     <plugin>
       <groupId>net.logicsquad</groupId>
       <artifactId>eogen-maven-plugin</artifactId>
-      <version>0.5</version>
+      <version>0.6</version>
       <dependencies>
         <dependency>
           <groupId>com.example</groupId>

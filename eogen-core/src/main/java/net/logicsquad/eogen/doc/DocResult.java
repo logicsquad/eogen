@@ -10,7 +10,8 @@ import net.logicsquad.eogen.Finding;
 /**
  * What documenting the models did: the models documented, the pages written,
  * or that would have been written, with whether each is new, changed or
- * unchanged, the orphans, and the findings, which are errors.
+ * unchanged, the orphans, the project's own files that it kept, and the
+ * findings, which are errors.
  */
 public final class DocResult {
 	/**
@@ -91,6 +92,8 @@ public final class DocResult {
 
 	private final List<File> orphans;
 
+	private final List<File> kept;
+
 	private final List<Finding> findings;
 
 	private final boolean written;
@@ -102,13 +105,16 @@ public final class DocResult {
 	 * @param pages the pages
 	 * @param orphans Markdown pages that eogen wrote for models that it no
 	 *        longer documents
+	 * @param kept the project's own files where a page would go, which are
+	 *        left alone
 	 * @param findings errors
 	 * @param written whether the pages were written
 	 */
-	public DocResult(List<String> models, List<Page> pages, List<File> orphans, List<Finding> findings, boolean written) {
+	public DocResult(List<String> models, List<Page> pages, List<File> orphans, List<File> kept, List<Finding> findings, boolean written) {
 		this.models = Collections.unmodifiableList(new ArrayList<>(models));
 		this.pages = Collections.unmodifiableList(new ArrayList<>(pages));
 		this.orphans = Collections.unmodifiableList(new ArrayList<>(orphans));
+		this.kept = Collections.unmodifiableList(new ArrayList<>(kept));
 		this.findings = Collections.unmodifiableList(new ArrayList<>(findings));
 		this.written = written;
 	}
@@ -167,6 +173,17 @@ public final class DocResult {
 	 */
 	public List<File> getOrphans() {
 		return orphans;
+	}
+
+	/**
+	 * Returns the project's own files where a page would go, which are left
+	 * alone, and so have no page: a {@code README.md} that eogen didn't write
+	 * in the folder of the Markdown pages, where their index would go.
+	 *
+	 * @return files
+	 */
+	public List<File> getKept() {
+		return kept;
 	}
 
 	/**

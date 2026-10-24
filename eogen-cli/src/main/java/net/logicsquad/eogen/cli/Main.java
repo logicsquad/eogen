@@ -133,24 +133,28 @@ public final class Main {
 			"                          With --migration, the models to write migrations for,",
 			"                          separated by ','. A model named here with no migrations",
 			"                          gets its first, even if it didn't change.",
-			"  --doc                   Write EOModelDoc's HTML pages for the project's",
-			"                          models: an index, and a page for each model, entity",
-			"                          and stored procedure, with their documentation. With",
-			"                          --check, write nothing, and exit with status 1 if a",
-			"                          page would change, or an orphan would be deleted.",
-			"  --doc-format <format>   With --doc, html, or markdown for a page for each",
-			"                          model, with a Mermaid diagram of its entities, to",
-			"                          commit. Writing deletes the pages that eogen wrote",
-			"                          for models that it no longer documents. Default:",
-			"                          html.",
+			"  --doc                   Write a Markdown page for each of the project's",
+			"                          models, with its documentation and a Mermaid diagram",
+			"                          of its entities, to commit. Writing deletes the pages",
+			"                          that eogen wrote for models that it no longer",
+			"                          documents. With --check, write nothing, and exit with",
+			"                          status 1 if a page would change, or an orphan would",
+			"                          be deleted.",
+			"  --doc-format <format>   With --doc, markdown, or html for EOModelDoc's pages:",
+			"                          an index, and a page for each model, entity and",
+			"                          stored procedure. Default: markdown.",
 			"  --output <folder>       With --doc, the folder of the pages. Default:",
-			"                          <project>/target/site/eomodeldoc, or for Markdown,",
-			"                          <project>/docs/models.",
+			"                          <project>/docs/models, or for HTML,",
+			"                          <project>/target/site/eomodeldoc.",
 			"  --doc-templates <folder>",
 			"                          With --doc, a folder of templates and files, which",
 			"                          come before the bundled ones.",
 			"  --entity-url <template> With --doc, a Velocity template for the link from",
 			"                          each entity's class name, relative to its page.",
+			"  --model-diagram-limit <n>",
+			"                          With --doc in Markdown, the most entities a model can",
+			"                          have and still have a diagram of them all, as well as",
+			"                          each entity's own: 0 for none. Default: 10.",
 			"  --delete-orphans        With --all, delete the orphaned superclasses. Their",
 			"                          subclasses are only reported.",
 			"  --force                 Write the classes even when the model group or a",
@@ -158,6 +162,9 @@ public final class Main {
 			"                          mean nothing is written, and the exit status is 2.",
 			"  --strict                Make the lint's findings in the models, such as a",
 			"                          misspelt key, errors rather than warnings.",
+			"  --report-undocumented   Make the lint report each model, entity, and attribute",
+			"                          and relationship that is a class property, with no",
+			"                          documentation.",
 			"  --json                  Report in JSON on standard output, for scripts and",
 			"                          agents.",
 			"  --debug                 Show stack traces.",
@@ -202,6 +209,8 @@ public final class Main {
 
 	private String entityURL;
 
+	private Integer modelDiagramLimit;
+
 	private boolean all;
 
 	private boolean check;
@@ -217,6 +226,8 @@ public final class Main {
 	private boolean force;
 
 	private boolean strict;
+
+	private boolean reportUndocumented;
 
 	private boolean json;
 
@@ -311,13 +322,16 @@ public final class Main {
 				force = true;
 			} else if ("--strict".equals(arg)) {
 				strict = true;
+			} else if ("--report-undocumented".equals(arg)) {
+				reportUndocumented = true;
 			} else if ("--json".equals(arg)) {
 				json = true;
 			} else if ("--debug".equals(arg)) {
 				debug = true;
 			} else if ("--project".equals(arg) || "--models".equals(arg) || "--classpath".equals(arg) || "--templates".equals(arg) || "--rename".equals(arg)
 					|| "--to".equals(arg) || "--remove".equals(arg) || "--from".equals(arg) || "--sources".equals(arg) || "--package".equals(arg) || "--template".equals(arg)
-					|| "--migration-models".equals(arg) || "--output".equals(arg) || "--doc-templates".equals(arg) || "--entity-url".equals(arg) || "--doc-format".equals(arg)) {
+					|| "--migration-models".equals(arg) || "--output".equals(arg) || "--doc-templates".equals(arg) || "--entity-url".equals(arg) || "--doc-format".equals(arg)
+					|| "--model-diagram-limit".equals(arg)) {
 				if (i + 1 == args.length) {
 					return usage(arg + " needs a value.");
 				}
@@ -356,6 +370,15 @@ public final class Main {
 					}
 				} else if ("--entity-url".equals(arg)) {
 					entityURL = value;
+				} else if ("--model-diagram-limit".equals(arg)) {
+					try {
+						modelDiagramLimit = Integer.valueOf(value);
+					} catch (NumberFormatException e) {
+						modelDiagramLimit = Integer.valueOf(-1);
+					}
+					if (modelDiagramLimit.intValue() < 0) {
+						return usage("--model-diagram-limit is a number, at least 0, not " + value + ".");
+					}
 				} else if ("--migration-models".equals(arg)) {
 					migrationModels = new ArrayList<>();
 					for (String name : value.split(",")) {
@@ -375,8 +398,8 @@ public final class Main {
 		if (doc && (verify || format || migration || all || deleteOrphans || rename != null || remove != null || !eogenFiles.isEmpty())) {
 			return usage("--doc takes no .eogen files, and goes only with --check, --force, --include-dependencies and its own options.");
 		}
-		if (!doc && (output != null || docFormat != null || docTemplates != null || entityURL != null)) {
-			return usage("--output, --doc-format, --doc-templates and --entity-url go with --doc.");
+		if (!doc && (output != null || docFormat != null || docTemplates != null || entityURL != null || modelDiagramLimit != null)) {
+			return usage("--output, --doc-format, --doc-templates, --entity-url and --model-diagram-limit go with --doc.");
 		}
 		if (migration && (verify || format || all || deleteOrphans || rename != null || remove != null || !eogenFiles.isEmpty())) {
 			return usage("--migration takes no .eogen files, and goes only with --check and its own options.");
@@ -399,6 +422,9 @@ public final class Main {
 		if (includeDependencies && !verify && !doc) {
 			return usage("--include-dependencies goes with --verify or --doc.");
 		}
+		if (reportUndocumented && (doc || migration || format || rename != null || remove != null)) {
+			return usage("--report-undocumented goes with .eogen files, --all or --verify.");
+		}
 		if (!verify && !format && !migration && !doc && !all && rename == null && remove == null && eogenFiles.isEmpty()) {
 			return usage("Give an .eogen file.");
 		}
@@ -420,6 +446,7 @@ public final class Main {
 		EOGenerator generator = new EOGenerator(project, models, classpath);
 		generator.setForce(force);
 		generator.setStrict(strict);
+		generator.setReportUndocumented(reportUndocumented);
 		generator.setTemplatePath(templates);
 		if (rename != null) {
 			if (to == null) {
@@ -655,6 +682,9 @@ public final class Main {
 		options.setTemplateFolder(docTemplates == null ? null : docTemplates.getAbsoluteFile());
 		options.setEntityURL(entityURL);
 		options.setIncludeDependencies(includeDependencies);
+		if (modelDiagramLimit != null) {
+			options.setModelDiagramLimit(modelDiagramLimit.intValue());
+		}
 		DocResult result;
 		try {
 			result = generator.generateDoc(options, !check);
@@ -677,6 +707,12 @@ public final class Main {
 			map.put("status", "orphaned");
 			files.add(map);
 		}
+		for (File kept : result.getKept()) {
+			Map<String, Object> map = new LinkedHashMap<>();
+			map.put("file", relative(kept));
+			map.put("status", "kept");
+			files.add(map);
+		}
 		docReport.put("files", files);
 		docReport.put("errors", findings(result.getFindings(), true));
 		report.put("doc", docReport);
@@ -693,6 +729,9 @@ public final class Main {
 		}
 		String folder = relative(options.getOutput());
 		int pages = result.getPages().size();
+		for (File kept : result.getKept()) {
+			say(relative(kept) + " is the project's own, not eogen's, so the models have no index.");
+		}
 		if (check) {
 			for (DocResult.Page page : result.getStalePages()) {
 				say(relative(page.getFile()) + (page.getStatus() == DocResult.Status.CREATED ? " is missing." : " is out of date."));

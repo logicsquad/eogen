@@ -376,6 +376,39 @@ class EOGeneratorTest {
 	}
 
 	/**
+	 * Only when asked, the lint reports what has no documentation: the model,
+	 * each entity, and each attribute and relationship that is a class
+	 * property, but not what a subentity inherits, nor a key that isn't a class
+	 * property.
+	 */
+	@Test
+	void reportsWhatHasNoDocumentationWhenAsked() throws Exception {
+		FixtureProject project = FixtureProject.copyTo(temp);
+		assertThat(project.generator().verify(false).getFindings()).isEmpty();
+
+		EOGenerator generator = project.generator();
+		generator.setReportUndocumented(true);
+		List<Finding> findings = generator.verify(false).getFindings();
+		assertThat(findings).hasSize(27).allMatch(finding -> Finding.UNDOCUMENTED.equals(finding.getCode()) && finding.getSeverity() == Finding.Severity.WARNING);
+		assertThat(findings).extracting(Finding::getMessage).contains("Shop.eomodeld/Company.plist: entity Company: no documentation.",
+				"Shop.eomodeld/Company.plist: attribute taxNumber: no documentation.", "Shop.eomodeld/Order.plist: relationship currency: no documentation.",
+				"Shop.eomodeld/Party.plist: attribute name: no documentation.")
+				.doesNotContain("Shop.eomodeld/Company.plist: attribute name: no documentation.", "Shop.eomodeld/Order.plist: attribute customerID: no documentation.",
+						"Shop.eomodeld/Order.plist: attribute placed: no documentation.", "Shop.eomodeld/Party.plist: entity Party: no documentation.");
+		Finding taxNumber = findings.stream().filter(finding -> finding.getMessage().contains("taxNumber")).findFirst().get();
+		assertThat(taxNumber.getFile()).isEqualTo("src/main/resources/Shop.eomodeld/Company.plist");
+		assertThat(taxNumber.getEntity()).isEqualTo("Company");
+		assertThat(taxNumber.getObject()).isEqualTo("attribute taxNumber");
+		assertThat(generator.check(project.eogen("ShopWonder")).getWarnings()).hasSize(27);
+
+		Path index = project.resolve("src/main/resources/Shop.eomodeld/index.eomodeld");
+		write(index, read(index).replace("documentation = \"A small shop, for testing eogen.\";", "documentation = \" \";"));
+		generator.setStrict(true);
+		VerificationResult strict = generator.verify(false);
+		assertThat(strict.getErrors()).extracting(EOModelVerificationFailure::getMessage).hasSize(28).contains("Shop.eomodeld/index.eomodeld: the model: no documentation.");
+	}
+
+	/**
 	 * A deleted or renamed entity leaves its superclass behind, and its
 	 * hand-edited subclass. Only a superclass with the generated marker counts.
 	 */

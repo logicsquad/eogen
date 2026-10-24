@@ -122,6 +122,21 @@ class MainTest {
 		assertThat(project.resolve(LIBRARY + "_Book.java")).exists();
 	}
 
+	@Test
+	void reportsWhatHasNoDocumentationWhenAsked() throws Exception {
+		assertThat(run("--verify", "--project", project.toString(), "--classpath", reference.toString())).isEqualTo(Main.OK);
+		assertThat(err()).doesNotContain("no documentation");
+
+		err.reset();
+		assertThat(run("--verify", "--report-undocumented", "--project", project.toString(), "--classpath", reference.toString())).isEqualTo(Main.OK);
+		assertThat(err()).contains("eogen: warning: Library: Library.eomodeld/Book.plist: entity Book: no documentation.",
+				"eogen: warning: Library: Library.eomodeld/index.eomodeld: the model: no documentation.");
+
+		err.reset();
+		assertThat(run("--doc", "--report-undocumented")).isEqualTo(Main.FAILED);
+		assertThat(err()).contains("--report-undocumented goes with .eogen files, --all or --verify.");
+	}
+
 	/**
 	 * The fixture's models were written by hand, not by Entity Modeler.
 	 */
@@ -376,27 +391,35 @@ class MainTest {
 	@Test
 	void writesTheModelsDocumentation() throws Exception {
 		Path output = temp.resolve("doc");
-		assertThat(run("--json", "--project", project.toString(), "--classpath", reference.toString(), "--doc", "--output", output.toString(), "--include-dependencies",
+		assertThat(run("--json", "--project", project.toString(), "--classpath", reference.toString(), "--doc", "--doc-format", "html", "--output", output.toString(), "--include-dependencies",
 				"--entity-url", "../../../apidocs/${entity.name}.html")).isEqualTo(Main.OK);
 		assertThat(out()).contains("\"doc\": {\n    \"written\": true,\n    \"models\": [\n      \"Library\",\n      \"Reference\"\n    ],");
 		assertThat(new String(Files.readAllBytes(output.resolve("Library/entities/Book.html")), StandardCharsets.UTF_8))
 				.contains("<a href = \"../../../apidocs/Book.html\">com.example.library.Book</a>", "<a href = \"../../Reference/entities/Currency.html\">Currency</a>");
 		assertThat(output.resolve("prototype.js")).exists();
 
-		// By default, the project's own models, in its site.
+		// By default, the project's own models, in Markdown.
 		out.reset();
 		assertThat(run("--project", project.toString(), "--classpath", reference.toString(), "--doc")).isEqualTo(Main.OK);
+		assertThat(out()).contains("Documented Library in docs/models: 2 files, 2 written.");
+
+		// In HTML, in its site.
+		out.reset();
+		assertThat(run("--project", project.toString(), "--classpath", reference.toString(), "--doc", "--doc-format", "html")).isEqualTo(Main.OK);
 		assertThat(out()).contains("Documented Library in target/site/eomodeldoc: 11 files, 11 written.");
 
 		err.reset();
 		assertThat(run("--output", output.toString(), eogen())).isEqualTo(Main.FAILED);
-		assertThat(err()).contains("--output, --doc-format, --doc-templates and --entity-url go with --doc.");
+		assertThat(err()).contains("--output, --doc-format, --doc-templates, --entity-url and --model-diagram-limit go with --doc.");
 		err.reset();
 		assertThat(run("--doc", "--all")).isEqualTo(Main.FAILED);
 		assertThat(err()).contains("--doc takes no .eogen files");
 		err.reset();
 		assertThat(run("--doc", "--doc-format", "pdf")).isEqualTo(Main.FAILED);
 		assertThat(err()).contains("--doc-format is html or markdown, not pdf.");
+		err.reset();
+		assertThat(run("--doc", "--model-diagram-limit", "lots")).isEqualTo(Main.FAILED);
+		assertThat(err()).contains("--model-diagram-limit is a number, at least 0, not lots.");
 	}
 
 	/**
@@ -416,11 +439,11 @@ class MainTest {
 
 		out.reset();
 		assertThat(run("--project", relativeProject, "--classpath", reference.toString(), "--doc", "--doc-format", "markdown")).isEqualTo(Main.OK);
-		assertThat(out()).contains("Documented Library in docs/models: 1 file, 1 written.");
+		assertThat(out()).contains("Documented Library in docs/models: 2 files, 2 written.");
 		assertThat(new String(Files.readAllBytes(page), StandardCharsets.UTF_8)).contains("```mermaid\nerDiagram\n    Author\n    Book\n");
 		out.reset();
 		assertThat(run("--project", relativeProject, "--classpath", reference.toString(), "--doc", "--doc-format", "markdown", "--check")).isEqualTo(Main.OK);
-		assertThat(out()).contains("The page of Library in docs/models is up to date.");
+		assertThat(out()).contains("All 2 pages of Library in docs/models are up to date.");
 
 		Path book = project.resolve("src/main/resources/Library.eomodeld/Book.plist");
 		String text = new String(Files.readAllBytes(book), StandardCharsets.UTF_8);
@@ -430,7 +453,7 @@ class MainTest {
 		Files.write(orphan, "<!-- Written by eogen from the Catalogue model. -->\n".getBytes(StandardCharsets.UTF_8));
 		out.reset();
 		assertThat(run("--json", "--project", project.toString(), "--classpath", reference.toString(), "--doc", "--doc-format", "markdown", "--check")).isEqualTo(Main.STALE);
-		assertThat(out()).contains("\"files\": [\n      {\n        \"file\": \"docs/models/Library.md\",\n        \"status\": \"updated\"\n      },\n      {\n        \"file\": \"docs/models/Catalogue.md\",\n        \"status\": \"orphaned\"\n      }\n    ]");
+		assertThat(out()).contains("\"files\": [\n      {\n        \"file\": \"docs/models/README.md\",\n        \"status\": \"unchanged\"\n      },\n      {\n        \"file\": \"docs/models/Library.md\",\n        \"status\": \"updated\"\n      },\n      {\n        \"file\": \"docs/models/Catalogue.md\",\n        \"status\": \"orphaned\"\n      }\n    ]");
 		assertThat(err()).isEmpty();
 		out.reset();
 		assertThat(run("--project", project.toString(), "--classpath", reference.toString(), "--doc", "--doc-format", "markdown")).isEqualTo(Main.OK);

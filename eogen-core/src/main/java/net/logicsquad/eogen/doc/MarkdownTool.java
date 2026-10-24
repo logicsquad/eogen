@@ -3,10 +3,13 @@ package net.logicsquad.eogen.doc;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
 import net.logicsquad.eogen.model.EOAttribute;
+import net.logicsquad.eogen.model.EOAttributePath;
 import net.logicsquad.eogen.model.EOEntity;
 import net.logicsquad.eogen.model.EOModel;
 import net.logicsquad.eogen.model.EOModelObject;
@@ -28,6 +31,25 @@ public final class MarkdownTool {
 	 */
 	public boolean has(Object object) {
 		return !lines(object).isEmpty();
+	}
+
+	/**
+	 * Returns the first paragraph of an object's documentation, where a blank
+	 * line ends it, for a table's cell: its lines joined with a space, with
+	 * {@code |} escaped.
+	 *
+	 * @param object a model object, its documentation, or null
+	 * @return the paragraph, or an empty string
+	 */
+	public String summary(Object object) {
+		List<String> paragraph = new ArrayList<>();
+		for (String line : lines(object)) {
+			if (line.trim().isEmpty()) {
+				break;
+			}
+			paragraph.add(line.trim());
+		}
+		return escapeBars(String.join(" ", paragraph));
 	}
 
 	/**
@@ -126,6 +148,31 @@ public final class MarkdownTool {
 	}
 
 	/**
+	 * Returns the Java class of an attribute's values, as the bundled templates
+	 * write it in its accessors: its {@code ERXConstantClassName}, if it has
+	 * one, or else its value class, such as {@code String} or
+	 * {@code com.example.shop.Status}, with a nested class's {@code $} as a dot.
+	 * A flattened attribute has the class of the attribute that it flattens.
+	 *
+	 * @param attribute an attribute
+	 * @return the class, or an empty string if it has none
+	 */
+	public String javaType(EOAttribute attribute) {
+		EOAttribute resolved = attribute;
+		Set<EOAttribute> seen = new HashSet<>();
+		while (resolved != null && resolved.isFlattened() && seen.add(resolved)) {
+			EOAttributePath path = resolved.getDefinitionPath();
+			resolved = path == null ? null : path.getChildAttribute();
+		}
+		if (resolved == null || resolved.isFlattened()) {
+			return "";
+		}
+		Object constant = resolved.getUserInfo() == null ? null : resolved.getUserInfo().get("ERXConstantClassName");
+		String className = constant != null && !constant.toString().isEmpty() ? constant.toString() : resolved.getJavaClassName();
+		return className == null ? "" : className.replace('$', '.');
+	}
+
+	/**
 	 * Returns the anchor of an entity's section in its model's page, as GitHub
 	 * and GitLab make it from the heading.
 	 *
@@ -187,6 +234,30 @@ public final class MarkdownTool {
 			names.add(code(object instanceof EOModelObject ? ((EOModelObject<?>) object).getName() : object));
 		}
 		return String.join(", ", names);
+	}
+
+	/**
+	 * Returns a model's entities, other than its prototypes, in name order.
+	 *
+	 * @param model a model
+	 * @return entities
+	 */
+	public List<EOEntity> entities(EOModel model) {
+		return documentedEntities(model);
+	}
+
+	/**
+	 * Returns a model's entities, other than its prototypes, in name order: the
+	 * ones that its pages document.
+	 */
+	static List<EOEntity> documentedEntities(EOModel model) {
+		List<EOEntity> entities = new ArrayList<>();
+		for (EOEntity entity : model.getSortedEntities()) {
+			if (!entity.isPrototype()) {
+				entities.add(entity);
+			}
+		}
+		return entities;
 	}
 
 	/**

@@ -76,6 +76,15 @@ public abstract class AbstractEOGenMojo extends AbstractMojo {
 	private boolean strict;
 
 	/**
+	 * Makes the lint report what in the models has no documentation: each
+	 * model, entity, and attribute and relationship that is a class property,
+	 * apart from what a subentity inherits. Its findings are warnings, or errors
+	 * with {@code strict}.
+	 */
+	@Parameter(property = "eogen.reportUndocumented", defaultValue = "false")
+	private boolean reportUndocumented;
+
+	/**
 	 * The text that marks a superclass as generated, in its first lines, so that
 	 * one no .eogen file generates any more counts as an orphan. WOLips's and
 	 * Project Wonder's templates start every superclass with
@@ -93,6 +102,7 @@ public abstract class AbstractEOGenMojo extends AbstractMojo {
 		EOGenerator generator = new EOGenerator(project.getBasedir(), modelDirectories(), classpath());
 		generator.setForce(force);
 		generator.setStrict(strict);
+		generator.setReportUndocumented(reportUndocumented);
 		generator.setGeneratedMarker(generatedMarker);
 		execute(generator);
 	}

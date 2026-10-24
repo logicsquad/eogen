@@ -13,7 +13,9 @@ import net.logicsquad.eogen.model.EORelationship;
 
 /**
  * Writes a Mermaid {@code erDiagram} of a model's entities and their
- * relationships, as {@code $diagram} in the Markdown page's template.
+ * relationships, as {@code $diagram} in the Markdown page's template, or of an
+ * entity and the entities that its relationships, and theirs, reach directly,
+ * as {@code $entityDiagrams}.
  * <p>
  * Each entity is declared, in name order, so that one with no relationships
  * still shows. Then each relationship is a line, with its inverse if it has
@@ -41,35 +43,66 @@ final class MermaidDiagram {
 	 * @return the diagram
 	 */
 	static String erDiagram(List<EOEntity> entities) {
+		List<EORelationship> relationships = new ArrayList<>();
+		for (EOEntity entity : entities) {
+			relationships.addAll(entity.getSortedRelationships());
+		}
+		return erDiagram(entities, relationships);
+	}
+
+	/**
+	 * Returns the diagram of an entity: its relationships, and those of the
+	 * other entities that reach it, with the entities at their other ends.
+	 *
+	 * @param entity an entity
+	 * @param entities the entities whose relationships to it are drawn, in
+	 *        name order
+	 * @return the diagram, or null if it has no lines
+	 */
+	static String erDiagram(EOEntity entity, List<EOEntity> entities) {
+		List<EORelationship> relationships = new ArrayList<>();
+		for (EOEntity other : entities) {
+			for (EORelationship relationship : other.getSortedRelationships()) {
+				if (drawable(relationship) && (other == entity || relationship.getDestination() == entity)) {
+					relationships.add(relationship);
+				}
+			}
+		}
+		return relationships.isEmpty() ? null : erDiagram(Collections.singletonList(entity), relationships);
+	}
+
+	/**
+	 * Returns the diagram of the relationships, in their order, after
+	 * declaring the entities.
+	 */
+	private static String erDiagram(List<EOEntity> entities, List<EORelationship> relationships) {
 		List<String> lines = new ArrayList<>();
 		lines.add("erDiagram");
 		for (EOEntity entity : entities) {
 			lines.add("    " + entity.getName());
 		}
 		Set<EORelationship> drawn = Collections.newSetFromMap(new IdentityHashMap<>());
-		for (EOEntity entity : entities) {
-			for (EORelationship relationship : entity.getSortedRelationships()) {
-				if (!drawable(relationship) || drawn.contains(relationship)) {
-					continue;
-				}
-				EORelationship inverse = relationship.getInverseRelationship();
-				if (inverse != null && !drawable(inverse)) {
-					inverse = null;
-				}
-				drawn.add(relationship);
-				if (inverse != null) {
-					drawn.add(inverse);
-					if (!isToMany(relationship) && isToMany(inverse)) {
-						EORelationship swap = relationship;
-						relationship = inverse;
-						inverse = swap;
-					}
-				}
-				String near = inverse == null ? inferredEnd(relationship) : leftEnd(inverse);
-				String label = relationship.getName() + (inverse == null ? "" : " / " + inverse.getName());
-				lines.add("    " + relationship.getEntity().getName() + " " + near + "--" + rightEnd(relationship) + " " + relationship.getDestination().getName() + " : \"" + label
-						+ "\"");
+		for (EORelationship relationship : relationships) {
+			if (!drawable(relationship) || drawn.contains(relationship)) {
+				continue;
 			}
+			EORelationship inverse = relationship.getInverseRelationship();
+			if (inverse != null && !drawable(inverse)) {
+				inverse = null;
+			}
+			drawn.add(relationship);
+			if (inverse != null) {
+				drawn.add(inverse);
+				if (!isToMany(relationship) && isToMany(inverse)) {
+					EORelationship swap = relationship;
+					relationship = inverse;
+					inverse = swap;
+				}
+			}
+			String near = inverse == null ? inferredEnd(relationship) : leftEnd(inverse);
+			String label = relationship.getName() + (inverse == null ? "" : " / " + inverse.getName());
+			lines.add("    " + relationship.getEntity().getName() + " " + near + "--" + rightEnd(relationship) + " " + relationship.getDestination().getName() + " : \"" + label
+					+ "\"");
 		}
 		return String.join("\n", lines);
 	}

@@ -20,6 +20,14 @@ class MarkdownToolTest {
 	}
 
 	@Test
+	void summarisesDocumentationWithItsFirstParagraph() {
+		assertThat(md.summary("\r\n  First | line\r\nof one.  \r\n \r\nSecond.\n")).isEqualTo("First \\| line of one.");
+		assertThat(md.summary("Only one.")).isEqualTo("Only one.");
+		assertThat(md.summary(null)).isEmpty();
+		assertThat(md.summary(new EOEntity("Party"))).isEmpty();
+	}
+
+	@Test
 	void keepsDocumentationsLinesOutsideATable() {
 		assertThat(md.block("\n\nFirst | line  \r\nSecond line.\n\n")).isEqualTo("First | line\nSecond line.");
 		assertThat(md.has(" \n ")).isFalse();
@@ -48,6 +56,20 @@ class MarkdownToolTest {
 		name.setExternalType("varchar");
 		name.setWidth(Integer.valueOf(100));
 		assertThat(md.type(name)).isEqualTo("varchar(100)");
+	}
+
+	@Test
+	void writesAnAttributesJavaTypeAsItsAccessorsHaveIt() {
+		EOAttribute count = new EOAttribute("count");
+		assertThat(md.javaType(count)).isEmpty();
+		count.setValueClassName("NSNumber", false);
+		count.setValueType("l", false);
+		assertThat(md.javaType(count)).isEqualTo("Long");
+		EOAttribute status = new EOAttribute("status");
+		status.setValueClassName("com.example.shop.Party$Status", false);
+		assertThat(md.javaType(status)).isEqualTo("com.example.shop.Party.Status");
+		status.getUserInfo().put("ERXConstantClassName", "com.example.shop.Category");
+		assertThat(md.javaType(status)).isEqualTo("com.example.shop.Category");
 	}
 
 	@Test

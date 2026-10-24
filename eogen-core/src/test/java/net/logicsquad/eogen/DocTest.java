@@ -191,13 +191,16 @@ class DocTest {
 
 	@Test
 	void writesToTheSiteByDefault() throws Exception {
-		DocResult result = fixture.generator().generateDoc(new DocOptions());
+		DocOptions options = new DocOptions();
+		options.setFormat(DocOptions.Format.HTML);
+		DocResult result = fixture.generator().generateDoc(options);
 		assertThat(result.getFiles().get(0)).isEqualTo(fixture.resolve("target/site/eomodeldoc/index.html").toFile());
 		assertThat(fixture.resolve("target/site/eomodeldoc/index.html")).exists();
 	}
 
 	private DocOptions options() {
 		DocOptions options = new DocOptions();
+		options.setFormat(DocOptions.Format.HTML);
 		options.setOutput(output.toFile());
 		return options;
 	}

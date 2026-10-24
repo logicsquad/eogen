@@ -15,15 +15,21 @@ erDiagram
 Account
 -------
 
+```mermaid
+erDiagram
+    Account
+    Account ||--o{ Posting : "postings / account"
+```
+
 - Table: `account`
 - Class: `com.example.ledger.Account`
 
-| Attribute | Column | Type | Allows null | Documentation |
-|---|---|---|---|---|
-| `id` (primary key) | `id` | `INTEGER` | no |  |
-| `name` | `name` | `VARCHAR(100)` | no |  |
-| `number` | `number` | `VARCHAR(16)` | no |  |
-| `openedOn` | `opened_on` | `DATE` | yes |  |
+| Attribute | Column | Column type | Java type | Allows null | Documentation |
+|---|---|---|---|---|---|
+| `id` (primary key) | `id` | `INTEGER` | `Integer` | no |  |
+| `name` | `name` | `VARCHAR(100)` | `String` | no |  |
+| `number` | `number` | `VARCHAR(16)` | `String` | no |  |
+| `openedOn` | `opened_on` | `DATE` | `java.time.LocalDate` | yes |  |
 
 | Relationship | Destination | Cardinality | Documentation |
 |---|---|---|---|
@@ -36,15 +42,21 @@ Account
 Posting
 -------
 
+```mermaid
+erDiagram
+    Posting
+    Account ||--o{ Posting : "postings / account"
+```
+
 - Table: `posting`
 - Class: `com.example.ledger.Posting`
 
-| Attribute | Column | Type | Allows null | Documentation |
-|---|---|---|---|---|
-| `accountID` | `account_id` | `INTEGER` | no |  |
-| `amount` | `amount` | `DECIMAL(38, 4)` | no |  |
-| `id` (primary key) | `id` | `INTEGER` | no |  |
-| `postedAt` | `posted_at` | `TIMESTAMP` | no |  |
+| Attribute | Column | Column type | Java type | Allows null | Documentation |
+|---|---|---|---|---|---|
+| `accountID` | `account_id` | `INTEGER` | `Integer` | no |  |
+| `amount` | `amount` | `DECIMAL(38, 4)` | `java.math.BigDecimal` | no |  |
+| `id` (primary key) | `id` | `INTEGER` | `Integer` | no |  |
+| `postedAt` | `posted_at` | `TIMESTAMP` | `NSTimestamp` | no |  |
 
 | Relationship | Destination | Cardinality | Documentation |
 |---|---|---|---|

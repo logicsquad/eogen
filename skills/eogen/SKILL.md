@@ -5,7 +5,7 @@ description: Edit WebObjects EOModels (.eomodeld folders) safely, and keep their
 
 # Editing EOModels with eogen
 
-This describes eogen 0.5. Check the project's eogen version, in its POM
+This describes eogen 0.6. Check the project's eogen version, in its POM
 or its parent's: an older one lacks some of what follows.
 
 An EOModel is a folder, `<Model>.eomodeld`, of property lists in the
@@ -55,10 +55,14 @@ Maven stops at the first goal that fails.
    run `mvn eogen:check`.
 
 If the project commits Markdown pages of its models, such as
-`docs/models/Library.md`, whose first line says that eogen wrote them,
-write them again too, and commit them with the model:
+`docs/models/Library.md` and their index, `docs/models/README.md`,
+whose first line says that eogen wrote them, write them again too, and
+commit them with the model:
 
     mvn eogen:doc -Deogen.doc.format=markdown
+
+Markdown is `doc`'s default from eogen 0.6, so the property only
+matters to a project on 0.5, where the default is EOModelDoc's HTML.
 
 Without the plugin in the POM, give the goal in full:
 `mvn net.logicsquad:eogen-maven-plugin:<version>:<goal>`. The command
@@ -171,6 +175,11 @@ from a migration.
   now that it can go in Javadoc comments. Fix the HTML in its
   `documentation`. If you didn't write it, it was wrong before: fix it
   in a commit of its own.
+- `attribute price: no documentation`: the project has the lint report
+  what has no documentation (`reportUndocumented`). Document what you
+  added or changed, in its `documentation`. Don't document the rest in
+  passing: say how many such findings there are, and leave them to the
+  people who know what they mean.
 - `The documentation of Loan's relationship book names Book. Change it
   to Volume by hand.`: after a rename, documentation that still names
   the old name in `<code>`. Read it, and change the name where it means

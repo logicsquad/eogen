@@ -48,7 +48,9 @@ import net.logicsquad.eogen.velocity.WOLipsVelocityUtils;
  * procedure, with the documentation that Entity Modeler keeps in their
  * {@code userInfo}. Or, in Markdown, a page for each model, from
  * {@code model.md.vm}, with a Mermaid diagram of its entities and
- * relationships, to commit beside the code.
+ * relationships, to commit beside the code, and an index of them,
+ * {@code README.md}, from {@code index.md.vm}, which GitHub and GitLab show
+ * with the folder.
  * <p>
  * It documents the project's own models, and with
  * {@link DocOptions#setIncludeDependencies(boolean)} the dependencies' too,
@@ -63,8 +65,12 @@ import net.logicsquad.eogen.velocity.WOLipsVelocityUtils;
  * style sheet and the scripts, among them Prototype 1.5.0, are copied as they
  * are. A Markdown page sees {@code $model}, {@code $entities} and
  * {@code $storedProcedures}, its model's, {@code $diagram}, the Mermaid
- * diagram, {@code $md}, a {@link MarkdownTool}, {@code $documented}, and
- * {@code $entityURLs}, the link from each entity's class name, by entity. A
+ * diagram of its entities, if it has no more than
+ * {@link DocOptions#getModelDiagramLimit()}, {@code $entityDiagrams}, the
+ * diagram of each entity that has relationships, by entity, {@code $md}, a
+ * {@link MarkdownTool}, {@code $documented}, and
+ * {@code $entityURLs}, the link from each entity's class name, by entity. The
+ * index sees {@code $models}, {@code $documented} and {@code $md}. A
  * reference that renders with no value is an error, and nothing is written,
  * unless forced.
  * </p>
@@ -73,7 +79,9 @@ import net.logicsquad.eogen.velocity.WOLipsVelocityUtils;
  * differ are written. A file that differs only in its line endings is the
  * same, and one that is written keeps the line endings it had. A Markdown
  * page in the folder that starts with {@link #MARKDOWN_MARKER}, but that
- * isn't written now, is an orphan, which writing deletes.
+ * isn't written now, is an orphan, which writing deletes. A
+ * {@code README.md} there that doesn't start with it is the project's own,
+ * which is kept, rather than an index written over it.
  * </p>
  */
 public final class ModelDocGenerator {
@@ -82,6 +90,12 @@ public final class ModelDocGenerator {
 	 * a page of the project's own.
 	 */
 	public static final String MARKDOWN_MARKER = "<!-- Written by eogen";
+
+	/**
+	 * The index of the Markdown pages, which GitHub and GitLab show with their
+	 * folder.
+	 */
+	public static final String MARKDOWN_INDEX = "README.md";
 
 	/**
 	 * The files that are copied rather than rendered.
@@ -138,7 +152,8 @@ public final class ModelDocGenerator {
 			}
 		}
 		if (!findings.isEmpty() && !force) {
-			return new DocResult(Collections.<String>emptyList(), Collections.<DocResult.Page>emptyList(), Collections.<File>emptyList(), findings, false);
+			return new DocResult(Collections.<String>emptyList(), Collections.<DocResult.Page>emptyList(), Collections.<File>emptyList(), Collections.<File>emptyList(),
+					findings, false);
 		}
 		List<EOModel> models = new ArrayList<>();
 		for (EOModel model : modelGroup.getModels()) {
@@ -173,9 +188,14 @@ public final class ModelDocGenerator {
 		boolean written = write && (findings.isEmpty() || force);
 		List<DocResult.Page> files = new ArrayList<>();
 		List<File> orphans = new ArrayList<>();
+		List<File> kept = new ArrayList<>();
 		try {
 			for (Map.Entry<String, byte[]> page : pages.entrySet()) {
 				File file = new File(output, page.getKey().replace('/', File.separatorChar));
+				if (markdown && MARKDOWN_INDEX.equals(page.getKey()) && file.isFile() && !isEogens(file)) {
+					kept.add(file);
+					continue;
+				}
 				byte[] contents = page.getValue();
 				DocResult.Status status = DocResult.Status.CREATED;
 				if (file.isFile()) {
@@ -205,7 +225,7 @@ public final class ModelDocGenerator {
 			throw new EOGeneratorException("Failed to write the documentation: " + e.getMessage(), e);
 		}
 		List<String> names = new ArrayList<>(documented);
-		return new DocResult(names, files, orphans, findings, written);
+		return new DocResult(names, files, orphans, kept, findings, written);
 	}
 
 	/**
@@ -253,11 +273,28 @@ public final class ModelDocGenerator {
 	}
 
 	/**
-	 * Renders a Markdown page for each model into memory.
+	 * Renders the index of the Markdown pages, and a page for each model, into
+	 * memory.
 	 */
 	private void markdown(VelocityEngine engine, DocOptions options, EOModelGroup modelGroup, List<EOModel> models, Set<String> documented, Map<String, byte[]> pages,
 			File output, List<Finding> findings) throws EOGeneratorException {
 		MarkdownTool md = new MarkdownTool();
+		// A model named README would have the index's page.
+		if (!models.isEmpty() && models.stream().noneMatch(model -> (model.getName() + ".md").equalsIgnoreCase(MARKDOWN_INDEX))) {
+			VelocityOneContext context = new VelocityOneContext();
+			context.put("modelGroup", modelGroup);
+			context.put("models", models);
+			context.put("documented", documented);
+			context.put("md", md);
+			context.put("list", new ListTool());
+			context.put("set", new SetTool());
+			render(engine, context, "index.md.vm", MARKDOWN_INDEX, pages, output, findings);
+		}
+		List<EOEntity> documentedEntities = new ArrayList<>();
+		for (EOModel model : models) {
+			documentedEntities.addAll(entities(model));
+		}
+		documentedEntities.sort(Comparator.comparing(EOEntity::getName));
 		for (EOModel model : models) {
 			VelocityOneContext context = new VelocityOneContext();
 			context.put("modelGroup", modelGroup);
@@ -270,7 +307,17 @@ public final class ModelDocGenerator {
 			List<EOEntity> entities = entities(model);
 			context.put("entities", entities);
 			context.put("storedProcedures", new ArrayList<>(model.getSortedStoredProcedures()));
-			context.put("diagram", MermaidDiagram.erDiagram(entities));
+			if (!entities.isEmpty() && entities.size() <= options.getModelDiagramLimit()) {
+				context.put("diagram", MermaidDiagram.erDiagram(entities));
+			}
+			Map<String, String> entityDiagrams = new LinkedHashMap<>();
+			for (EOEntity entity : entities) {
+				String diagram = MermaidDiagram.erDiagram(entity, documentedEntities);
+				if (diagram != null) {
+					entityDiagrams.put(entity.getName(), diagram);
+				}
+			}
+			context.put("entityDiagrams", entityDiagrams);
 			Map<String, String> entityURLs = new LinkedHashMap<>();
 			if (options.getEntityURL() != null) {
 				for (EOEntity entity : entities) {
@@ -296,21 +343,26 @@ public final class ModelDocGenerator {
 			return orphans;
 		}
 		Arrays.sort(files);
-		byte[] marker = MARKDOWN_MARKER.getBytes(StandardCharsets.UTF_8);
 		for (File file : files) {
-			if (!file.isFile() || pages.contains(file.getName())) {
-				continue;
-			}
-			byte[] start = new byte[marker.length];
-			int read;
-			try (InputStream in = Files.newInputStream(file.toPath())) {
-				read = in.readNBytes(start, 0, start.length);
-			}
-			if (read == marker.length && Arrays.equals(start, marker)) {
+			if (file.isFile() && !pages.contains(file.getName()) && isEogens(file)) {
 				orphans.add(file);
 			}
 		}
 		return orphans;
+	}
+
+	/**
+	 * Returns whether a file starts with {@link #MARKDOWN_MARKER}, as a
+	 * Markdown page that eogen wrote does.
+	 */
+	private static boolean isEogens(File file) throws IOException {
+		byte[] marker = MARKDOWN_MARKER.getBytes(StandardCharsets.UTF_8);
+		byte[] start = new byte[marker.length];
+		int read;
+		try (InputStream in = Files.newInputStream(file.toPath())) {
+			read = in.readNBytes(start, 0, start.length);
+		}
+		return read == marker.length && Arrays.equals(start, marker);
 	}
 
 	/**
@@ -325,13 +377,7 @@ public final class ModelDocGenerator {
 	 * Returns a model's entities that aren't prototypes, in name order.
 	 */
 	private static List<EOEntity> entities(EOModel model) {
-		List<EOEntity> entities = new ArrayList<>();
-		for (EOEntity entity : model.getSortedEntities()) {
-			if (!entity.isPrototype()) {
-				entities.add(entity);
-			}
-		}
-		return entities;
+		return MarkdownTool.documentedEntities(model);
 	}
 
 	/**

@@ -17,25 +17,27 @@ import net.logicsquad.eogen.doc.DocOptions;
 import net.logicsquad.eogen.doc.DocResult;
 
 /**
- * Writes EOModelDoc's HTML pages for the project's models, as WOLips's
- * EOModelDoc did: an index of every model and entity, and a page for each
- * model, entity and stored procedure, with the documentation that Entity
- * Modeler keeps for them. By default they go in the project's site, which
- * {@code pre-site} writes them into before the site is built. Or, with
- * {@code format} {@code markdown}, a Markdown page for each model, with a
+ * Writes a Markdown page for each of the project's models, with the
+ * documentation that Entity Modeler keeps for it and its entities, and a
  * Mermaid diagram of its entities and relationships, in {@code docs/models},
- * to commit; writing them deletes the pages that eogen wrote for models that
- * it no longer documents. With {@code checkDoc}, it writes nothing, and fails
- * the build if a page would change, or an orphan would be deleted. Nothing is
- * written if the model group or a template has errors, unless forced.
+ * to commit, with an index of them, {@code README.md}, unless the folder has a
+ * {@code README.md} of its own; writing them deletes the pages that eogen
+ * wrote for models that it no longer documents. Or, with {@code format}
+ * {@code html}, EOModelDoc's HTML pages, as WOLips's EOModelDoc wrote them: an
+ * index of every model and entity, and a page for each model, entity and
+ * stored procedure. They go in the project's site, which {@code pre-site}
+ * writes them into before the site is built. With {@code checkDoc}, it writes
+ * nothing, and fails the build if a page would change, or an orphan would be
+ * deleted. Nothing is written if the model group or a template has errors,
+ * unless forced.
  */
 @Mojo(name = "doc", defaultPhase = LifecyclePhase.PRE_SITE, requiresDependencyResolution = ResolutionScope.COMPILE_PLUS_RUNTIME, threadSafe = true)
 public class DocMojo extends AbstractEOGenMojo {
 	/**
-	 * What the pages are written in: {@code html}, EOModelDoc's pages, or
-	 * {@code markdown}, a page for each model.
+	 * What the pages are written in: {@code markdown}, a page for each model,
+	 * or {@code html}, EOModelDoc's pages.
 	 */
-	@Parameter(property = "eogen.doc.format", defaultValue = "html")
+	@Parameter(property = "eogen.doc.format", defaultValue = "markdown")
 	private String format;
 
 	/**
@@ -70,6 +72,14 @@ public class DocMojo extends AbstractEOGenMojo {
 	private boolean includeDependencies;
 
 	/**
+	 * The most entities that a model can have and still have a diagram of them
+	 * all at the top of its Markdown page: 0 for none. Each entity's section
+	 * has a diagram of the entities that it reaches, and that reach it.
+	 */
+	@Parameter(property = "eogen.doc.modelDiagramLimit", defaultValue = "10")
+	private int modelDiagramLimit;
+
+	/**
 	 * Writes nothing, and fails the build if a page would change, or an orphan
 	 * would be deleted.
 	 */
@@ -89,6 +99,10 @@ public class DocMojo extends AbstractEOGenMojo {
 		options.setTemplateFolder(templateDirectory);
 		options.setEntityURL(entityURL);
 		options.setIncludeDependencies(includeDependencies);
+		if (modelDiagramLimit < 0) {
+			throw new MojoExecutionException("modelDiagramLimit is at least 0, not " + modelDiagramLimit + ".");
+		}
+		options.setModelDiagramLimit(modelDiagramLimit);
 		DocResult result;
 		try {
 			result = generator.generateDoc(options, !checkDoc);
@@ -108,6 +122,9 @@ public class DocMojo extends AbstractEOGenMojo {
 		}
 		String models = String.join(", ", result.getModels());
 		int pages = result.getPages().size();
+		for (File kept : result.getKept()) {
+			getLog().info(relative(kept) + " is the project's own, not eogen's, so the models have no index.");
+		}
 		if (checkDoc) {
 			for (DocResult.Page page : result.getStalePages()) {
 				getLog().error(relative(page.getFile()) + (page.getStatus() == DocResult.Status.CREATED ? " is missing." : " is out of date."));

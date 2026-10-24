@@ -6,10 +6,12 @@ $md.rule($model.name, "=")
 
 $md.block($model)
 #end
+#if ($diagram)
 
 ```mermaid
 $diagram
 ```
+#end
 #foreach ($entity in $entities)
 
 $entity.name
@@ -17,6 +19,12 @@ $md.rule($entity.name, "-")
 #if ($md.has($entity))
 
 $md.block($entity)
+#end
+#if ($entityDiagrams.containsKey($entity.name))
+
+```mermaid
+$entityDiagrams.get($entity.name)
+```
 #end
 
 #if ($entity.externalName)
@@ -44,10 +52,10 @@ $md.block($entity)
 #set ($attributes = $md.attributes($entity))
 #if (!$attributes.empty)
 
-| Attribute | Column | Type | Allows null | Documentation |
-|---|---|---|---|---|
+| Attribute | Column | Column type | Java type | Allows null | Documentation |
+|---|---|---|---|---|---|
 #foreach ($attribute in $attributes)
-| $md.code($attribute.name)#if ($attribute.primaryKey) (primary key)#end | #if ($attribute.flattened)via $md.code($attribute.definition)#elseif ($attribute.columnName)$md.code($attribute.columnName)#elseif ($attribute.definition)$md.code($attribute.definition)#end | $md.code($md.type($attribute)) | #if ($attribute.flattened)#elseif ($attribute.allowsNull)yes#{else}no#end | $md.cell($attribute) |
+| $md.code($attribute.name)#if ($attribute.primaryKey) (primary key)#end | #if ($attribute.flattened)via $md.code($attribute.definition)#elseif ($attribute.columnName)$md.code($attribute.columnName)#elseif ($attribute.definition)$md.code($attribute.definition)#end | $md.code($md.type($attribute)) | $md.code($md.javaType($attribute)) | #if ($attribute.flattened)#elseif ($attribute.allowsNull)yes#{else}no#end | $md.cell($attribute) |
 #end
 #end
 #set ($relationships = $md.relationships($entity))
