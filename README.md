@@ -820,6 +820,12 @@ does the same with `--doc`, `--output`, `--doc-templates`,
 `doc` has no OmniGraffle export, whose diagrams placed entities at
 random.
 
+The HTML pages are frozen. They reproduce WOLips's EOModelDoc pages,
+and get bug fixes, but no new content: what eogen adds to its
+documentation goes in the Markdown pages. A project that wants more in
+its HTML pages can put its own templates, such as
+`entityContent.html.vm`, in `templateDirectory`.
+
 ### In Markdown
 
 With `format` (`eogen.doc.format`, `--doc-format`) set to `markdown`,

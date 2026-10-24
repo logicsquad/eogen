@@ -3,6 +3,12 @@
 The format here is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+### Changed
+- The HTML pages that `doc` writes are frozen: they reproduce WOLips's
+  EOModelDoc pages, and get bug fixes, but no new content. New
+  documentation goes in the Markdown pages. #34
+
 ## [0.5] - 2026-10-19
 ### Changed
 - The bundled templates give the superclass, and the getter of each
