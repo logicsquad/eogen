@@ -5,7 +5,7 @@ description: Edit WebObjects EOModels (.eomodeld folders) safely, and keep their
 
 # Editing EOModels with eogen
 
-This describes eogen 0.5. Check the project's eogen version, in its POM
+This describes eogen 0.6. Check the project's eogen version, in its POM
 or its parent's: an older one lacks some of what follows.
 
 An EOModel is a folder, `<Model>.eomodeld`, of property lists in the

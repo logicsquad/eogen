@@ -3,7 +3,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>net.logicsquad</groupId>
   <artifactId>eogen-parent</artifactId>
-  <version>0.6-SNAPSHOT</version>
+  <version>0.6</version>
   <packaging>pom</packaging>
   <name>eogen</name>
   <description>Stand-alone EOGenerator: generates WebObjects EOF entity classes from EOModels and .eogen files, without Eclipse.</description>
