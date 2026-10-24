@@ -6,10 +6,12 @@ $md.rule($model.name, "=")
 
 $md.block($model)
 #end
+#if ($diagram)
 
 ```mermaid
 $diagram
 ```
+#end
 #foreach ($entity in $entities)
 
 $entity.name
@@ -17,6 +19,12 @@ $md.rule($entity.name, "-")
 #if ($md.has($entity))
 
 $md.block($entity)
+#end
+#if ($entityDiagrams.containsKey($entity.name))
+
+```mermaid
+$entityDiagrams.get($entity.name)
+```
 #end
 
 #if ($entity.externalName)

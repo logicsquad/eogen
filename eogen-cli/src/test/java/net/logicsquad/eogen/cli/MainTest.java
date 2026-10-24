@@ -395,13 +395,16 @@ class MainTest {
 
 		err.reset();
 		assertThat(run("--output", output.toString(), eogen())).isEqualTo(Main.FAILED);
-		assertThat(err()).contains("--output, --doc-format, --doc-templates and --entity-url go with --doc.");
+		assertThat(err()).contains("--output, --doc-format, --doc-templates, --entity-url and --model-diagram-limit go with --doc.");
 		err.reset();
 		assertThat(run("--doc", "--all")).isEqualTo(Main.FAILED);
 		assertThat(err()).contains("--doc takes no .eogen files");
 		err.reset();
 		assertThat(run("--doc", "--doc-format", "pdf")).isEqualTo(Main.FAILED);
 		assertThat(err()).contains("--doc-format is html or markdown, not pdf.");
+		err.reset();
+		assertThat(run("--doc", "--model-diagram-limit", "lots")).isEqualTo(Main.FAILED);
+		assertThat(err()).contains("--model-diagram-limit is a number, at least 0, not lots.");
 	}
 
 	/**

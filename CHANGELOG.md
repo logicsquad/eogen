@@ -21,6 +21,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   as an `enum`, and for a flattened attribute, the class of the one
   that it flattens. A project that checks its pages writes them again.
   #32
+- Each entity's section of a Markdown page has a diagram of the
+  entities that it reaches and that reach it. The diagram of the whole
+  model, which is too wide to read for a large one, is only for a model
+  with at most `modelDiagramLimit` (`eogen.doc.modelDiagramLimit`,
+  `--model-diagram-limit`) entities, 10 by default, or 0 for none. #33
 
 ## [0.5] - 2026-10-19
 ### Changed

@@ -70,6 +70,14 @@ public class DocMojo extends AbstractEOGenMojo {
 	private boolean includeDependencies;
 
 	/**
+	 * The most entities that a model can have and still have a diagram of them
+	 * all at the top of its Markdown page: 0 for none. Each entity's section
+	 * has a diagram of the entities that it reaches, and that reach it.
+	 */
+	@Parameter(property = "eogen.doc.modelDiagramLimit", defaultValue = "10")
+	private int modelDiagramLimit;
+
+	/**
 	 * Writes nothing, and fails the build if a page would change, or an orphan
 	 * would be deleted.
 	 */
@@ -89,6 +97,10 @@ public class DocMojo extends AbstractEOGenMojo {
 		options.setTemplateFolder(templateDirectory);
 		options.setEntityURL(entityURL);
 		options.setIncludeDependencies(includeDependencies);
+		if (modelDiagramLimit < 0) {
+			throw new MojoExecutionException("modelDiagramLimit is at least 0, not " + modelDiagramLimit + ".");
+		}
+		options.setModelDiagramLimit(modelDiagramLimit);
 		DocResult result;
 		try {
 			result = generator.generateDoc(options, !checkDoc);

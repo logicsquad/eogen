@@ -151,6 +151,10 @@ public final class Main {
 			"                          come before the bundled ones.",
 			"  --entity-url <template> With --doc, a Velocity template for the link from",
 			"                          each entity's class name, relative to its page.",
+			"  --model-diagram-limit <n>",
+			"                          With --doc in Markdown, the most entities a model can",
+			"                          have and still have a diagram of them all, as well as",
+			"                          each entity's own: 0 for none. Default: 10.",
 			"  --delete-orphans        With --all, delete the orphaned superclasses. Their",
 			"                          subclasses are only reported.",
 			"  --force                 Write the classes even when the model group or a",
@@ -201,6 +205,8 @@ public final class Main {
 	private File docTemplates;
 
 	private String entityURL;
+
+	private Integer modelDiagramLimit;
 
 	private boolean all;
 
@@ -317,7 +323,8 @@ public final class Main {
 				debug = true;
 			} else if ("--project".equals(arg) || "--models".equals(arg) || "--classpath".equals(arg) || "--templates".equals(arg) || "--rename".equals(arg)
 					|| "--to".equals(arg) || "--remove".equals(arg) || "--from".equals(arg) || "--sources".equals(arg) || "--package".equals(arg) || "--template".equals(arg)
-					|| "--migration-models".equals(arg) || "--output".equals(arg) || "--doc-templates".equals(arg) || "--entity-url".equals(arg) || "--doc-format".equals(arg)) {
+					|| "--migration-models".equals(arg) || "--output".equals(arg) || "--doc-templates".equals(arg) || "--entity-url".equals(arg) || "--doc-format".equals(arg)
+					|| "--model-diagram-limit".equals(arg)) {
 				if (i + 1 == args.length) {
 					return usage(arg + " needs a value.");
 				}
@@ -356,6 +363,15 @@ public final class Main {
 					}
 				} else if ("--entity-url".equals(arg)) {
 					entityURL = value;
+				} else if ("--model-diagram-limit".equals(arg)) {
+					try {
+						modelDiagramLimit = Integer.valueOf(value);
+					} catch (NumberFormatException e) {
+						modelDiagramLimit = Integer.valueOf(-1);
+					}
+					if (modelDiagramLimit.intValue() < 0) {
+						return usage("--model-diagram-limit is a number, at least 0, not " + value + ".");
+					}
 				} else if ("--migration-models".equals(arg)) {
 					migrationModels = new ArrayList<>();
 					for (String name : value.split(",")) {
@@ -375,8 +391,8 @@ public final class Main {
 		if (doc && (verify || format || migration || all || deleteOrphans || rename != null || remove != null || !eogenFiles.isEmpty())) {
 			return usage("--doc takes no .eogen files, and goes only with --check, --force, --include-dependencies and its own options.");
 		}
-		if (!doc && (output != null || docFormat != null || docTemplates != null || entityURL != null)) {
-			return usage("--output, --doc-format, --doc-templates and --entity-url go with --doc.");
+		if (!doc && (output != null || docFormat != null || docTemplates != null || entityURL != null || modelDiagramLimit != null)) {
+			return usage("--output, --doc-format, --doc-templates, --entity-url and --model-diagram-limit go with --doc.");
 		}
 		if (migration && (verify || format || all || deleteOrphans || rename != null || remove != null || !eogenFiles.isEmpty())) {
 			return usage("--migration takes no .eogen files, and goes only with --check and its own options.");
@@ -655,6 +671,9 @@ public final class Main {
 		options.setTemplateFolder(docTemplates == null ? null : docTemplates.getAbsoluteFile());
 		options.setEntityURL(entityURL);
 		options.setIncludeDependencies(includeDependencies);
+		if (modelDiagramLimit != null) {
+			options.setModelDiagramLimit(modelDiagramLimit.intValue());
+		}
 		DocResult result;
 		try {
 			result = generator.generateDoc(options, !check);

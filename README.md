@@ -205,6 +205,10 @@ Using the command line
                             which come before the bundled ones.
     --entity-url <template> With --doc, a Velocity template for the link
                             from each entity's class name.
+    --model-diagram-limit <n>
+                            With --doc in Markdown, the most entities a
+                            model can have and still have a diagram of
+                            them all: 0 for none. Default: 10.
     --delete-orphans        With --all, delete the orphaned superclasses.
     --force                 Write the classes even when there are
                             errors, as WOLips does. Without it, errors
@@ -814,17 +818,23 @@ shows the change in its page:
 A page has the model's documentation, a
 [Mermaid](https://mermaid.js.org) diagram of its entities and their
 relationships, and a section for each entity, with its documentation,
-its table and class, and tables of its attributes and relationships,
-fetch specifications and entity indexes, each with its documentation.
+a diagram of the entities that it reaches and that reach it, its table
+and class, and tables of its attributes and relationships, fetch
+specifications and entity indexes, each with its documentation.
 An attribute has its column's type and the Java class of its values, as
 the bundled templates write it in its accessors, such as an `enum` for
 a `varchar(50)`: its `ERXConstantClassName`, or else its value class,
 and for a flattened attribute, the class of the one that it flattens.
-The diagram draws a relationship and its inverse as one line, whose ends
+A diagram draws a relationship and its inverse as one line, whose ends
 say how many of each entity the other reaches. It has the entities of
 other models that relationships reach, but no attributes or flattened
 relationships. GitHub and GitLab draw it from its text, so a page has no
-date or layout in it, and changes only when its model does.
+date or layout in it, and changes only when its model does. They lay a
+diagram out in rows, so that one of a large model's entities is too
+wide to read: a model with more than 10 entities has only the
+diagrams of its entities, unless `modelDiagramLimit`
+(`eogen.doc.modelDiagramLimit`, `--model-diagram-limit`) allows more,
+or 0 none.
 Documentation stays the HTML it is, which Markdown keeps, but goes on
 one line in a table, with `|` escaped.
 

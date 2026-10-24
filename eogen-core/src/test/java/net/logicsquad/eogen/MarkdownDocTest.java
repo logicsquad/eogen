@@ -1,6 +1,7 @@
 package net.logicsquad.eogen;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.tuple;
 
 import java.io.IOException;
@@ -87,6 +88,26 @@ class MarkdownDocTest {
 		DocResult result = fixture.generator().generateDoc(new DocOptions());
 		assertThat(result.getFiles()).containsExactly(fixture.resolve("docs/models/Shop.md").toFile());
 		assertThat(fixture.resolve("docs/models/Shop.md")).exists();
+	}
+
+	/**
+	 * A model with more entities than the limit has no diagram of them all,
+	 * but each entity with relationships still has its own.
+	 */
+	@Test
+	void leavesOutTheModelsDiagramOverTheLimit() throws Exception {
+		DocOptions options = options();
+		options.setModelDiagramLimit(7);
+		DocResult result = fixture.generator().generateDoc(options);
+		assertThat(result.getFindings()).isEmpty();
+		String page = read("Shop.md");
+		assertThat(page).doesNotContain("    Company\n").contains("Order\n-----\n\n```mermaid\nerDiagram\n    Order\n    Order }o--|| Currency : \"currency\"\n");
+		assertThat(page.split("```mermaid", -1)).hasSize(7);
+
+		options.setModelDiagramLimit(8);
+		fixture.generator().generateDoc(options);
+		assertThat(read("Shop.md")).isEqualTo(expected("Shop.md"));
+		assertThatThrownBy(() -> options.setModelDiagramLimit(-1)).isInstanceOf(IllegalArgumentException.class);
 	}
 
 	/**

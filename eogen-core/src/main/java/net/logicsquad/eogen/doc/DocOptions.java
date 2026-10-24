@@ -33,6 +33,12 @@ public final class DocOptions {
 	 */
 	public static final String DEFAULT_MARKDOWN_OUTPUT = "docs/models";
 
+	/**
+	 * The most entities that a model can have and still have a diagram of
+	 * them all at the top of its Markdown page, by default.
+	 */
+	public static final int DEFAULT_MODEL_DIAGRAM_LIMIT = 10;
+
 	private Format format = Format.MARKDOWN;
 
 	private File output;
@@ -42,6 +48,8 @@ public final class DocOptions {
 	private String entityURL;
 
 	private boolean includeDependencies;
+
+	private int modelDiagramLimit = DEFAULT_MODEL_DIAGRAM_LIMIT;
 
 	/**
 	 * Returns what the pages are written in.
@@ -144,5 +152,31 @@ public final class DocOptions {
 	 */
 	public void setIncludeDependencies(boolean includeDependencies) {
 		this.includeDependencies = includeDependencies;
+	}
+
+	/**
+	 * Returns the most entities that a model can have and still have a diagram
+	 * of them all at the top of its Markdown page.
+	 *
+	 * @return limit
+	 */
+	public int getModelDiagramLimit() {
+		return modelDiagramLimit;
+	}
+
+	/**
+	 * Sets the most entities that a model can have and still have a diagram of
+	 * them all at the top of its Markdown page, which a larger model's would
+	 * make too wide to read: 0 for none. Each entity's section has a diagram
+	 * of the entities that it reaches, and that reach it, whatever this is. The
+	 * default is {@link #DEFAULT_MODEL_DIAGRAM_LIMIT}.
+	 *
+	 * @param modelDiagramLimit limit, at least 0
+	 */
+	public void setModelDiagramLimit(int modelDiagramLimit) {
+		if (modelDiagramLimit < 0) {
+			throw new IllegalArgumentException("The model diagram limit is at least 0, not " + modelDiagramLimit + ".");
+		}
+		this.modelDiagramLimit = modelDiagramLimit;
 	}
 }

@@ -15,6 +15,12 @@ erDiagram
 Account
 -------
 
+```mermaid
+erDiagram
+    Account
+    Account ||--o{ Posting : "postings / account"
+```
+
 - Table: `account`
 - Class: `com.example.ledger.Account`
 
@@ -35,6 +41,12 @@ Account
 
 Posting
 -------
+
+```mermaid
+erDiagram
+    Posting
+    Account ||--o{ Posting : "postings / account"
+```
 
 - Table: `posting`
 - Class: `com.example.ledger.Posting`

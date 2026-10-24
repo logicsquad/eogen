@@ -38,6 +38,14 @@ Company
 Order
 -----
 
+```mermaid
+erDiagram
+    Order
+    Order }o--|| Currency : "currency"
+    Party ||--o{ Order : "orders / customer"
+    Order ||--o{ OrderLine : "lines / order"
+```
+
 - Table: `shop_order`
 - Class: `com.example.shop.Order`
 
@@ -65,6 +73,13 @@ Order
 OrderLine
 ---------
 
+```mermaid
+erDiagram
+    OrderLine
+    Order ||--o{ OrderLine : "lines / order"
+    OrderLine }o--|| Product : "product"
+```
+
 - Table: `order_line`
 - Class: `com.example.shop.OrderLine`
 
@@ -85,6 +100,12 @@ Party
 -----
 
 Someone who places orders.
+
+```mermaid
+erDiagram
+    Party
+    Party ||--o{ Order : "orders / customer"
+```
 
 - Table: `party`
 - Class: `com.example.shop.Party`
@@ -118,6 +139,13 @@ Person
 Product
 -------
 
+```mermaid
+erDiagram
+    Product
+    OrderLine }o--|| Product : "product"
+    Product ||--o{ ProductTag : "productTags / product"
+```
+
 - Table: `product`
 - Class: `com.example.shop.Product`
 
@@ -137,6 +165,13 @@ Product
 ProductTag
 ----------
 
+```mermaid
+erDiagram
+    ProductTag
+    Product ||--o{ ProductTag : "productTags / product"
+    Tag ||--o{ ProductTag : "productTags / tag"
+```
+
 - Table: `product_tag`
 - Class: `EOGenericRecord`
 
@@ -152,6 +187,12 @@ ProductTag
 
 Tag
 ---
+
+```mermaid
+erDiagram
+    Tag
+    Tag ||--o{ ProductTag : "productTags / tag"
+```
 
 - Table: `tag`
 - Class: `com.example.shop.Tag`

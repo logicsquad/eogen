@@ -63,7 +63,10 @@ import net.logicsquad.eogen.velocity.WOLipsVelocityUtils;
  * style sheet and the scripts, among them Prototype 1.5.0, are copied as they
  * are. A Markdown page sees {@code $model}, {@code $entities} and
  * {@code $storedProcedures}, its model's, {@code $diagram}, the Mermaid
- * diagram, {@code $md}, a {@link MarkdownTool}, {@code $documented}, and
+ * diagram of its entities, if it has no more than
+ * {@link DocOptions#getModelDiagramLimit()}, {@code $entityDiagrams}, the
+ * diagram of each entity that has relationships, by entity, {@code $md}, a
+ * {@link MarkdownTool}, {@code $documented}, and
  * {@code $entityURLs}, the link from each entity's class name, by entity. A
  * reference that renders with no value is an error, and nothing is written,
  * unless forced.
@@ -258,6 +261,11 @@ public final class ModelDocGenerator {
 	private void markdown(VelocityEngine engine, DocOptions options, EOModelGroup modelGroup, List<EOModel> models, Set<String> documented, Map<String, byte[]> pages,
 			File output, List<Finding> findings) throws EOGeneratorException {
 		MarkdownTool md = new MarkdownTool();
+		List<EOEntity> documentedEntities = new ArrayList<>();
+		for (EOModel model : models) {
+			documentedEntities.addAll(entities(model));
+		}
+		documentedEntities.sort(Comparator.comparing(EOEntity::getName));
 		for (EOModel model : models) {
 			VelocityOneContext context = new VelocityOneContext();
 			context.put("modelGroup", modelGroup);
@@ -270,7 +278,17 @@ public final class ModelDocGenerator {
 			List<EOEntity> entities = entities(model);
 			context.put("entities", entities);
 			context.put("storedProcedures", new ArrayList<>(model.getSortedStoredProcedures()));
-			context.put("diagram", MermaidDiagram.erDiagram(entities));
+			if (!entities.isEmpty() && entities.size() <= options.getModelDiagramLimit()) {
+				context.put("diagram", MermaidDiagram.erDiagram(entities));
+			}
+			Map<String, String> entityDiagrams = new LinkedHashMap<>();
+			for (EOEntity entity : entities) {
+				String diagram = MermaidDiagram.erDiagram(entity, documentedEntities);
+				if (diagram != null) {
+					entityDiagrams.put(entity.getName(), diagram);
+				}
+			}
+			context.put("entityDiagrams", entityDiagrams);
 			Map<String, String> entityURLs = new LinkedHashMap<>();
 			if (options.getEntityURL() != null) {
 				for (EOEntity entity : entities) {
