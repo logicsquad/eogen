@@ -55,10 +55,14 @@ Maven stops at the first goal that fails.
    run `mvn eogen:check`.
 
 If the project commits Markdown pages of its models, such as
-`docs/models/Library.md`, whose first line says that eogen wrote them,
-write them again too, and commit them with the model:
+`docs/models/Library.md` and their index, `docs/models/README.md`,
+whose first line says that eogen wrote them, write them again too, and
+commit them with the model:
 
     mvn eogen:doc -Deogen.doc.format=markdown
+
+Markdown is `doc`'s default from eogen 0.6, so the property only
+matters to a project on 0.5, where the default is EOModelDoc's HTML.
 
 Without the plugin in the POM, give the goal in full:
 `mvn net.logicsquad:eogen-maven-plugin:<version>:<goal>`. The command

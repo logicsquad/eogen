@@ -27,12 +27,13 @@ It also:
   when a model has changed without one (see
   [Writing migrations](#writing-migrations));
 * writes the documentation that Entity Modeler keeps for each model,
-  entity and attribute as Markdown pages with a diagram of each model,
-  to commit, or as WOLips's EOModelDoc pages, and puts it in the
-  generated classes' Javadoc (see
+  entity and attribute as Markdown pages to commit, with an index and
+  diagrams of the entities and their relationships, or as WOLips's
+  EOModelDoc pages, and puts it in the generated classes' Javadoc (see
   [Documenting models](#documenting-models));
 * lints the keys in qualifiers, sort orderings and prefetching, which
-  otherwise fail only when a fetch runs (see [Lint](#lint));
+  otherwise fail only when a fetch runs, and, if asked, reports what
+  has no documentation (see [Lint](#lint));
 * formats models as Entity Modeler writes them, and renames and removes
   entities, attributes and relationships through Entity Modeler's own
   classes (see [Formatting models](#formatting-models) and
