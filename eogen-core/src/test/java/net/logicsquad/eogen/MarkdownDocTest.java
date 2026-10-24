@@ -84,9 +84,7 @@ class MarkdownDocTest {
 
 	@Test
 	void writesToDocsModelsByDefault() throws Exception {
-		DocOptions options = new DocOptions();
-		options.setFormat(DocOptions.Format.MARKDOWN);
-		DocResult result = fixture.generator().generateDoc(options);
+		DocResult result = fixture.generator().generateDoc(new DocOptions());
 		assertThat(result.getFiles()).containsExactly(fixture.resolve("docs/models/Shop.md").toFile());
 		assertThat(fixture.resolve("docs/models/Shop.md")).exists();
 	}

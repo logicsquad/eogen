@@ -376,16 +376,21 @@ class MainTest {
 	@Test
 	void writesTheModelsDocumentation() throws Exception {
 		Path output = temp.resolve("doc");
-		assertThat(run("--json", "--project", project.toString(), "--classpath", reference.toString(), "--doc", "--output", output.toString(), "--include-dependencies",
+		assertThat(run("--json", "--project", project.toString(), "--classpath", reference.toString(), "--doc", "--doc-format", "html", "--output", output.toString(), "--include-dependencies",
 				"--entity-url", "../../../apidocs/${entity.name}.html")).isEqualTo(Main.OK);
 		assertThat(out()).contains("\"doc\": {\n    \"written\": true,\n    \"models\": [\n      \"Library\",\n      \"Reference\"\n    ],");
 		assertThat(new String(Files.readAllBytes(output.resolve("Library/entities/Book.html")), StandardCharsets.UTF_8))
 				.contains("<a href = \"../../../apidocs/Book.html\">com.example.library.Book</a>", "<a href = \"../../Reference/entities/Currency.html\">Currency</a>");
 		assertThat(output.resolve("prototype.js")).exists();
 
-		// By default, the project's own models, in its site.
+		// By default, the project's own models, in Markdown.
 		out.reset();
 		assertThat(run("--project", project.toString(), "--classpath", reference.toString(), "--doc")).isEqualTo(Main.OK);
+		assertThat(out()).contains("Documented Library in docs/models: 1 file, 1 written.");
+
+		// In HTML, in its site.
+		out.reset();
+		assertThat(run("--project", project.toString(), "--classpath", reference.toString(), "--doc", "--doc-format", "html")).isEqualTo(Main.OK);
 		assertThat(out()).contains("Documented Library in target/site/eomodeldoc: 11 files, 11 written.");
 
 		err.reset();

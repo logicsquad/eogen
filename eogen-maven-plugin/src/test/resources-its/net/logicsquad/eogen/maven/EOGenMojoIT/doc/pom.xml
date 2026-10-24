@@ -37,6 +37,7 @@
               <goal>doc</goal>
             </goals>
             <configuration>
+              <format>html</format>
               <entityURL>../../../apidocs/${entity.name}.html</entityURL>
             </configuration>
           </execution>

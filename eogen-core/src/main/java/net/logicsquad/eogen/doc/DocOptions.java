@@ -33,7 +33,7 @@ public final class DocOptions {
 	 */
 	public static final String DEFAULT_MARKDOWN_OUTPUT = "docs/models";
 
-	private Format format = Format.HTML;
+	private Format format = Format.MARKDOWN;
 
 	private File output;
 
@@ -53,12 +53,12 @@ public final class DocOptions {
 	}
 
 	/**
-	 * Sets what the pages are written in. The default is HTML.
+	 * Sets what the pages are written in. The default is Markdown.
 	 *
-	 * @param format format, or null for HTML
+	 * @param format format, or null for Markdown
 	 */
 	public void setFormat(Format format) {
-		this.format = format == null ? Format.HTML : format;
+		this.format = format == null ? Format.MARKDOWN : format;
 	}
 
 	/**

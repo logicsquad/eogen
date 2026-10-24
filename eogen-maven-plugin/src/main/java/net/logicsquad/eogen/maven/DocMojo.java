@@ -17,25 +17,25 @@ import net.logicsquad.eogen.doc.DocOptions;
 import net.logicsquad.eogen.doc.DocResult;
 
 /**
- * Writes EOModelDoc's HTML pages for the project's models, as WOLips's
- * EOModelDoc did: an index of every model and entity, and a page for each
- * model, entity and stored procedure, with the documentation that Entity
- * Modeler keeps for them. By default they go in the project's site, which
- * {@code pre-site} writes them into before the site is built. Or, with
- * {@code format} {@code markdown}, a Markdown page for each model, with a
+ * Writes a Markdown page for each of the project's models, with the
+ * documentation that Entity Modeler keeps for it and its entities, and a
  * Mermaid diagram of its entities and relationships, in {@code docs/models},
  * to commit; writing them deletes the pages that eogen wrote for models that
- * it no longer documents. With {@code checkDoc}, it writes nothing, and fails
- * the build if a page would change, or an orphan would be deleted. Nothing is
- * written if the model group or a template has errors, unless forced.
+ * it no longer documents. Or, with {@code format} {@code html}, EOModelDoc's
+ * HTML pages, as WOLips's EOModelDoc wrote them: an index of every model and
+ * entity, and a page for each model, entity and stored procedure. They go in
+ * the project's site, which {@code pre-site} writes them into before the site
+ * is built. With {@code checkDoc}, it writes nothing, and fails the build if a
+ * page would change, or an orphan would be deleted. Nothing is written if the
+ * model group or a template has errors, unless forced.
  */
 @Mojo(name = "doc", defaultPhase = LifecyclePhase.PRE_SITE, requiresDependencyResolution = ResolutionScope.COMPILE_PLUS_RUNTIME, threadSafe = true)
 public class DocMojo extends AbstractEOGenMojo {
 	/**
-	 * What the pages are written in: {@code html}, EOModelDoc's pages, or
-	 * {@code markdown}, a page for each model.
+	 * What the pages are written in: {@code markdown}, a page for each model,
+	 * or {@code html}, EOModelDoc's pages.
 	 */
-	@Parameter(property = "eogen.doc.format", defaultValue = "html")
+	@Parameter(property = "eogen.doc.format", defaultValue = "markdown")
 	private String format;
 
 	/**

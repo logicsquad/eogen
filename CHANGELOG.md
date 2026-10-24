@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The HTML pages that `doc` writes are frozen: they reproduce WOLips's
   EOModelDoc pages, and get bug fixes, but no new content. New
   documentation goes in the Markdown pages. #34
+- `doc` writes Markdown by default: `format` (`eogen.doc.format`,
+  `--doc-format`) is `markdown` unless set to `html`. A project that
+  runs `doc` without setting it gets a page for each model in
+  `docs/models`, not EOModelDoc's pages in `target/site/eomodeldoc`,
+  and one that wants those sets `format` to `html`. #35
 
 ## [0.5] - 2026-10-19
 ### Changed
