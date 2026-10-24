@@ -31,9 +31,9 @@ Company
 - Parent: [Party](#party)
 - Restricting qualifier: `(type = 'C')`
 
-| Attribute | Column | Type | Allows null | Documentation |
-|---|---|---|---|---|
-| `taxNumber` | `tax_number` | `varchar(100)` | no |  |
+| Attribute | Column | Column type | Java type | Allows null | Documentation |
+|---|---|---|---|---|---|
+| `taxNumber` | `tax_number` | `varchar(100)` | `String` | no |  |
 
 Order
 -----
@@ -41,15 +41,15 @@ Order
 - Table: `shop_order`
 - Class: `com.example.shop.Order`
 
-| Attribute | Column | Type | Allows null | Documentation |
-|---|---|---|---|---|
-| `currencyCode` | `currency_code` | `varchar(100)` | no |  |
-| `customerID` | `customer_id` | `integer` | no |  |
-| `customerName` | via `customer.name` |  |  |  |
-| `id` (primary key) | `id` | `integer` | no |  |
-| `note` | `note` | `text` | no |  |
-| `placed` | `placed` | `timestamp` | no | When the order was placed. |
-| `total` | `total` | `numeric(12, 2)` | no |  |
+| Attribute | Column | Column type | Java type | Allows null | Documentation |
+|---|---|---|---|---|---|
+| `currencyCode` | `currency_code` | `varchar(100)` | `String` | no |  |
+| `customerID` | `customer_id` | `integer` | `Integer` | no |  |
+| `customerName` | via `customer.name` |  | `String` |  |  |
+| `id` (primary key) | `id` | `integer` | `Integer` | no |  |
+| `note` | `note` | `text` | `String` | no |  |
+| `placed` | `placed` | `timestamp` | `NSTimestamp` | no | When the order was placed. |
+| `total` | `total` | `numeric(12, 2)` | `java.math.BigDecimal` | no |  |
 
 | Relationship | Destination | Cardinality | Documentation |
 |---|---|---|---|
@@ -68,13 +68,13 @@ OrderLine
 - Table: `order_line`
 - Class: `com.example.shop.OrderLine`
 
-| Attribute | Column | Type | Allows null | Documentation |
-|---|---|---|---|---|
-| `id` (primary key) | `id` | `integer` | no |  |
-| `orderID` | `order_id` | `integer` | no |  |
-| `price` | `price` | `numeric(12, 2)` | no |  |
-| `productID` | `product_id` | `integer` | no |  |
-| `quantity` | `quantity` | `integer` | no |  |
+| Attribute | Column | Column type | Java type | Allows null | Documentation |
+|---|---|---|---|---|---|
+| `id` (primary key) | `id` | `integer` | `Integer` | no |  |
+| `orderID` | `order_id` | `integer` | `Integer` | no |  |
+| `price` | `price` | `numeric(12, 2)` | `java.math.BigDecimal` | no |  |
+| `productID` | `product_id` | `integer` | `Integer` | no |  |
+| `quantity` | `quantity` | `integer` | `Integer` | no |  |
 
 | Relationship | Destination | Cardinality | Documentation |
 |---|---|---|---|
@@ -91,13 +91,13 @@ Someone who places orders.
 - Subentities: [Company](#company), [Person](#person)
 - Abstract
 
-| Attribute | Column | Type | Allows null | Documentation |
-|---|---|---|---|---|
-| `email` | `email` | `varchar(100)` | no |  |
-| `id` (primary key) | `id` | `integer` | no |  |
-| `name` | `name` | `varchar(100)` | no |  |
-| `status` | `status` | `varchar(50)` | no |  |
-| `type` | `type` | `varchar(100)` | no |  |
+| Attribute | Column | Column type | Java type | Allows null | Documentation |
+|---|---|---|---|---|---|
+| `email` | `email` | `varchar(100)` | `String` | no |  |
+| `id` (primary key) | `id` | `integer` | `Integer` | no |  |
+| `name` | `name` | `varchar(100)` | `String` | no |  |
+| `status` | `status` | `varchar(50)` | `com.example.shop.Status` | no |  |
+| `type` | `type` | `varchar(100)` | `String` | no |  |
 
 | Relationship | Destination | Cardinality | Documentation |
 |---|---|---|---|
@@ -111,9 +111,9 @@ Person
 - Parent: [Party](#party)
 - Restricting qualifier: `(type = 'P')`
 
-| Attribute | Column | Type | Allows null | Documentation |
-|---|---|---|---|---|
-| `dateOfBirth` | `date_of_birth` | `timestamp` | no |  |
+| Attribute | Column | Column type | Java type | Allows null | Documentation |
+|---|---|---|---|---|---|
+| `dateOfBirth` | `date_of_birth` | `timestamp` | `NSTimestamp` | no |  |
 
 Product
 -------
@@ -121,13 +121,13 @@ Product
 - Table: `product`
 - Class: `com.example.shop.Product`
 
-| Attribute | Column | Type | Allows null | Documentation |
-|---|---|---|---|---|
-| `active` | `active` | `varchar(5)` | no |  |
-| `category` | `category` | `integer` | no |  |
-| `id` (primary key) | `id` | `integer` | no |  |
-| `name` | `name` | `varchar(100)` | no |  |
-| `price` | `price` | `numeric(12, 2)` | no |  |
+| Attribute | Column | Column type | Java type | Allows null | Documentation |
+|---|---|---|---|---|---|
+| `active` | `active` | `varchar(5)` | `Boolean` | no |  |
+| `category` | `category` | `integer` | `com.example.shop.Category` | no |  |
+| `id` (primary key) | `id` | `integer` | `Integer` | no |  |
+| `name` | `name` | `varchar(100)` | `String` | no |  |
+| `price` | `price` | `numeric(12, 2)` | `java.math.BigDecimal` | no |  |
 
 | Relationship | Destination | Cardinality | Documentation |
 |---|---|---|---|
@@ -140,10 +140,10 @@ ProductTag
 - Table: `product_tag`
 - Class: `EOGenericRecord`
 
-| Attribute | Column | Type | Allows null | Documentation |
-|---|---|---|---|---|
-| `productID` (primary key) | `product_id` | `integer` | no |  |
-| `tagID` (primary key) | `tag_id` | `integer` | no |  |
+| Attribute | Column | Column type | Java type | Allows null | Documentation |
+|---|---|---|---|---|---|
+| `productID` (primary key) | `product_id` | `integer` | `Integer` | no |  |
+| `tagID` (primary key) | `tag_id` | `integer` | `Integer` | no |  |
 
 | Relationship | Destination | Cardinality | Documentation |
 |---|---|---|---|
@@ -156,10 +156,10 @@ Tag
 - Table: `tag`
 - Class: `com.example.shop.Tag`
 
-| Attribute | Column | Type | Allows null | Documentation |
-|---|---|---|---|---|
-| `id` (primary key) | `id` | `integer` | no |  |
-| `name` | `name` | `varchar(100)` | no |  |
+| Attribute | Column | Column type | Java type | Allows null | Documentation |
+|---|---|---|---|---|---|
+| `id` (primary key) | `id` | `integer` | `Integer` | no |  |
+| `name` | `name` | `varchar(100)` | `String` | no |  |
 
 | Relationship | Destination | Cardinality | Documentation |
 |---|---|---|---|

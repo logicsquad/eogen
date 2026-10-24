@@ -14,6 +14,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `docs/models`, not EOModelDoc's pages in `target/site/eomodeldoc`,
   and one that wants those sets `format` to `html`. #35
 
+### Added
+- The Markdown pages give each attribute the Java class of its values,
+  beside its column's type, as the bundled templates write it in its
+  accessors: its `ERXConstantClassName`, or else its value class, such
+  as an `enum`, and for a flattened attribute, the class of the one
+  that it flattens. A project that checks its pages writes them again.
+  #32
+
 ## [0.5] - 2026-10-19
 ### Changed
 - The bundled templates give the superclass, and the getter of each

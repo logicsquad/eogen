@@ -807,15 +807,19 @@ shows the change in its page:
     - Table: `shop_order`
     - Class: `com.example.shop.Order`
 
-    | Attribute | Column | Type | Allows null | Documentation |
-    |---|---|---|---|---|
-    | `placed` | `placed` | `timestamp` | no | When the order was placed. |
+    | Attribute | Column | Column type | Java type | Allows null | Documentation |
+    |---|---|---|---|---|---|
+    | `placed` | `placed` | `timestamp` | `NSTimestamp` | no | When the order was placed. |
 
 A page has the model's documentation, a
 [Mermaid](https://mermaid.js.org) diagram of its entities and their
 relationships, and a section for each entity, with its documentation,
 its table and class, and tables of its attributes and relationships,
 fetch specifications and entity indexes, each with its documentation.
+An attribute has its column's type and the Java class of its values, as
+the bundled templates write it in its accessors, such as an `enum` for
+a `varchar(50)`: its `ERXConstantClassName`, or else its value class,
+and for a flattened attribute, the class of the one that it flattens.
 The diagram draws a relationship and its inverse as one line, whose ends
 say how many of each entity the other reaches. It has the entities of
 other models that relationships reach, but no attributes or flattened

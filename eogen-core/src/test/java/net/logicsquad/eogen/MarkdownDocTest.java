@@ -134,7 +134,7 @@ class MarkdownDocTest {
 		replace(model.resolve("Order.plist"), "When the order was placed.", "When it was <em>placed</em> | paid.\\n\\nIn the shop's\\ntime zone.");
 		replace(model.resolve("Party.plist"), "Someone who places orders.", "Someone who\\nplaces <code>Order</code>s | pays.");
 		fixture.generator().generateDoc(options());
-		assertThat(read("Shop.md")).contains("| `placed` | `placed` | `timestamp` | no | When it was <em>placed</em> \\| paid.<br><br>In the shop's time zone. |",
+		assertThat(read("Shop.md")).contains("| `placed` | `placed` | `timestamp` | `NSTimestamp` | no | When it was <em>placed</em> \\| paid.<br><br>In the shop's time zone. |",
 				"\nSomeone who\nplaces <code>Order</code>s | pays.\n");
 	}
 

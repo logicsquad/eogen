@@ -3,10 +3,13 @@ package net.logicsquad.eogen.doc;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
 import net.logicsquad.eogen.model.EOAttribute;
+import net.logicsquad.eogen.model.EOAttributePath;
 import net.logicsquad.eogen.model.EOEntity;
 import net.logicsquad.eogen.model.EOModel;
 import net.logicsquad.eogen.model.EOModelObject;
@@ -123,6 +126,31 @@ public final class MarkdownTool {
 			return externalType + "(" + width + ")";
 		}
 		return externalType;
+	}
+
+	/**
+	 * Returns the Java class of an attribute's values, as the bundled templates
+	 * write it in its accessors: its {@code ERXConstantClassName}, if it has
+	 * one, or else its value class, such as {@code String} or
+	 * {@code com.example.shop.Status}, with a nested class's {@code $} as a dot.
+	 * A flattened attribute has the class of the attribute that it flattens.
+	 *
+	 * @param attribute an attribute
+	 * @return the class, or an empty string if it has none
+	 */
+	public String javaType(EOAttribute attribute) {
+		EOAttribute resolved = attribute;
+		Set<EOAttribute> seen = new HashSet<>();
+		while (resolved != null && resolved.isFlattened() && seen.add(resolved)) {
+			EOAttributePath path = resolved.getDefinitionPath();
+			resolved = path == null ? null : path.getChildAttribute();
+		}
+		if (resolved == null || resolved.isFlattened()) {
+			return "";
+		}
+		Object constant = resolved.getUserInfo() == null ? null : resolved.getUserInfo().get("ERXConstantClassName");
+		String className = constant != null && !constant.toString().isEmpty() ? constant.toString() : resolved.getJavaClassName();
+		return className == null ? "" : className.replace('$', '.');
 	}
 
 	/**

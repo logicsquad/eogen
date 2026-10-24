@@ -51,6 +51,20 @@ class MarkdownToolTest {
 	}
 
 	@Test
+	void writesAnAttributesJavaTypeAsItsAccessorsHaveIt() {
+		EOAttribute count = new EOAttribute("count");
+		assertThat(md.javaType(count)).isEmpty();
+		count.setValueClassName("NSNumber", false);
+		count.setValueType("l", false);
+		assertThat(md.javaType(count)).isEqualTo("Long");
+		EOAttribute status = new EOAttribute("status");
+		status.setValueClassName("com.example.shop.Party$Status", false);
+		assertThat(md.javaType(status)).isEqualTo("com.example.shop.Party.Status");
+		status.getUserInfo().put("ERXConstantClassName", "com.example.shop.Category");
+		assertThat(md.javaType(status)).isEqualTo("com.example.shop.Category");
+	}
+
+	@Test
 	void underlinesAHeadingWithAtLeastThreeCharacters() {
 		assertThat(md.rule("Shop", "=")).isEqualTo("====");
 		assertThat(md.rule("Id", "-")).isEqualTo("---");
