@@ -117,6 +117,8 @@ They take these parameters:
 * `force` (`eogen.force`): generates despite errors, as WOLips does.
 * `strict` (`eogen.strict`): makes the lint's findings errors (see
   [Lint](#lint)).
+* `reportUndocumented` (`eogen.reportUndocumented`): makes the lint
+  report what has no documentation (see [Lint](#lint)).
 * For `generate`, `deleteOrphans` (`eogen.deleteOrphans`) deletes
   orphaned superclasses.
 * For `check`, `checkOrphans` (`eogen.check.orphans`): set it to false,
@@ -216,6 +218,8 @@ Using the command line
                             status is 2.
     --strict                Make the lint's findings in the models
                             errors rather than warnings.
+    --report-undocumented   Make the lint report what in the models
+                            has no documentation.
     --json                  Report in JSON on standard output.
     --debug                 Show stack traces.
 
@@ -282,6 +286,7 @@ names the kind of finding, and keeps its meaning once released:
 | `misnamed-entity` | an entity whose `name` isn't its file's |
 | `unmatched-key` | a key in a fetch specification or a restricting qualifier that matches nothing |
 | `malformed-html` | documentation whose HTML a Javadoc build would fail on, such as a tag that HTML5 doesn't have |
+| `undocumented` | with `reportUndocumented`, a model, an entity, or an attribute or relationship that is a class property, with no documentation |
 | `unresolved-reference` | a template reference that rendered with no value |
 | `format-loss` | a model that formatting leaves alone, or a rename or removal that is refused, since saving a file would change what it says |
 | `eogen-file` | an `.eogen` file that eogen can't use, such as one with no `-destination` |
@@ -464,6 +469,15 @@ The keys it knows are the ones the model classes read and write, and
 the ones found in 116 real models, Project Wonder's among them. It
 doesn't look inside `userInfo` or `internalInfo`, apart from Entity
 Modeler's documentation.
+
+With `reportUndocumented` (`eogen.reportUndocumented`,
+`--report-undocumented`), it also reports what has no documentation,
+for a team that wants everything documented: each model, each entity,
+and each attribute and relationship that is a class property, such as
+`attribute price: no documentation`. What a subentity inherits is its
+parent's to document, and an attribute that isn't a class property,
+such as a foreign key, isn't in the classes, so neither is reported.
+It is off by default, since most models have little documentation.
 
 Its findings are warnings. `strict` (`eogen.strict`, `--strict`) makes
 them errors, which stop `generate` as other errors do. Use `strict`

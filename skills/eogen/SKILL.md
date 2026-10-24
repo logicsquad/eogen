@@ -171,6 +171,11 @@ from a migration.
   now that it can go in Javadoc comments. Fix the HTML in its
   `documentation`. If you didn't write it, it was wrong before: fix it
   in a commit of its own.
+- `attribute price: no documentation`: the project has the lint report
+  what has no documentation (`reportUndocumented`). Document what you
+  added or changed, in its `documentation`. Don't document the rest in
+  passing: say how many such findings there are, and leave them to the
+  people who know what they mean.
 - `The documentation of Loan's relationship book names Book. Change it
   to Volume by hand.`: after a rename, documentation that still names
   the old name in `<code>`. Read it, and change the name where it means

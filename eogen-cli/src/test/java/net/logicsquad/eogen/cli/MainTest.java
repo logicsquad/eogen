@@ -122,6 +122,21 @@ class MainTest {
 		assertThat(project.resolve(LIBRARY + "_Book.java")).exists();
 	}
 
+	@Test
+	void reportsWhatHasNoDocumentationWhenAsked() throws Exception {
+		assertThat(run("--verify", "--project", project.toString(), "--classpath", reference.toString())).isEqualTo(Main.OK);
+		assertThat(err()).doesNotContain("no documentation");
+
+		err.reset();
+		assertThat(run("--verify", "--report-undocumented", "--project", project.toString(), "--classpath", reference.toString())).isEqualTo(Main.OK);
+		assertThat(err()).contains("eogen: warning: Library: Library.eomodeld/Book.plist: entity Book: no documentation.",
+				"eogen: warning: Library: Library.eomodeld/index.eomodeld: the model: no documentation.");
+
+		err.reset();
+		assertThat(run("--doc", "--report-undocumented")).isEqualTo(Main.FAILED);
+		assertThat(err()).contains("--report-undocumented goes with .eogen files, --all or --verify.");
+	}
+
 	/**
 	 * The fixture's models were written by hand, not by Entity Modeler.
 	 */

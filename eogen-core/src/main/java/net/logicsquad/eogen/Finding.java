@@ -96,6 +96,12 @@ public final class Finding {
 	public static final String MALFORMED_HTML = "malformed-html";
 
 	/**
+	 * A model, entity, or attribute or relationship that is a class property,
+	 * with no documentation, when the lint is asked to report them.
+	 */
+	public static final String UNDOCUMENTED = "undocumented";
+
+	/**
 	 * A template reference that rendered with no value.
 	 */
 	public static final String UNRESOLVED_REFERENCE = "unresolved-reference";

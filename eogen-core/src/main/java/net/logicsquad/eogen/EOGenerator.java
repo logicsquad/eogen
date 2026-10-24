@@ -44,6 +44,7 @@ import net.logicsquad.eogen.generator.VelocityEOGeneratorRunner;
 import net.logicsquad.eogen.lint.KeyLinter;
 import net.logicsquad.eogen.lint.LintFinding;
 import net.logicsquad.eogen.lint.ModelLinter;
+import net.logicsquad.eogen.lint.UndocumentedLinter;
 import net.logicsquad.eogen.migration.MigrationGenerator;
 import net.logicsquad.eogen.migration.MigrationOptions;
 import net.logicsquad.eogen.migration.MigrationResult;
@@ -78,10 +79,11 @@ import net.logicsquad.eogen.utils.URLUtils;
  * </p>
  * <p>
  * It also lints the models it uses, with {@link ModelLinter}, for the mistakes
- * that loading a model hides, such as a misspelt key, and with
- * {@link KeyLinter}, for keys in fetch specifications and restricting
- * qualifiers that match nothing. Their findings are warnings, or errors when
- * {@link #setStrict(boolean) strict}.
+ * that loading a model hides, such as a misspelt key, with {@link KeyLinter},
+ * for keys in fetch specifications and restricting qualifiers that match
+ * nothing, and, when {@link #setReportUndocumented(boolean) asked}, with
+ * {@link UndocumentedLinter}, for what has no documentation. Their findings
+ * are warnings, or errors when {@link #setStrict(boolean) strict}.
  * </p>
  */
 public class EOGenerator {
@@ -119,6 +121,8 @@ public class EOGenerator {
 	private boolean force;
 
 	private boolean strict;
+
+	private boolean reportUndocumented;
 
 	private String generatedMarker = DEFAULT_GENERATED_MARKER;
 
@@ -216,6 +220,28 @@ public class EOGenerator {
 	 */
 	public void setStrict(boolean strict) {
 		this.strict = strict;
+	}
+
+	/**
+	 * Returns whether the lint reports what has no documentation.
+	 *
+	 * @return {@code true} if it does
+	 */
+	public boolean isReportUndocumented() {
+		return reportUndocumented;
+	}
+
+	/**
+	 * Sets whether the lint reports what has no documentation, with
+	 * {@link UndocumentedLinter}: each model, entity, and attribute and
+	 * relationship that is a class property, without documentation, as a
+	 * warning, or an error when {@link #setStrict(boolean) strict}. The default
+	 * is {@code false}.
+	 *
+	 * @param reportUndocumented whether to report them
+	 */
+	public void setReportUndocumented(boolean reportUndocumented) {
+		this.reportUndocumented = reportUndocumented;
 	}
 
 	/**
@@ -504,6 +530,9 @@ public class EOGenerator {
 				List<LintFinding> found = new ArrayList<>(ModelLinter.lint(model));
 				if (eomodel != null) {
 					found.addAll(KeyLinter.lint(eomodel, model));
+					if (reportUndocumented) {
+						found.addAll(UndocumentedLinter.lint(eomodel, model));
+					}
 				}
 				for (LintFinding finding : found) {
 					EOModelVerificationFailure failure = new EOModelVerificationFailure(eomodel, finding.toString(), !strict);
@@ -976,7 +1005,7 @@ public class EOGenerator {
 				lintFindings.add(finding(finding, EOModelGroup.getModelNameForFile(model)));
 			}
 		}
-		lintFindings.addAll(keyFindings(models));
+		lintFindings.addAll(groupFindings(models));
 		Path scratch;
 		try {
 			scratch = Files.createTempDirectory("eogen");
@@ -1030,12 +1059,13 @@ public class EOGenerator {
 	}
 
 	/**
-	 * Lints the keys of the models that an .eogen file names, with
-	 * {@link KeyLinter}, which needs the model group loaded and resolved.
+	 * Lints the models that an .eogen file names with the linters that need the
+	 * model group loaded and resolved: {@link KeyLinter}, and
+	 * {@link UndocumentedLinter} when asked.
 	 *
 	 * @return the findings, as warnings
 	 */
-	private List<Finding> keyFindings(List<File> models) {
+	private List<Finding> groupFindings(List<File> models) {
 		EOModelGroup modelGroup = new EOModelGroup();
 		Set<EOModelVerificationFailure> failures = new LinkedHashSet<>();
 		try {
@@ -1050,7 +1080,11 @@ public class EOGenerator {
 			String name = EOModelGroup.getModelNameForFile(model);
 			EOModel eomodel = name == null ? null : modelGroup.getModelNamed(name);
 			if (eomodel != null) {
-				for (LintFinding finding : KeyLinter.lint(eomodel, model)) {
+				List<LintFinding> found = new ArrayList<>(KeyLinter.lint(eomodel, model));
+				if (reportUndocumented) {
+					found.addAll(UndocumentedLinter.lint(eomodel, model));
+				}
+				for (LintFinding finding : found) {
 					findings.add(finding(finding, name));
 				}
 			}

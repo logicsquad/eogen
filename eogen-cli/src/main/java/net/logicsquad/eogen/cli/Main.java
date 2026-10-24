@@ -162,6 +162,9 @@ public final class Main {
 			"                          mean nothing is written, and the exit status is 2.",
 			"  --strict                Make the lint's findings in the models, such as a",
 			"                          misspelt key, errors rather than warnings.",
+			"  --report-undocumented   Make the lint report each model, entity, and attribute",
+			"                          and relationship that is a class property, with no",
+			"                          documentation.",
 			"  --json                  Report in JSON on standard output, for scripts and",
 			"                          agents.",
 			"  --debug                 Show stack traces.",
@@ -223,6 +226,8 @@ public final class Main {
 	private boolean force;
 
 	private boolean strict;
+
+	private boolean reportUndocumented;
 
 	private boolean json;
 
@@ -317,6 +322,8 @@ public final class Main {
 				force = true;
 			} else if ("--strict".equals(arg)) {
 				strict = true;
+			} else if ("--report-undocumented".equals(arg)) {
+				reportUndocumented = true;
 			} else if ("--json".equals(arg)) {
 				json = true;
 			} else if ("--debug".equals(arg)) {
@@ -415,6 +422,9 @@ public final class Main {
 		if (includeDependencies && !verify && !doc) {
 			return usage("--include-dependencies goes with --verify or --doc.");
 		}
+		if (reportUndocumented && (doc || migration || format || rename != null || remove != null)) {
+			return usage("--report-undocumented goes with .eogen files, --all or --verify.");
+		}
 		if (!verify && !format && !migration && !doc && !all && rename == null && remove == null && eogenFiles.isEmpty()) {
 			return usage("Give an .eogen file.");
 		}
@@ -436,6 +446,7 @@ public final class Main {
 		EOGenerator generator = new EOGenerator(project, models, classpath);
 		generator.setForce(force);
 		generator.setStrict(strict);
+		generator.setReportUndocumented(reportUndocumented);
 		generator.setTemplatePath(templates);
 		if (rename != null) {
 			if (to == null) {

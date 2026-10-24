@@ -32,6 +32,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   its documentation. A `README.md` of the project's own, which eogen
   didn't write, is left alone, and reported, as `kept` in `--json`, and
   `DocResult.getKept()`. #36
+- With `reportUndocumented` (`eogen.reportUndocumented`,
+  `--report-undocumented`, `EOGenerator.setReportUndocumented`), the
+  lint reports what has no documentation, as `undocumented`: each
+  model, entity, and attribute and relationship that is a class
+  property, apart from what a subentity inherits. Its findings are
+  warnings, or errors with `strict`. It is off by default. #37
 
 ## [0.5] - 2026-10-19
 ### Changed
