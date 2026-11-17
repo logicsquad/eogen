@@ -1,0 +1,43 @@
+name: release
+on:
+  release:
+    types: [published]
+  # For a release that has no jar: gh workflow run release.yml -f tag=release/0.6
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: The release's tag, such as release/0.6
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  attach:
+    runs-on: ubuntu-latest
+    env:
+      TAG: ${{ github.event.release.tag_name || inputs.tag }}
+
+    steps:
+      # The jar that deploy.yml published, not another build of it, so that its signature holds.
+      - name: Download the command-line jar from Maven Central
+        run: |
+          case "$TAG" in
+            release/*) version="${TAG#release/}" ;;
+            *) echo "::error::$TAG isn't a release's tag."; exit 1 ;;
+          esac
+          jar="eogen-cli-$version.jar"
+          url="https://repo1.maven.org/maven2/net/logicsquad/eogen-cli/$version/$jar"
+          # Maven Central can take a while to publish what deploy.yml sent it: this waits for up to an hour.
+          curl --fail --fail-early --silent --show-error --location \
+              --retry 120 --retry-delay 30 --retry-all-errors \
+              --remote-name-all "$url" "$url.asc" "$url.sha256"
+          # Maven Central's checksum is the bare hash: this checks the jar against it, and names the jar, as sha256sum expects.
+          echo "$(cat "$jar.sha256")  $jar" > checksum
+          sha256sum --check checksum
+          mv checksum "$jar.sha256"
+
+      - name: Attach it to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$TAG" eogen-cli-* --clobber --repo "$GITHUB_REPOSITORY"

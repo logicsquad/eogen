@@ -138,7 +138,11 @@ plugin. Elsewhere, use the full name,
 
 Using the command line
 ----------------------
-`eogen-cli`'s jar contains everything it needs:
+Download `eogen-cli-0.6.jar` from the
+[release's page](https://github.com/logicsquad/eogen/releases/tag/release/0.6),
+which has its signature and SHA-256 checksum too, or from
+[Maven Central](https://repo1.maven.org/maven2/net/logicsquad/eogen-cli/0.6/).
+The jar contains everything it needs:
 
     java -jar eogen-cli-0.6.jar [options] <file.eogen>...
     java -jar eogen-cli-0.6.jar [options] --all
