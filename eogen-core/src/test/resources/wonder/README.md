@@ -8,7 +8,7 @@ the compiler picks among the same ones.
 
 Most have no bodies. Those that creating a table, setting its primary key
 and dropping it go through do in miniature what Wonder 7.4's do, so that
-`MigrationTest` can also run a migration, on `FakePostgres`, a connection
+`MigrationTest` can also run a migration, on `FakeDatabase`, a connection
 that keeps the tables and sequences that the statements make, and fails a
 transaction as PostgreSQL does. `EOSynchronizationFactory` has the statements
 of a plugin with none of its own, and `PostgresqlSynchronizationFactory`

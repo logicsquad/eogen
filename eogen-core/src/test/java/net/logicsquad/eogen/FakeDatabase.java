@@ -22,11 +22,16 @@ import java.util.TreeSet;
  * does every statement of the transaction, until it rolls back to a savepoint
  * set before the one that failed.
  * <p>
+ * Or, {@link #endingTheTransactionWithEachStatement() if asked}, as H2 does:
+ * each statement ends the transaction, whether or not it fails, so that none
+ * fails for an earlier one, but a savepoint set before it is no longer valid.
+ * </p>
+ * <p>
  * It knows the statements that the stubs of Wonder's API run to create and
  * drop a table and its primary key support, and no others.
  * </p>
  */
-final class FakePostgres {
+final class FakeDatabase {
 	/**
 	 * A savepoint, with the tables and sequences as they were at it.
 	 */
@@ -35,9 +40,12 @@ final class FakePostgres {
 
 		private final Set<String> sequences;
 
-		Saved(Set<String> tables, Set<String> sequences) {
+		private final int transaction;
+
+		Saved(Set<String> tables, Set<String> sequences, int transaction) {
 			this.tables = new TreeSet<>(tables);
 			this.sequences = new TreeSet<>(sequences);
+			this.transaction = transaction;
 		}
 
 		@Override
@@ -59,12 +67,19 @@ final class FakePostgres {
 
 	private boolean aborted;
 
+	private boolean endsWithEachStatement;
+
+	/**
+	 * How many transactions have ended.
+	 */
+	private int transaction;
+
 	private final Connection connection = proxy(Connection.class, this::connection);
 
 	/**
 	 * Adds a table, as if an earlier migration had created it.
 	 */
-	FakePostgres table(String name) {
+	FakeDatabase table(String name) {
 		tables.add(name);
 		return this;
 	}
@@ -72,8 +87,16 @@ final class FakePostgres {
 	/**
 	 * Adds a sequence, as if an earlier migration had created it.
 	 */
-	FakePostgres sequence(String name) {
+	FakeDatabase sequence(String name) {
 		sequences.add(name);
+		return this;
+	}
+
+	/**
+	 * Makes it fail as H2 does, and not as PostgreSQL does.
+	 */
+	FakeDatabase endingTheTransactionWithEachStatement() {
+		endsWithEachStatement = true;
 		return this;
 	}
 
@@ -136,12 +159,15 @@ final class FakePostgres {
 			if (aborted) {
 				throw aborted();
 			}
-			return new Saved(tables, sequences);
+			return new Saved(tables, sequences, transaction);
 		case "rollback":
 			if (arguments == null) {
 				throw new UnsupportedOperationException(method.toString());
 			}
 			Saved saved = (Saved) arguments[0];
+			if (saved.transaction != transaction) {
+				throw new SQLException("Savepoint is invalid", "90063");
+			}
 			tables.clear();
 			tables.addAll(saved.tables);
 			sequences.clear();
@@ -185,8 +211,12 @@ final class FakePostgres {
 				throw new SQLException("ERROR: syntax error at or near \"" + words[0] + "\"", "42601");
 			}
 		} catch (SQLException e) {
-			aborted = true;
+			aborted = !endsWithEachStatement;
 			throw e;
+		} finally {
+			if (endsWithEachStatement) {
+				transaction++;
+			}
 		}
 		statements.add(sql);
 		return 0;
@@ -227,6 +257,6 @@ final class FakePostgres {
 			}
 			return behaviour.invoke(method, arguments);
 		};
-		return type.cast(Proxy.newProxyInstance(FakePostgres.class.getClassLoader(), new Class<?>[] { type }, handler));
+		return type.cast(Proxy.newProxyInstance(FakeDatabase.class.getClassLoader(), new Class<?>[] { type }, handler));
 	}
 }

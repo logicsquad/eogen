@@ -90,7 +90,9 @@ final class MigrationWriter {
 	 * {@code dropPrimaryKey} does, but that fails where a plugin has none.
 	 * PostgreSQL's drops a sequence whether or not the table has one, and a
 	 * statement that fails there fails every one after it in the transaction,
-	 * hence the savepoint.
+	 * hence the savepoint. On a database whose statements of this kind end the
+	 * transaction, such as H2, the savepoint is gone once one has failed, and
+	 * rolling back to it fails too, which matters as little.
 	 */
 	private static final List<String> DROP_PRIMARY_KEY_SUPPORT_METHOD = Collections.unmodifiableList(Arrays.asList(
 			"",
@@ -117,7 +119,11 @@ final class MigrationWriter {
 			"\t\t\tERXJDBCUtilities.executeUpdateScript(database.adaptorChannel(), ERXMigrationDatabase._stringsForExpressions(expressions));",
 			"\t\t} catch (RuntimeException e) {",
 			"\t\t\tif (savepoint != null) {",
-			"\t\t\t\tconnection.rollback(savepoint);",
+			"\t\t\t\ttry {",
+			"\t\t\t\t\tconnection.rollback(savepoint);",
+			"\t\t\t\t} catch (SQLException ended) {",
+			"\t\t\t\t\t// The statement ended the transaction, as on H2, and the savepoint with it.",
+			"\t\t\t\t}",
 			"\t\t\t}",
 			"\t\t}",
 			"\t}"));

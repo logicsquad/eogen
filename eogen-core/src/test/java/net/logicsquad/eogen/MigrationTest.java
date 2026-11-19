@@ -47,7 +47,7 @@ import net.logicsquad.eogen.migration.MigrationResult.Status;
  * time, and compares them with the earlier version of the model, a copy of
  * the fixture's. Each migration must compile against stubs of Project
  * Wonder's API, but at its gaps. Those that drop a table also run, with the
- * stubs, on a {@link FakePostgres}.
+ * stubs, on a {@link FakeDatabase}.
  */
 class MigrationTest {
 	/**
@@ -298,13 +298,13 @@ class MigrationTest {
 				"\t}\n\n\t/**\n\t * Drops what the primary key of a dropped table needed, such as its sequence on PostgreSQL, which the\n",
 				"\tprivate static void dropPrimaryKeySupport(ERXMigrationDatabase database, ERXMigrationTable table, String... primaryKey) throws SQLException {\n",
 				"database.synchronizationFactory().dropPrimaryKeySupportStatementsForEntityGroup(new NSArray<EOEntity>(entity));",
-				"import java.sql.Connection;\nimport java.sql.SQLException;\nimport java.sql.Savepoint;\n").endsWith("\t\t}\n\t}\n}\n");
+				"import java.sql.Connection;\nimport java.sql.SQLException;\nimport java.sql.Savepoint;\n").endsWith("\t\t\t}\n\t\t}\n\t}\n}\n");
 		assertThat(created(result).getChanges()).containsExactly("Drops shipment.");
 		assertThat(created(result).getDropped()).containsExactly("shipment");
 		assertThat(result.describeKeeping()).isEqualTo("To keep a table or a column that a model no longer maps, such as Shop's shipment, list it in the model's userInfo under eogen.keep.");
 		assertCompilesButAtGaps(result);
 
-		FakePostgres database = new FakePostgres().table("shipment").sequence("shipment_seq").table("shop_order").sequence("shop_order_seq");
+		FakeDatabase database = new FakeDatabase().table("shipment").sequence("shipment_seq").table("shop_order").sequence("shop_order_seq");
 		run(created(result), database, POSTGRESQL);
 		assertThat(database.getTables()).containsExactly("shop_order");
 		assertThat(database.getSequences()).containsExactly("shop_order_seq");
@@ -325,7 +325,7 @@ class MigrationTest {
 				"dropPrimaryKeySupport(database, shipmentItemTable, \"item_id\", \"shipment_id\");");
 		assertCompilesButAtGaps(result);
 
-		FakePostgres database = new FakePostgres().table("shipment_item");
+		FakeDatabase database = new FakeDatabase().table("shipment_item");
 		run(created(result), database, POSTGRESQL);
 		assertThat(database.getTables()).isEmpty();
 	}
@@ -337,7 +337,7 @@ class MigrationTest {
 	void dropsATableWhoseDatabaseLacksItsSequence() throws Exception {
 		addShipment(earlier);
 		MigrationResult result = generate();
-		FakePostgres database = new FakePostgres().table("shipment");
+		FakeDatabase database = new FakeDatabase().table("shipment");
 		run(created(result), database, POSTGRESQL);
 		assertThat(database.getTables()).isEmpty();
 		assertThat(database.getSequences()).isEmpty();
@@ -349,13 +349,27 @@ class MigrationTest {
 	 */
 	@Test
 	void theFakeDatabaseFailsATransactionAsPostgresDoes() throws Exception {
-		FakePostgres database = new FakePostgres().table("shipment");
+		FakeDatabase database = new FakeDatabase().table("shipment");
 		Connection connection = database.getConnection();
 		try (java.sql.Statement statement = connection.createStatement()) {
 			assertThatThrownBy(() -> statement.executeUpdate("DROP SEQUENCE shipment_seq CASCADE")).hasMessageContaining("sequence \"shipment_seq\" does not exist");
 			assertThatThrownBy(() -> statement.executeUpdate("DROP TABLE shipment CASCADE")).hasMessageContaining("current transaction is aborted");
 		}
 		assertThatThrownBy(database::commit).hasMessageContaining("current transaction is aborted");
+	}
+
+	/**
+	 * H2 ends the transaction with each such statement, and the savepoint with
+	 * it, so that rolling back to it fails once the statement has. Its own
+	 * plugin's statements don't reach a migration, but another's could.
+	 */
+	@Test
+	void dropsATableWhoseDatabaseEndsTheTransactionWithEachStatement() throws Exception {
+		addShipment(earlier);
+		MigrationResult result = generate();
+		FakeDatabase database = new FakeDatabase().endingTheTransactionWithEachStatement().table("shipment");
+		run(created(result), database, POSTGRESQL);
+		assertThat(database.getTables()).isEmpty();
 	}
 
 	/**
@@ -366,7 +380,7 @@ class MigrationTest {
 	void dropsATableWhoseDatabaseNeedsNoPrimaryKeySupport() throws Exception {
 		addShipment(earlier);
 		MigrationResult result = generate();
-		FakePostgres database = new FakePostgres().table("shipment");
+		FakeDatabase database = new FakeDatabase().table("shipment");
 		run(created(result), database, NO_PLUGIN);
 		assertThat(database.getTables()).isEmpty();
 	}
@@ -387,7 +401,7 @@ class MigrationTest {
 		ModelMigration drop = created(generate());
 		assertThat(drop.getClassName()).isEqualTo("com.example.shop.migrations.Shop2");
 
-		FakePostgres database = new FakePostgres().table("shop_order").sequence("shop_order_seq");
+		FakeDatabase database = new FakeDatabase().table("shop_order").sequence("shop_order_seq");
 		run(creation, database, POSTGRESQL);
 		assertThat(database.getTables()).containsExactly("shipment", "shop_order");
 		assertThat(database.getSequences()).containsExactly("shipment_seq", "shop_order_seq");
@@ -510,7 +524,7 @@ class MigrationTest {
 		assertThat(created(result).getDropped()).containsExactly("shop_order.legacy_code", "shipment");
 		assertCompilesButAtGaps(result);
 
-		FakePostgres database = new FakePostgres().table("shop_order").sequence("shop_order_seq").table("shipment").sequence("shipment_seq");
+		FakeDatabase database = new FakeDatabase().table("shop_order").sequence("shop_order_seq").table("shipment").sequence("shipment_seq");
 		run(created(result), database, POSTGRESQL);
 		assertThat(database.getTables()).containsExactly("shop_order");
 		assertThat(database.getSequences()).containsExactly("shop_order_seq");
@@ -1264,7 +1278,7 @@ class MigrationTest {
 	 * @param synchronizationFactory the class of the stub that has the
 	 *        statements of the database's plugin
 	 */
-	private void run(ModelMigration migration, FakePostgres database, String synchronizationFactory) throws Exception {
+	private void run(ModelMigration migration, FakeDatabase database, String synchronizationFactory) throws Exception {
 		Path classes = Files.createTempDirectory(temp, "classes");
 		compile(classes, migration.getFile().toPath());
 		try (URLClassLoader loader = new URLClassLoader(new URL[] { classes.toUri().toURL() }, MigrationTest.class.getClassLoader())) {
