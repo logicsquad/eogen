@@ -637,7 +637,13 @@ It covers tables created, with their primary keys, and dropped;
 columns added, dropped and renamed, with their types, widths, precision
 and scale, and whether they allow null; the foreign keys of to-one
 relationships, which come once every table they need exists; and
-entity indexes. A table has the columns of every entity that maps it, so
+entity indexes. A dropped table takes its primary key support with it,
+such as its sequence on PostgreSQL, which Wonder's own drop leaves
+behind, where it is in the way of a new table with the old one's name:
+the migration has a method, `dropPrimaryKeySupport`, which asks the
+database's plugin for the statements, as `setPrimaryKey` did for those
+that made it, and leaves a database with nothing to drop as it is. A
+table has the columns of every entity that maps it, so
 that a subentity's columns are in its parent's table in single-table
 inheritance, where they allow null, and a partial entity's are in its
 base entity's. A flattened or derived attribute has no column. A
@@ -663,7 +669,9 @@ with the code `migration-gap`. There is a gap for:
   dropped while another is created, either of which may be a rename. An
   attribute that keeps its name while its column's changes renames the
   column, and an entity that keeps its name while its table's changes
-  renames the table;
+  renames the table. The gap for a table says to rename its primary key
+  support too, which Wonder has no call for, and how on PostgreSQL,
+  whose plugin looks for the sequence by the table's name;
 * a column whose type changes, whose values may need converting;
 * a primary key that changes;
 * a foreign key or an index that goes, since Wonder has no call to drop
@@ -783,10 +791,13 @@ it is the `first`, `since`, the earlier version, such as
 `upgradeLines`, the body of `upgrade`, which uses its `database`
 argument, `dependencies`, each with its `modelName`, its `version`,
 whether it is `known`, and its `tables`, `dependencyLines`, the body of
-`modelDependencies`, or none, and `importLines`, the imports that the
-bodies need, or with `importLines(["com.example.Base"])`, those and
-others; and `$model`, the model. A reference with no value is an error,
-as it is for the classes.
+`modelDependencies`, or none, `methodLines`, the methods that `upgrade`
+calls, or none, for the end of the class, and `importLines`, the imports
+that the bodies and the methods need, or with
+`importLines(["com.example.Base"])`, those and others; and `$model`, the
+model. A reference with no value is an error, as it is for the classes,
+and so is a template without `methodLines` for a migration that has
+some, as one that drops a table does.
 The command line does the same with `--migration`, `--from`,
 `--sources`, `--package`, `--template`, `--migration-models`, and
 `--check`, which writes nothing, and exits with status 1 if a model with

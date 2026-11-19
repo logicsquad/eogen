@@ -11,9 +11,9 @@ import java.util.TreeSet;
 /**
  * A migration, as its template sees it, as {@code $migration}: its class's
  * name and package, the lines of its {@code upgrade} method, which use its
- * {@code database} argument, an {@code ERXMigrationDatabase}, and the other
- * models that it depends on, with the lines of its {@code modelDependencies}
- * method.
+ * {@code database} argument, an {@code ERXMigrationDatabase}, the lines of the
+ * methods that those call, and the other models that it depends on, with the
+ * lines of its {@code modelDependencies} method.
  */
 public final class GeneratedMigration {
 	/**
@@ -96,6 +96,8 @@ public final class GeneratedMigration {
 
 	private final List<String> upgradeLines;
 
+	private final List<String> methodLines;
+
 	private final Set<String> imports;
 
 	private final List<Dependency> dependencies;
@@ -115,6 +117,7 @@ public final class GeneratedMigration {
 		this.since = since;
 		this.changes = Collections.unmodifiableList(new ArrayList<>(writer.getChanges()));
 		this.upgradeLines = Collections.unmodifiableList(new ArrayList<>(writer.getLines()));
+		this.methodLines = Collections.unmodifiableList(new ArrayList<>(writer.getMethodLines()));
 		Set<String> imports = new TreeSet<>(writer.getImports());
 		if (!dependencies.isEmpty()) {
 			imports.add("com.webobjects.foundation.NSArray");
@@ -257,6 +260,28 @@ public final class GeneratedMigration {
 	}
 
 	/**
+	 * Returns the lines of the methods that the {@code upgrade} method's lines
+	 * call, each indented with a tab, after an empty line, for the class's body
+	 * to end with, or empty. A migration that drops a table has
+	 * {@code dropPrimaryKeySupport}, which drops what the table's primary key
+	 * needed, such as its sequence on PostgreSQL.
+	 *
+	 * @return lines
+	 */
+	public List<String> getMethodLines() {
+		return methodLines;
+	}
+
+	/**
+	 * Returns the name of a method that the {@code upgrade} method's lines call
+	 * and a rendered migration doesn't declare, as when its template leaves
+	 * {@link #getMethodLines()} out, or null.
+	 */
+	String missingMethod(String content) {
+		return methodLines.isEmpty() || content.contains(" " + MigrationWriter.DROP_PRIMARY_KEY_SUPPORT + "(ERXMigrationDatabase ") ? null : MigrationWriter.DROP_PRIMARY_KEY_SUPPORT;
+	}
+
+	/**
 	 * Returns the other models whose tables it needs, by name, each with the
 	 * version that it depends on, or empty.
 	 *
@@ -295,7 +320,8 @@ public final class GeneratedMigration {
 
 	/**
 	 * Returns the import statements that the {@code upgrade} method needs,
-	 * sorted, with an empty line between top-level packages.
+	 * with the methods that it calls, sorted, with an empty line between
+	 * top-level packages.
 	 *
 	 * @return lines
 	 */
@@ -304,9 +330,9 @@ public final class GeneratedMigration {
 	}
 
 	/**
-	 * Returns the import statements that the {@code upgrade} method needs, and
-	 * those of other classes that a template uses, sorted, with an empty line
-	 * between top-level packages.
+	 * Returns the import statements that the {@code upgrade} method needs,
+	 * with the methods that it calls, and those of other classes that a
+	 * template uses, sorted, with an empty line between top-level packages.
 	 *
 	 * @param more the other classes' names
 	 * @return lines

@@ -2,9 +2,50 @@ package er.extensions.migration;
 
 import java.sql.SQLException;
 
+import com.webobjects.eoaccess.EOAttribute;
+import com.webobjects.eoaccess.EOEntity;
 import com.webobjects.foundation.NSDictionary;
 
 public class ERXMigrationColumn {
+	private final ERXMigrationTable _table;
+
+	private final String _name;
+
+	private boolean _primaryKey;
+
+	protected ERXMigrationColumn(ERXMigrationTable table, String name) {
+		_table = table;
+		_name = name;
+	}
+
+	public ERXMigrationTable table() {
+		return _table;
+	}
+
+	public String name() {
+		return _name;
+	}
+
+	public boolean isPrimaryKey() {
+		return _primaryKey;
+	}
+
+	public void _setPrimaryKey(boolean primaryKey) {
+		_primaryKey = primaryKey;
+	}
+
+	public EOAttribute _newAttribute() {
+		return _newAttribute(_table._blankEntity());
+	}
+
+	public EOAttribute _newAttribute(EOEntity entity) {
+		EOAttribute attribute = new EOAttribute();
+		attribute.setName(_name);
+		attribute.setColumnName(_name);
+		entity.addAttribute(attribute);
+		return attribute;
+	}
+
 	public void setDefaultValue(Object defaultValue) {
 	}
 

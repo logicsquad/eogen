@@ -74,7 +74,9 @@ import net.logicsquad.eogen.velocity.WOLipsVelocityUtils;
  * The template sees {@code $migration}, a {@link GeneratedMigration}, and
  * {@code $model}, the model, and is found as the entity templates are: in the
  * project folder, then among the shared templates, then WOLips's folders, and
- * last eogen's own, {@link MigrationOptions#DEFAULT_TEMPLATE}.
+ * last eogen's own, {@link MigrationOptions#DEFAULT_TEMPLATE}. One that leaves
+ * out the methods that a migration's {@code upgrade} method calls is an
+ * error.
  * </p>
  */
 public final class MigrationGenerator {
@@ -275,6 +277,12 @@ public final class MigrationGenerator {
 				}
 				addGaps(migration.getDependencyGaps(), dependencyGapLines, path, name, findings);
 				addGaps(writer.getGaps(), upgradeGapLines, path, name, findings);
+				// A project's own template may be older than the methods.
+				String missing = migration.missingMethod(content);
+				if (missing != null) {
+					findings.add(Finding.error(Finding.FAILURE, path + ": its upgrade method calls " + missing + ", but the migration template " + options.getTemplate()
+							+ " doesn't write $migration.methodLines, which has it.").file(path).model(name).template(options.getTemplate()).build());
+				}
 				if (file.exists()) {
 					findings.add(Finding.error(Finding.FAILURE, path + " exists already, and eogen never changes a migration.").file(path).model(name).build());
 				}

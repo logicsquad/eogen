@@ -1,12 +1,14 @@
 package net.logicsquad.eogen.migration;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
@@ -43,6 +45,13 @@ import net.logicsquad.eogen.migration.Schema.Table;
  * keys, once every table they need exists; and last the dropped tables.
  * </p>
  * <p>
+ * Wonder's drop of a table leaves the primary key support that
+ * {@code setPrimaryKey} made for it, such as PostgreSQL's sequence, so each
+ * dropped table is followed by a call to
+ * {@link #DROP_PRIMARY_KEY_SUPPORT a method} that drops it, which the
+ * migration has too, as {@link #getMethodLines()} gives it.
+ * </p>
+ * <p>
  * A table or a column that the model keeps, though it no longer maps it, is
  * neither dropped nor changed, and nor are its foreign keys and indexes, or
  * the foreign keys into a kept table. One that the earlier version kept, and
@@ -61,6 +70,57 @@ final class MigrationWriter {
 	 * The identifier that marks a gap, which doesn't compile.
 	 */
 	static final String GAP = "EOGEN_GAP";
+
+	/**
+	 * The name of the method, which a migration that drops a table has, that
+	 * drops the table's primary key support.
+	 */
+	static final String DROP_PRIMARY_KEY_SUPPORT = "dropPrimaryKeySupport";
+
+	/**
+	 * The classes that the method uses.
+	 */
+	private static final List<String> DROP_PRIMARY_KEY_SUPPORT_IMPORTS = Collections.unmodifiableList(Arrays.asList("java.sql.Connection", "java.sql.SQLException", "java.sql.Savepoint",
+			"com.webobjects.eoaccess.EOAttribute", "com.webobjects.eoaccess.EOEntity", "com.webobjects.eoaccess.EOSQLExpression", "com.webobjects.foundation.NSArray",
+			"com.webobjects.foundation.NSMutableArray", "com.webobjects.jdbcadaptor.JDBCContext", "er.extensions.jdbc.ERXJDBCUtilities", "er.extensions.migration.ERXMigrationTable"));
+
+	/**
+	 * The method, indented for a class, after an empty line. It asks the
+	 * database's plugin for the statements, as {@code ERXMigrationTable}'s own
+	 * {@code dropPrimaryKey} does, but that fails where a plugin has none.
+	 * PostgreSQL's drops a sequence whether or not the table has one, and a
+	 * statement that fails there fails every one after it in the transaction,
+	 * hence the savepoint.
+	 */
+	private static final List<String> DROP_PRIMARY_KEY_SUPPORT_METHOD = Collections.unmodifiableList(Arrays.asList(
+			"",
+			"\t/**",
+			"\t * Drops what the primary key of a dropped table needed, such as its sequence on PostgreSQL, which the",
+			"\t * table's drop leaves behind. A database that has none, or that needs none, stays as it is.",
+			"\t */",
+			"\tprivate static void " + DROP_PRIMARY_KEY_SUPPORT + "(ERXMigrationDatabase database, ERXMigrationTable table, String... primaryKey) throws SQLException {",
+			"\t\tEOEntity entity = table._blankEntity();",
+			"\t\tNSMutableArray<EOAttribute> attributes = new NSMutableArray<EOAttribute>();",
+			"\t\tfor (String column : primaryKey) {",
+			"\t\t\tattributes.addObject(table.existingColumnNamed(column)._newAttribute(entity));",
+			"\t\t}",
+			"\t\tentity.setPrimaryKeyAttributes(attributes);",
+			"\t\tNSArray<EOSQLExpression> expressions = database.synchronizationFactory().dropPrimaryKeySupportStatementsForEntityGroup(new NSArray<EOEntity>(entity));",
+			"\t\tif (expressions == null || expressions.count() == 0 || !(database.adaptorChannel().adaptorContext() instanceof JDBCContext)) {",
+			"\t\t\treturn;",
+			"\t\t}",
+			"\t\tConnection connection = ((JDBCContext) database.adaptorChannel().adaptorContext()).connection();",
+			"\t\t// A statement that fails, as when there is nothing to drop, mustn't fail the migration, or, as on",
+			"\t\t// PostgreSQL, the rest of its transaction.",
+			"\t\tSavepoint savepoint = connection.getAutoCommit() || !connection.getMetaData().supportsSavepoints() ? null : connection.setSavepoint();",
+			"\t\ttry {",
+			"\t\t\tERXJDBCUtilities.executeUpdateScript(database.adaptorChannel(), ERXMigrationDatabase._stringsForExpressions(expressions));",
+			"\t\t} catch (RuntimeException e) {",
+			"\t\t\tif (savepoint != null) {",
+			"\t\t\t\tconnection.rollback(savepoint);",
+			"\t\t\t}",
+			"\t\t}",
+			"\t}"));
 
 	/**
 	 * How wide a gap's comment is, counting a tab as four columns.
@@ -153,6 +213,11 @@ final class MigrationWriter {
 	private final Set<String> variables = new HashSet<>();
 
 	/**
+	 * Whether a call drops a table's primary key support.
+	 */
+	private boolean dropsPrimaryKeySupport;
+
+	/**
 	 * The earlier version's tables that an entity renamed, and the names they
 	 * now have, by the old name without case.
 	 */
@@ -197,7 +262,17 @@ final class MigrationWriter {
 	}
 
 	/**
-	 * Returns the classes the lines use, which a migration imports.
+	 * Returns the lines of the methods that the method's body calls, each
+	 * indented for a class, after an empty line, or empty: the one that drops a
+	 * dropped table's primary key support.
+	 */
+	List<String> getMethodLines() {
+		return dropsPrimaryKeySupport ? DROP_PRIMARY_KEY_SUPPORT_METHOD : Collections.<String>emptyList();
+	}
+
+	/**
+	 * Returns the classes the lines use, with those of the methods they call,
+	 * which a migration imports.
 	 */
 	Set<String> getImports() {
 		return imports;
@@ -317,11 +392,11 @@ final class MigrationWriter {
 		for (Schema.Kept kept : before.getKept().values()) {
 			String key = Schema.key(kept.getTable());
 			if (kept.getColumn() == null && !afterTables.containsKey(key) && !after.keepsTable(key)) {
-				drops.put(key, new Table(kept.getTable(), null));
+				drops.putIfAbsent(key, new Table(kept.getTable(), null));
 			}
 		}
-		for (Table table : drops.values()) {
-			drop(table, created);
+		for (Map.Entry<String, Table> drop : drops.entrySet()) {
+			drop(drop.getKey(), drop.getValue(), !dropped.contains(drop.getKey()), created);
 		}
 		if (!lines.isEmpty() && lines.get(lines.size() - 1).isEmpty()) {
 			lines.remove(lines.size() - 1);
@@ -730,23 +805,92 @@ final class MigrationWriter {
 	}
 
 	/**
-	 * Writes a dropped table, after a gap if a new table may be it renamed.
+	 * Writes a dropped table, after a gap if a new table may be it renamed, and
+	 * then the drop of its primary key support, which Wonder's drop leaves.
+	 *
+	 * @param key the table's name without case
+	 * @param table the table, as the earlier version has it
+	 * @param byName whether the earlier version only kept it, so that all eogen
+	 *        knows of it is its name
+	 * @param created the new tables
 	 */
-	private void drop(Table table, Set<String> created) {
+	private void drop(String key, Table table, boolean byName, Set<String> created) {
 		change("Drops " + table.getName() + ".");
 		droppedNames.add(table.getName());
 		entity = firstEntity(table, table);
 		List<String> owned = new ArrayList<>();
-		for (String key : created) {
-			owned.add(after.getTables().get(key).getName());
+		for (String name : created) {
+			owned.add(after.getTables().get(name).getName());
 		}
 		if (!owned.isEmpty()) {
 			String renameTo = owned.size() == 1 ? owned.get(0) : "<new>";
+			// Wonder renames the table alone, and the database's plugin looks
+			// for the primary key support by the table's name.
+			String support = byName || hasSequence(table) ? " Rename its primary key support too, for which Wonder has no call: on PostgreSQL, with the SQL ALTER SEQUENCE " + sequence(table.getName())
+					+ " RENAME TO " + sequence(renameTo) + ", which the column's default follows." : "";
 			gap(table.getName(), "table " + table.getName(), (owned.size() == 1 ? "Is " + owned.get(0) + ", a new table, " : "Is one of " + String.join(", ", owned) + ", new tables, ") + table.getName() + " renamed?",
 					"Then rename it, with database.existingTableNamed(" + literal(table.getName()) + ").renameTo(" + literal(renameTo) + "), and change its columns, rather than drop it and create "
-							+ (owned.size() == 1 ? owned.get(0) : "the other") + ". Either way, delete this line.");
+							+ (owned.size() == 1 ? owned.get(0) : "the other") + "." + support + " Either way, delete this line.");
 		}
-		statement("database.existingTableNamed(" + literal(table.getName()) + ").drop();");
+		if (!byName && table.getPrimaryKey().isEmpty()) {
+			statement("database.existingTableNamed(" + literal(table.getName()) + ").drop();");
+		} else {
+			// Of a table that the earlier version only kept, eogen can't tell
+			// the primary key, which PostgreSQL's plugin, for one, doesn't need.
+			String variable = variable(key, byName ? variableFor(table.getName()) : table.getVariable());
+			declare(key, variable, "database.existingTableNamed(" + literal(table.getName()) + ")");
+			statement(variable + ".drop();");
+			StringBuilder call = new StringBuilder(DROP_PRIMARY_KEY_SUPPORT).append("(database, ").append(variable);
+			for (String column : table.getPrimaryKey()) {
+				call.append(", ").append(literal(column));
+			}
+			statement(call.append(");").toString());
+			dropsPrimaryKeySupport = true;
+			imports.addAll(DROP_PRIMARY_KEY_SUPPORT_IMPORTS);
+		}
+		lines.add("");
+	}
+
+	/**
+	 * Returns whether PostgreSQL's plugin makes a sequence for a table's
+	 * primary key, as it does for one column of numbers, or eogen can't tell.
+	 */
+	private static boolean hasSequence(Table table) {
+		if (table.getPrimaryKey().size() != 1) {
+			return false;
+		}
+		Column column = table.getColumns().get(Schema.key(table.getPrimaryKey().get(0)));
+		ColumnType type = column == null ? null : column.getType();
+		return type == null || type == ColumnType.INTEGER || type == ColumnType.SMALL_INTEGER || type == ColumnType.BIG_INTEGER || type == ColumnType.BIG_DECIMAL || type == ColumnType.DOUBLE
+				|| type == ColumnType.FLOAT;
+	}
+
+	/**
+	 * Returns the name of the sequence that PostgreSQL's plugin draws a table's
+	 * primary keys from.
+	 */
+	private static String sequence(String table) {
+		return table + "_seq";
+	}
+
+	/**
+	 * Returns a variable for a table that has no entity to name it after, from
+	 * its name: {@code auditLogTable} for {@code audit_log}.
+	 */
+	private static String variableFor(String table) {
+		StringBuilder variable = new StringBuilder();
+		boolean capital = false;
+		for (char c : (table.equals(table.toUpperCase(Locale.ROOT)) ? table.toLowerCase(Locale.ROOT) : table).toCharArray()) {
+			if (!Character.isJavaIdentifierPart(c) || c == '_' || c == '$') {
+				capital = variable.length() > 0;
+			} else if (variable.length() == 0) {
+				variable.append(Character.isJavaIdentifierStart(c) ? String.valueOf(Character.toLowerCase(c)) : "table" + c);
+			} else {
+				variable.append(capital ? Character.toUpperCase(c) : c);
+				capital = false;
+			}
+		}
+		return variable.append(variable.length() == 0 ? "dropped" : "").append("Table").toString();
 	}
 
 	/**

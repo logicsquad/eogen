@@ -39,4 +39,7 @@ $line
 $line
 #end
 	}
+#foreach ($line in $migration.methodLines)
+$line
+#end
 }

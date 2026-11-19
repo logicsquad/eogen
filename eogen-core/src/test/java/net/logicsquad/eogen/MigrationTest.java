@@ -1,16 +1,21 @@
 package net.logicsquad.eogen;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.tuple;
 
 import java.io.File;
 import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
 import java.net.URISyntaxException;
+import java.net.URL;
+import java.net.URLClassLoader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
+import java.sql.Connection;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -41,9 +46,20 @@ import net.logicsquad.eogen.migration.MigrationResult.Status;
  * has one migration, {@code Shop0}, after changing its model in one way at a
  * time, and compares them with the earlier version of the model, a copy of
  * the fixture's. Each migration must compile against stubs of Project
- * Wonder's API, but at its gaps.
+ * Wonder's API, but at its gaps. Those that drop a table also run, with the
+ * stubs, on a {@link FakePostgres}.
  */
 class MigrationTest {
+	/**
+	 * The stub of the statements of Wonder's PostgreSQL plugin.
+	 */
+	private static final String POSTGRESQL = "com.webobjects.jdbcadaptor.PostgresqlSynchronizationFactory";
+
+	/**
+	 * The stub of the statements of a plugin that has none of its own.
+	 */
+	private static final String NO_PLUGIN = "com.webobjects.eoaccess.EOSynchronizationFactory";
+
 	private static final String ORDER = "Shop.eomodeld/Order.plist";
 
 	private static final String ATTRIBUTES = "    attributes = (\n";
@@ -265,14 +281,190 @@ class MigrationTest {
 		assertCompilesButAtGaps(result);
 	}
 
+	/**
+	 * Wonder's drop leaves the table's primary key support, which
+	 * {@code setPrimaryKey} made: on PostgreSQL, its sequence.
+	 */
 	@Test
-	void dropsARemovedTable() throws Exception {
+	void dropsARemovedTableAndThenItsPrimaryKeySupport() throws Exception {
 		addShipment(earlier);
 		MigrationResult result = generate();
 		assertThat(result.getFindings()).isEmpty();
-		assertThat(upgrade(result)).containsExactly("database.existingTableNamed(\"shipment\").drop();");
+		assertThat(upgrade(result)).containsExactly(
+				"ERXMigrationTable shipmentTable = database.existingTableNamed(\"shipment\");",
+				"shipmentTable.drop();",
+				"dropPrimaryKeySupport(database, shipmentTable, \"id\");");
+		assertThat(read(result)).contains(
+				"\t}\n\n\t/**\n\t * Drops what the primary key of a dropped table needed, such as its sequence on PostgreSQL, which the\n",
+				"\tprivate static void dropPrimaryKeySupport(ERXMigrationDatabase database, ERXMigrationTable table, String... primaryKey) throws SQLException {\n",
+				"database.synchronizationFactory().dropPrimaryKeySupportStatementsForEntityGroup(new NSArray<EOEntity>(entity));",
+				"import java.sql.Connection;\nimport java.sql.SQLException;\nimport java.sql.Savepoint;\n").endsWith("\t\t}\n\t}\n}\n");
+		assertThat(created(result).getChanges()).containsExactly("Drops shipment.");
 		assertThat(created(result).getDropped()).containsExactly("shipment");
 		assertThat(result.describeKeeping()).isEqualTo("To keep a table or a column that a model no longer maps, such as Shop's shipment, list it in the model's userInfo under eogen.keep.");
+		assertCompilesButAtGaps(result);
+
+		FakePostgres database = new FakePostgres().table("shipment").sequence("shipment_seq").table("shop_order").sequence("shop_order_seq");
+		run(created(result), database, POSTGRESQL);
+		assertThat(database.getTables()).containsExactly("shop_order");
+		assertThat(database.getSequences()).containsExactly("shop_order_seq");
+	}
+
+	/**
+	 * PostgreSQL's plugin makes no sequence for a primary key of two columns,
+	 * but its statement drops one all the same, and fails.
+	 */
+	@Test
+	void dropsAJoinTableWhosePrimaryKeyHasNoSupport() throws Exception {
+		addShipmentItem(earlier);
+		MigrationResult result = generate();
+		assertThat(result.getFindings()).isEmpty();
+		assertThat(upgrade(result)).containsExactly(
+				"ERXMigrationTable shipmentItemTable = database.existingTableNamed(\"shipment_item\");",
+				"shipmentItemTable.drop();",
+				"dropPrimaryKeySupport(database, shipmentItemTable, \"item_id\", \"shipment_id\");");
+		assertCompilesButAtGaps(result);
+
+		FakePostgres database = new FakePostgres().table("shipment_item");
+		run(created(result), database, POSTGRESQL);
+		assertThat(database.getTables()).isEmpty();
+	}
+
+	/**
+	 * The table was made by hand, or its sequence has gone already.
+	 */
+	@Test
+	void dropsATableWhoseDatabaseLacksItsSequence() throws Exception {
+		addShipment(earlier);
+		MigrationResult result = generate();
+		FakePostgres database = new FakePostgres().table("shipment");
+		run(created(result), database, POSTGRESQL);
+		assertThat(database.getTables()).isEmpty();
+		assertThat(database.getSequences()).isEmpty();
+	}
+
+	/**
+	 * Without the savepoint, the statement that fails would fail the rest of
+	 * the migration's transaction, as the fake database has it.
+	 */
+	@Test
+	void theFakeDatabaseFailsATransactionAsPostgresDoes() throws Exception {
+		FakePostgres database = new FakePostgres().table("shipment");
+		Connection connection = database.getConnection();
+		try (java.sql.Statement statement = connection.createStatement()) {
+			assertThatThrownBy(() -> statement.executeUpdate("DROP SEQUENCE shipment_seq CASCADE")).hasMessageContaining("sequence \"shipment_seq\" does not exist");
+			assertThatThrownBy(() -> statement.executeUpdate("DROP TABLE shipment CASCADE")).hasMessageContaining("current transaction is aborted");
+		}
+		assertThatThrownBy(database::commit).hasMessageContaining("current transaction is aborted");
+	}
+
+	/**
+	 * A plugin with no statements for primary key support returns null for
+	 * them, which Wonder's own {@code dropPrimaryKey} fails on.
+	 */
+	@Test
+	void dropsATableWhoseDatabaseNeedsNoPrimaryKeySupport() throws Exception {
+		addShipment(earlier);
+		MigrationResult result = generate();
+		FakePostgres database = new FakePostgres().table("shipment");
+		run(created(result), database, NO_PLUGIN);
+		assertThat(database.getTables()).isEmpty();
+	}
+
+	/**
+	 * A migration creates shipment, the next drops it, and a third creates it
+	 * again: the first again, here. With the sequence left behind, its
+	 * {@code setPrimaryKey} would fail.
+	 */
+	@Test
+	void createsATableAgainUnderTheNameOfADroppedOne() throws Exception {
+		Path resources = fixture.resolve("src/main/resources");
+		addShipment(resources);
+		ModelMigration creation = created(generate());
+		assertThat(creation.getClassName()).isEqualTo("com.example.shop.migrations.Shop1");
+		addShipment(earlier);
+		removeShipment(resources);
+		ModelMigration drop = created(generate());
+		assertThat(drop.getClassName()).isEqualTo("com.example.shop.migrations.Shop2");
+
+		FakePostgres database = new FakePostgres().table("shop_order").sequence("shop_order_seq");
+		run(creation, database, POSTGRESQL);
+		assertThat(database.getTables()).containsExactly("shipment", "shop_order");
+		assertThat(database.getSequences()).containsExactly("shipment_seq", "shop_order_seq");
+		run(drop, database, POSTGRESQL);
+		assertThat(database.getTables()).containsExactly("shop_order");
+		assertThat(database.getSequences()).containsExactly("shop_order_seq");
+		run(creation, database, POSTGRESQL);
+		assertThat(database.getTables()).containsExactly("shipment", "shop_order");
+		assertThat(database.getSequences()).containsExactly("shipment_seq", "shop_order_seq");
+	}
+
+	/**
+	 * Wonder renames the table alone, but PostgreSQL's plugin looks for the
+	 * sequence by the table's name, and makes another if it finds none.
+	 */
+	@Test
+	void asksWhetherATableDroppedWhileAnotherIsCreatedIsRenamed() throws Exception {
+		addShipment(earlier);
+		addModelEntity(fixture.resolve("src/main/resources"), "Consignment", "consignment");
+		MigrationResult result = generate();
+		assertThat(upgrade(result)).containsExactly(
+				"ERXMigrationTable consignmentTable = database.newTableNamed(\"consignment\");",
+				"consignmentTable.newIntegerColumn(\"id\", NOT_NULL);",
+				"consignmentTable.create();",
+				"consignmentTable.setPrimaryKey(\"id\");",
+				"",
+				"// TODO eogen: Is consignment, a new table, shipment renamed? Then rename it, with",
+				"// database.existingTableNamed(\"shipment\").renameTo(\"consignment\"), and change its columns, rather",
+				"// than drop it and create consignment. Rename its primary key support too, for which Wonder has no",
+				"// call: on PostgreSQL, with the SQL ALTER SEQUENCE shipment_seq RENAME TO consignment_seq, which the",
+				"// column's default follows. Either way, delete this line.",
+				"EOGEN_GAP;",
+				"ERXMigrationTable shipmentTable = database.existingTableNamed(\"shipment\");",
+				"shipmentTable.drop();",
+				"dropPrimaryKeySupport(database, shipmentTable, \"id\");");
+		assertThat(result.getFindings()).extracting(Finding::getCode, Finding::getObject).containsExactly(tuple(Finding.MIGRATION_GAP, "table shipment"));
+		assertCompilesButAtGaps(result);
+	}
+
+	/**
+	 * A join table has no sequence on PostgreSQL to rename.
+	 */
+	@Test
+	void asksWhetherAJoinTableIsRenamedWithoutItsPrimaryKeySupport() throws Exception {
+		addShipmentItem(earlier);
+		addModelEntity(fixture.resolve("src/main/resources"), "Consignment", "consignment");
+		assertThat(String.join(" ", upgrade(generate())).replace(" // ", " ")).contains("rather than drop it and create consignment. Either way, delete this line.")
+				.doesNotContain("SEQUENCE", "primary key support");
+	}
+
+	/**
+	 * A project's own template that was written before migrations had methods
+	 * leaves a migration that doesn't compile.
+	 */
+	@Test
+	void reportsATemplateThatLeavesOutTheMethodsThatAMigrationCalls() throws Exception {
+		Path template = fixture.resolve("src/main/templates/ShopMigration.java");
+		List<String> lines = new ArrayList<>(Arrays.asList("package ${migration.packageName};", "", "#foreach ($line in $migration.importLines)", "$line", "#end", "",
+				"public class ${migration.className} extends ERXMigrationDatabase.Migration {", "\t@Override",
+				"\tpublic void downgrade(EOEditingContext editingContext, ERXMigrationDatabase database) throws Throwable {", "\t}", "", "\t@Override",
+				"\tpublic void upgrade(EOEditingContext editingContext, ERXMigrationDatabase database) throws Throwable {", "#foreach ($line in $migration.upgradeLines)", "$line", "#end", "\t}",
+				"}"));
+		Files.createDirectories(template.getParent());
+		Files.write(template, (String.join("\n", lines) + "\n").getBytes(StandardCharsets.UTF_8));
+		addShipment(earlier);
+		MigrationOptions options = options();
+		options.setTemplate("src/main/templates/ShopMigration.java");
+		MigrationResult result = fixture.generator().generateMigrations(options, true);
+		assertThat(result.isWritten()).isFalse();
+		assertThat(result.getFindings()).extracting(Finding::getSeverity, Finding::getCode, Finding::getMessage).containsExactly(tuple(Finding.Severity.ERROR, Finding.FAILURE,
+				"src/main/java/com/example/shop/migrations/Shop1.java: its upgrade method calls dropPrimaryKeySupport, but the migration template src/main/templates/ShopMigration.java doesn't write "
+						+ "$migration.methodLines, which has it."));
+
+		lines.addAll(lines.size() - 1, Arrays.asList("#foreach ($line in $migration.methodLines)", "$line", "#end"));
+		Files.write(template, (String.join("\n", lines) + "\n").getBytes(StandardCharsets.UTF_8));
+		result = fixture.generator().generateMigrations(options, true);
+		assertThat(result.getFindings()).isEmpty();
 		assertCompilesButAtGaps(result);
 	}
 
@@ -310,10 +502,25 @@ class MigrationTest {
 				"ERXMigrationTable orderTable = database.existingTableNamed(\"shop_order\");",
 				"orderTable.existingColumnNamed(\"legacy_code\").delete();",
 				"",
-				"database.existingTableNamed(\"shipment\").drop();");
+				// Of a table that was only kept, eogen can't tell the primary key.
+				"ERXMigrationTable shipmentTable = database.existingTableNamed(\"shipment\");",
+				"shipmentTable.drop();",
+				"dropPrimaryKeySupport(database, shipmentTable);");
 		assertThat(created(result).getChanges()).containsExactly("Removes legacy_code from shop_order.", "Drops shipment.");
 		assertThat(created(result).getDropped()).containsExactly("shop_order.legacy_code", "shipment");
 		assertCompilesButAtGaps(result);
+
+		FakePostgres database = new FakePostgres().table("shop_order").sequence("shop_order_seq").table("shipment").sequence("shipment_seq");
+		run(created(result), database, POSTGRESQL);
+		assertThat(database.getTables()).containsExactly("shop_order");
+		assertThat(database.getSequences()).containsExactly("shop_order_seq");
+	}
+
+	@Test
+	void namesTheVariableOfATableWithNoEntityAfterTheTable() throws Exception {
+		keep(earlier, "AUDIT_LOG", "legacy-2019", "order");
+		assertThat(upgrade(generate())).contains("ERXMigrationTable auditLogTable = database.existingTableNamed(\"AUDIT_LOG\");",
+				"ERXMigrationTable legacy2019Table = database.existingTableNamed(\"legacy-2019\");", "ERXMigrationTable orderTable = database.existingTableNamed(\"order\");");
 	}
 
 	/**
@@ -863,6 +1070,49 @@ class MigrationTest {
 	}
 
 	/**
+	 * Takes the Shipment entity out of the Shop model in a folder again.
+	 */
+	private static void removeShipment(Path resources) throws IOException {
+		Path model = resources.resolve("Shop.eomodeld");
+		replace(model.resolve("index.eomodeld"), "        {className = \"com.example.shop.Shipment\"; name = Shipment; }, \n", "");
+		Files.delete(model.resolve("Shipment.plist"));
+	}
+
+	/**
+	 * Adds a ShipmentItem entity, whose table's primary key has two columns,
+	 * as a join table's has, to the Shop model in a folder.
+	 */
+	private static void addShipmentItem(Path resources) throws IOException {
+		Path model = resources.resolve("Shop.eomodeld");
+		replace(model.resolve("index.eomodeld"), "        {className = \"com.example.shop.Tag\"; name = Tag; }\n",
+				"        {className = EOGenericRecord; name = ShipmentItem; }, \n        {className = \"com.example.shop.Tag\"; name = Tag; }\n");
+		Files.write(model.resolve("ShipmentItem.plist"), Arrays.asList("{",
+				"    attributes = (",
+				"        {allowsNull = N; columnName = \"item_id\"; name = itemID; prototypeName = id; }, ",
+				"        {allowsNull = N; columnName = \"shipment_id\"; name = shipmentID; prototypeName = id; }",
+				"    ); ",
+				"    attributesUsedForLocking = (itemID, shipmentID); ",
+				"    className = EOGenericRecord; ",
+				"    externalName = \"shipment_item\"; ",
+				"    name = ShipmentItem; ",
+				"    primaryKeyAttributes = (itemID, shipmentID); ",
+				"}"));
+	}
+
+	/**
+	 * Adds an entity whose table has an id column alone to the Shop model in a
+	 * folder.
+	 */
+	private static void addModelEntity(Path resources, String entity, String table) throws IOException {
+		Path model = resources.resolve("Shop.eomodeld");
+		replace(model.resolve("index.eomodeld"), "        {className = \"com.example.shop.Company\"; name = Company; }, \n",
+				"        {className = \"com.example.shop.Company\"; name = Company; }, \n        {className = \"com.example.shop." + entity + "\"; name = " + entity + "; }, \n");
+		Files.write(model.resolve(entity + ".plist"), Arrays.asList("{", "    attributes = ({allowsNull = N; columnName = id; name = id; prototypeName = id; }); ", "    attributesUsedForLocking = (id); ",
+				"    className = \"com.example.shop." + entity + "\"; ", "    classProperties = (); ", "    externalName = " + table + "; ", "    name = " + entity + "; ",
+				"    primaryKeyAttributes = (id); ", "}"));
+	}
+
+	/**
 	 * Gives the Shop model in a folder a list of the tables and columns that it
 	 * keeps.
 	 */
@@ -1002,6 +1252,38 @@ class MigrationTest {
 					fileManager.getJavaFileObjectsFromFiles(sources)).call();
 		}
 		assertThat(compiled).as("%s", diagnostics.getDiagnostics()).isTrue();
+	}
+
+	/**
+	 * Runs a migration's {@code upgrade} method on a database, as
+	 * {@code ERXMigrator} does: in a transaction, which it then commits. The
+	 * migration and what it calls are the stubs of Wonder's API, compiled.
+	 *
+	 * @param migration a migration with no gaps
+	 * @param database the database
+	 * @param synchronizationFactory the class of the stub that has the
+	 *        statements of the database's plugin
+	 */
+	private void run(ModelMigration migration, FakePostgres database, String synchronizationFactory) throws Exception {
+		Path classes = Files.createTempDirectory(temp, "classes");
+		compile(classes, migration.getFile().toPath());
+		try (URLClassLoader loader = new URLClassLoader(new URL[] { classes.toUri().toURL() }, MigrationTest.class.getClassLoader())) {
+			Class<?> factoryClass = loader.loadClass(NO_PLUGIN);
+			Class<?> adaptorClass = loader.loadClass("com.webobjects.eoaccess.EOAdaptor");
+			Class<?> channelClass = loader.loadClass("com.webobjects.eoaccess.EOAdaptorChannel");
+			Class<?> databaseClass = loader.loadClass("er.extensions.migration.ERXMigrationDatabase");
+			Object adaptor = adaptorClass.getConstructor(factoryClass).newInstance(loader.loadClass(synchronizationFactory).getConstructor().newInstance());
+			Object context = loader.loadClass("com.webobjects.jdbcadaptor.JDBCContext").getConstructor(adaptorClass, Connection.class).newInstance(adaptor, database.getConnection());
+			Object channel = channelClass.getConstructor(loader.loadClass("com.webobjects.eoaccess.EOAdaptorContext")).newInstance(context);
+			Object migrationDatabase = databaseClass.getMethod("database", channelClass).invoke(null, channel);
+			Object instance = loader.loadClass(migration.getClassName()).getConstructor().newInstance();
+			try {
+				instance.getClass().getMethod("upgrade", loader.loadClass("com.webobjects.eocontrol.EOEditingContext"), databaseClass).invoke(instance, null, migrationDatabase);
+			} catch (InvocationTargetException e) {
+				throw new AssertionError(migration.getClassName() + " failed: " + e.getCause(), e.getCause());
+			}
+		}
+		database.commit();
 	}
 
 	private static List<File> stubs() throws IOException, URISyntaxException {
